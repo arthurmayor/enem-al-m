@@ -52,6 +52,8 @@ const DiagnosticLoading = () => {
 
         console.log("Calling analyze-diagnostic with", answers.length, "answers");
 
+        await supabase.auth.refreshSession();
+
         const { data: analysis, error: invokeError } = await supabase.functions.invoke("analyze-diagnostic", {
           body: { answers, userProfile },
         });

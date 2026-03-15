@@ -6,7 +6,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: Error | null }>;
@@ -44,18 +44,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         data: { name },
       },
     });
-    if (!error) {
-      // Create profile record
-      const { data: { user: newUser } } = await supabase.auth.getUser();
-      if (newUser) {
-        await supabase.from("profiles").upsert({
-          id: newUser.id,
-          name,
-          onboarding_complete: false,
-        });
-      }
+    if (error) return { error: error as Error | null };
+
+    // If email confirmation is enabled, session won't exist yet
+    const { data: { session: newSession } } = await supabase.auth.getSession();
+    if (newSession?.user) {
+      await supabase.from("profiles").upsert({
+        id: newSession.user.id,
+        name,
+        onboarding_complete: false,
+      });
     }
-    return { error: error as Error | null };
+
+    return { error: null, needsEmailConfirmation: !newSession };
   };
 
   const signIn = async (email: string, password: string) => {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { BookOpen, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const Login = () => {
@@ -32,9 +33,20 @@ const Login = () => {
     const { error } = await signIn(email, password);
     setLoading(false);
     if (error) {
-      toast.error("E-mail ou senha incorretos.");
+      const msg = (error as any).message || "";
+      if (msg.includes("Email not confirmed")) {
+        toast.error("E-mail não confirmado. Verifique sua caixa de entrada.");
+      } else {
+        toast.error("E-mail ou senha incorretos.");
+      }
     } else {
-      navigate("/dashboard");
+      // Check onboarding status
+      const { data: profile } = await supabase.from("profiles").select("onboarding_complete").single();
+      if (profile && !profile.onboarding_complete) {
+        navigate("/onboarding");
+      } else {
+        navigate("/dashboard");
+      }
     }
   };
 

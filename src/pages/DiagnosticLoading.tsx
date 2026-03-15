@@ -74,15 +74,23 @@ const DiagnosticLoading = () => {
 
         await supabase.from("proficiency_scores").delete().eq("user_id", user.id);
 
-        const { error: saveError } = await supabase.from("proficiency_scores").insert({
+        const rows = (proficiency ?? []).map((p: { subject: string; subtopic: string; score: number; confidence?: number; weakness_notes?: string }) => ({
           user_id: user.id,
-          subject: "diagnostic",
+          subject: p.subject ?? "Geral",
+          subtopic: p.subtopic ?? "Geral",
+          score: p.score ?? 0,
+          confidence: p.confidence ?? null,
+          weakness_notes: p.weakness_notes ?? null,
           overall_readiness: overall_readiness ?? 0,
           summary: summary ?? "",
           priority_areas: priority_areas ?? [],
           proficiency: proficiency ?? [],
           updated_at: new Date().toISOString(),
-        });
+        }));
+
+        const { error: saveError } = rows.length > 0
+          ? await supabase.from("proficiency_scores").insert(rows)
+          : { error: null };
 
         if (saveError) throw new Error(saveError.message);
 

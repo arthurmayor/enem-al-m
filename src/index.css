@@ -20,6 +20,10 @@
     --muted-foreground: 215 16% 47%;
     --accent: 201 96% 32%;
     --accent-foreground: 0 0% 100%;
+    --success: 153 64% 32%;
+    --success-foreground: 0 0% 100%;
+    --warning: 28 80% 52%;
+    --warning-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     --border: 214 32% 91%;
@@ -55,6 +59,10 @@
     --muted-foreground: 215 20% 65%;
     --accent: 201 96% 42%;
     --accent-foreground: 0 0% 100%;
+    --success: 153 64% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 28 80% 58%;
+    --warning-foreground: 0 0% 100%;
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
     --border: 217 33% 17%;
@@ -74,5 +82,11 @@
   }
   h1, h2, h3, h4, h5, h6 {
     text-wrap: balance;
+  }
+}
+
+@layer utilities {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }

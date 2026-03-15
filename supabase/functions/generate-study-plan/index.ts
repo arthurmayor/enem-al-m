@@ -70,7 +70,9 @@ serve(async (req) => {
       throw new Error("Unexpected API response: " + JSON.stringify(data));
     }
 
-    const plan = JSON.parse(data.content[0].text);
+    let planText = data.content[0].text.trim();
+    planText = planText.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
+    const plan = JSON.parse(planText);
 
     return new Response(JSON.stringify(plan), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

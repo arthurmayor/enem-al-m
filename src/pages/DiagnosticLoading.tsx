@@ -54,7 +54,10 @@ const DiagnosticLoading = () => {
           body: { answers, userProfile },
         });
 
-        if (invokeError) throw new Error(invokeError.message);
+        if (invokeError) {
+          const detail = analysis?.error || invokeError.message;
+          throw new Error(detail);
+        }
         if (analysis?.error) throw new Error(analysis.error);
 
         const { proficiency, overall_readiness, priority_areas, summary } = analysis;

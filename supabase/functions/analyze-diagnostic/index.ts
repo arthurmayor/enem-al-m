@@ -61,7 +61,8 @@ serve(async (req) => {
       throw new Error("Unexpected API response: " + JSON.stringify(data));
     }
 
-    const resultText = data.content[0].text;
+    let resultText = data.content[0].text.trim();
+    resultText = resultText.replace(/^```(?:json)?\s*/, "").replace(/\s*```$/, "");
     const analysis = JSON.parse(resultText);
 
     return new Response(JSON.stringify(analysis), {

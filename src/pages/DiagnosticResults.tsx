@@ -59,18 +59,18 @@ const DiagnosticResults = () => {
         .eq("source", "diagnostic")
         .order("measured_at", { ascending: false });
       if (!error && rows && rows.length > 0) {
-        const proficiency = rows.map((r: any) => ({
+        const proficiency: ProficiencyItem[] = rows.map((r: { subject: string; subtopic: string; score: number; confidence: number }) => ({
           subject: r.subject,
           subtopic: r.subtopic,
           score: r.score,
           confidence: r.confidence,
           weakness_notes: r.subtopic,
         }));
-        const avgScore = proficiency.reduce((sum: number, p: any) => sum + p.score, 0) / proficiency.length;
+        const avgScore = proficiency.reduce((sum, p) => sum + p.score, 0) / proficiency.length;
         setData({
           proficiency,
           overall_readiness: avgScore,
-          priority_areas: proficiency.filter((p: any) => p.score < 0.4).map((p: any) => p.subtopic),
+          priority_areas: proficiency.filter((p) => p.score < 0.4).map((p) => p.subtopic),
           summary: "",
         });
       }
@@ -134,9 +134,9 @@ const DiagnosticResults = () => {
       start.setDate(start.getDate() + 1);
       const firstOfWeekday: Record<number, Date> = {};
       for (let wd = 0; wd <= 6; wd++) {
-        let d = new Date(start);
+        const d = new Date(start);
         while (d.getDay() !== wd) d.setDate(d.getDate() + 1);
-        firstOfWeekday[wd] = d;
+        firstOfWeekday[wd] = new Date(d);
       }
       const weekdayCount: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
       const missionsToInsert: { user_id: string; study_plan_id: string; date: string; subject: string; subtopic: string; mission_type: string; status: string }[] = [];

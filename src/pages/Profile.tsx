@@ -9,7 +9,7 @@ import BottomNav from "@/components/BottomNav";
 const Profile = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Record<string, string | number | boolean | string[] | null> | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

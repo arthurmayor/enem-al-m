@@ -47,6 +47,8 @@ const DiagnosticTest = () => {
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [loading, setLoading] = useState(true);
 
+  const [usingMock, setUsingMock] = useState(false);
+
   // Timer
   useEffect(() => {
     const interval = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000);
@@ -60,7 +62,7 @@ const DiagnosticTest = () => {
       if (data && data.length >= 25) {
         // Pick 25 questions cycling through subjects
         const bySubject: Record<string, Question[]> = {};
-        data.forEach((q: any) => {
+        data.forEach((q: Question) => {
           if (!bySubject[q.subject]) bySubject[q.subject] = [];
           bySubject[q.subject].push(q);
         });
@@ -76,6 +78,7 @@ const DiagnosticTest = () => {
         setQuestions(picked);
       } else {
         // Use mock questions
+        setUsingMock(true);
         setQuestions(mockQuestions.slice(0, 25));
       }
       setLoading(false);
@@ -158,6 +161,14 @@ const DiagnosticTest = () => {
           </div>
         </div>
       </header>
+
+      {usingMock && (
+        <div className="bg-warning/10 border-b border-warning/20 px-4 py-2">
+          <p className="text-xs text-center text-warning font-medium max-w-3xl mx-auto">
+            ⚠ Modo demonstração — banco de questões vazio. Importe questões no Supabase para diagnóstico real.
+          </p>
+        </div>
+      )}
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         {/* Question */}

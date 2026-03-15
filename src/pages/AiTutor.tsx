@@ -43,15 +43,15 @@ const AiTutor = () => {
     const loadHistory = async () => {
       const { data, error } = await supabase
         .from("chat_history")
-        .select("id, role, content, created_at")
+        .select("id, role, message, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
       if (!error && data?.length) {
         setMessages(
-          data.map((row: { id: string; role: string; content: string }) => ({
+          data.map((row: { id: string; role: string; message: string }) => ({
             id: row.id,
             role: row.role as "user" | "assistant",
-            content: row.content,
+            content: row.message,
           }))
         );
       }
@@ -70,7 +70,7 @@ const AiTutor = () => {
     try {
       const { data: inserted } = await supabase
         .from("chat_history")
-        .insert({ user_id: user.id, role: "user", content: text })
+        .insert({ user_id: user.id, role: "user", message: text })
         .select("id")
         .single();
       if (inserted?.id) userMsg.id = inserted.id;
@@ -114,7 +114,7 @@ const AiTutor = () => {
 
       const { data: assistantRow } = await supabase
         .from("chat_history")
-        .insert({ user_id: user.id, role: "assistant", content: reply })
+        .insert({ user_id: user.id, role: "assistant", message: reply })
         .select("id")
         .single();
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Clock, Brain, BarChart3, FileText, ChevronRight, Trophy, Flame } from "lucide-react";
+import { BookOpen, Clock, Brain, BarChart3, FileText, ChevronRight, Trophy, Flame, Target } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -9,6 +9,7 @@ interface Profile {
   name: string;
   education_goal: string;
   exam_date: string | null;
+  onboarding_complete: boolean;
 }
 
 interface Mission {
@@ -48,7 +49,7 @@ const Dashboard = () => {
     const fetchData = async () => {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("name, education_goal, exam_date")
+        .select("name, education_goal, exam_date, onboarding_complete")
         .eq("id", user.id)
         .single();
       if (profileData) setProfile(profileData);
@@ -72,13 +73,8 @@ const Dashboard = () => {
   const examLabel = profile?.education_goal?.toUpperCase() || "EXAME";
   const completedMissions = missions.filter((m) => m.status === "completed").length;
   const firstName = profile?.name?.split(" ")[0] || "Estudante";
-
-  // Mock data when no missions exist
-  const displayMissions = missions.length > 0 ? missions : [
-    { id: "1", subject: "Matemática", subtopic: "Análise Combinatória", mission_type: "questions", status: "pending", date: "" },
-    { id: "2", subject: "Português", subtopic: "Interpretação de Texto", mission_type: "summary", status: "pending", date: "" },
-    { id: "3", subject: "Física", subtopic: "Cinemática - MRU e MRUV", mission_type: "questions", status: "pending", date: "" },
-  ];
+  const hasMissions = missions.length > 0;
+  const needsDiagnostic = !profile?.onboarding_complete;
 
   if (loading) {
     return (
@@ -140,47 +136,73 @@ const Dashboard = () => {
           <span className="text-xs text-muted-foreground">Complete o diagnóstico</span>
         </div>
 
-        {/* Today's Missions */}
+        {/* Today's Missions or Empty State */}
         <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-semibold text-foreground">Missões de Hoje</h2>
-            <span className="text-xs text-muted-foreground">{completedMissions} de {displayMissions.length} concluídas</span>
+            {hasMissions && (
+              <span className="text-xs text-muted-foreground">{completedMissions} de {missions.length} concluídas</span>
+            )}
           </div>
-          <div className="space-y-3">
-            {displayMissions.map((mission) => (
-              <Link
-                key={mission.id}
-                to={`/mission/${mission.mission_type}/${mission.id}`}
-                className="group flex items-center justify-between p-5 bg-card rounded-xl shadow-rest hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-300"
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`h-2 w-2 rounded-full mt-2 ${subjectColors[mission.subject] || "bg-primary"}`} />
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      {mission.subject}
-                    </span>
-                    <h3 className="mt-0.5 font-semibold text-foreground text-sm">{mission.subtopic}</h3>
-                    <div className="mt-2 flex items-center gap-2">
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/5 text-primary font-semibold">
-                        {missionTypeLabels[mission.mission_type] || mission.mission_type}
+
+          {needsDiagnostic ? (
+            <Link
+              to="/diagnostic/intro"
+              className="block p-6 bg-primary/5 rounded-xl border border-primary/10 text-center"
+            >
+              <Target className="h-10 w-10 text-primary mx-auto mb-3" />
+              <h3 className="font-semibold text-foreground">Comece seu diagnóstico</h3>
+              <p className="text-sm text-muted-foreground mt-1">Responda 25 questões para a IA montar seu plano personalizado</p>
+              <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                Iniciar <ChevronRight className="h-4 w-4" />
+              </span>
+            </Link>
+          ) : !hasMissions ? (
+            <div className="p-6 bg-card rounded-xl shadow-rest text-center">
+              <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
+              <h3 className="font-semibold text-foreground">Sem missões para hoje</h3>
+              <p className="text-sm text-muted-foreground mt-1">Seu plano não tem atividades agendadas para hoje. Que tal praticar com o tutor?</p>
+              <Link to="/tutor" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary">
+                Abrir Tutor IA <ChevronRight className="h-4 w-4" />
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {missions.map((mission) => (
+                <Link
+                  key={mission.id}
+                  to={`/mission/${mission.mission_type}/${mission.id}`}
+                  className="group flex items-center justify-between p-5 bg-card rounded-xl shadow-rest hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-300"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`h-2 w-2 rounded-full mt-2 ${subjectColors[mission.subject] || "bg-primary"}`} />
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {mission.subject}
                       </span>
-                      <span className="flex items-center text-xs text-muted-foreground">
-                        <Clock className="w-3 h-3 mr-1" />
-                        15 min
-                      </span>
+                      <h3 className="mt-0.5 font-semibold text-foreground text-sm">{mission.subtopic}</h3>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/5 text-primary font-semibold">
+                          {missionTypeLabels[mission.mission_type] || mission.mission_type}
+                        </span>
+                        <span className="flex items-center text-xs text-muted-foreground">
+                          <Clock className="w-3 h-3 mr-1" />
+                          15 min
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                {mission.status === "completed" ? (
-                  <div className="h-6 w-6 rounded-full bg-success flex items-center justify-center">
-                    <span className="text-success-foreground text-xs">✓</span>
-                  </div>
-                ) : (
-                  <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                )}
-              </Link>
-            ))}
-          </div>
+                  {mission.status === "completed" ? (
+                    <div className="h-6 w-6 rounded-full bg-success flex items-center justify-center">
+                      <span className="text-success-foreground text-xs">✓</span>
+                    </div>
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Weekly Progress */}

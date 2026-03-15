@@ -97,14 +97,12 @@ const DiagnosticResults = () => {
       if (invokeError) throw new Error(invokeError.message);
       if (plan?.error) throw new Error(plan.error);
 
-      await supabase.from("study_plans").upsert(
-        {
-          user_id: user.id,
-          plan_data: plan,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" }
-      );
+      await supabase.from("study_plans").delete().eq("user_id", user.id);
+      await supabase.from("study_plans").insert({
+        user_id: user.id,
+        plan_data: plan,
+        updated_at: new Date().toISOString(),
+      });
 
       const dayNames: Record<string, number> = {
         Domingo: 0,

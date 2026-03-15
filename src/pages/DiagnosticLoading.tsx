@@ -50,14 +50,26 @@ const DiagnosticLoading = () => {
 
         const userProfile = profile || {};
 
-        const { data: analysis, error: invokeError } = await supabase.functions.invoke("analyze-diagnostic", {
-          body: { answers, userProfile },
+        const { data: { session } } = await supabase.auth.getSession();
+        const anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iZmdxcmpjcnpncnByenFlZHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NDY2NTksImV4cCI6MjA4OTEyMjY1OX0.Q4jeuVOyZr3DheO7nLg4ISgD7SBnTUoBXA6VAgB4_0E";
+
+        const fnResponse = await fetch("https://nbfgqrjcrzgrprzqedtl.supabase.co/functions/v1/analyze-diagnostic", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + (session?.access_token || anonKey),
+            "apikey": anonKey,
+          },
+          body: JSON.stringify({ answers, userProfile }),
         });
 
-        if (invokeError) {
-          const detail = analysis?.error || invokeError.message;
-          throw new Error(detail);
+        if (!fnResponse.ok) {
+          const errBody = await fnResponse.text();
+          console.error("analyze-diagnostic response:", fnResponse.status, errBody);
+          throw new Error("Erro na analise: " + errBody);
         }
+
+        const analysis = await fnResponse.json();
         if (analysis?.error) throw new Error(analysis.error);
 
         const { proficiency, overall_readiness, priority_areas, summary } = analysis;

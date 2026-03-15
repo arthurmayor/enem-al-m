@@ -72,18 +72,17 @@ const DiagnosticLoading = () => {
 
         const { proficiency, overall_readiness, priority_areas, summary } = analysis;
 
-        const { error: saveError } = await supabase.from("proficiency_scores").upsert(
-          {
-            user_id: user.id,
-            subject: "diagnostic",
-            overall_readiness: overall_readiness ?? 0,
-            summary: summary ?? "",
-            priority_areas: priority_areas ?? [],
-            proficiency: proficiency ?? [],
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id,subject" }
-        );
+        await supabase.from("proficiency_scores").delete().eq("user_id", user.id);
+
+        const { error: saveError } = await supabase.from("proficiency_scores").insert({
+          user_id: user.id,
+          subject: "diagnostic",
+          overall_readiness: overall_readiness ?? 0,
+          summary: summary ?? "",
+          priority_areas: priority_areas ?? [],
+          proficiency: proficiency ?? [],
+          updated_at: new Date().toISOString(),
+        });
 
         if (saveError) throw new Error(saveError.message);
 

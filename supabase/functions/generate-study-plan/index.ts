@@ -14,6 +14,10 @@ serve(async (req) => {
   }
 
   try {
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not set");
+    }
+
     const { proficiencyScores, userProfile } = await req.json();
 
     const daysUntilExam = userProfile.exam_date
@@ -45,7 +49,7 @@ serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY!,
+        "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -55,7 +59,17 @@ serve(async (req) => {
       }),
     });
 
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error("Anthropic API error " + response.status + ": " + errorBody);
+    }
+
     const data = await response.json();
+
+    if (!data.content || !data.content[0] || !data.content[0].text) {
+      throw new Error("Unexpected API response: " + JSON.stringify(data));
+    }
+
     const plan = JSON.parse(data.content[0].text);
 
     return new Response(JSON.stringify(plan), {
@@ -63,14 +77,10 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
+    console.error("generate-study-plan error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
   }
 });
-```
-
-Salve com **Ctrl + S** e rode:
-```
-supabase functions deploy generate-study-plan

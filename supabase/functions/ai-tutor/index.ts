@@ -14,6 +14,10 @@ serve(async (req) => {
   }
 
   try {
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not set");
+    }
+
     const { message, chatHistory, userContext } = await req.json();
 
     const systemPrompt = "Voce eh um tutor paciente e encorajador ajudando um estudante brasileiro a se preparar para vestibulares.\n\n" +
@@ -54,7 +58,7 @@ serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY!,
+        "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -65,7 +69,17 @@ serve(async (req) => {
       }),
     });
 
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error("Anthropic API error " + response.status + ": " + errorBody);
+    }
+
     const data = await response.json();
+
+    if (!data.content || !data.content[0] || !data.content[0].text) {
+      throw new Error("Unexpected API response: " + JSON.stringify(data));
+    }
+
     const reply = data.content[0].text;
 
     return new Response(JSON.stringify({ reply }), {
@@ -73,6 +87,7 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
+    console.error("ai-tutor error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

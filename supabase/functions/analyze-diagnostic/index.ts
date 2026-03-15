@@ -14,61 +14,54 @@ serve(async (req) => {
   }
 
   try {
+    if (!ANTHROPIC_API_KEY) {
+      throw new Error("ANTHROPIC_API_KEY is not set");
+    }
+
     const { answers, userProfile } = await req.json();
 
-    const prompt = `Você é um especialista em avaliação educacional para vestibulares brasileiros.
-
-Analise os resultados do teste diagnóstico abaixo e produza scores de proficiência.
-
-PERFIL DO ALUNO:
-- Objetivo: ${userProfile.education_goal || "ENEM"}
-- Série: ${userProfile.school_year || "Não informado"}
-- Curso desejado: ${userProfile.desired_course || "Não informado"}
-
-RESPOSTAS DO DIAGNÓSTICO:
-${JSON.stringify(answers, null, 2)}
-
-Considere: acerto/erro, tempo de resposta (rápido e correto = forte, lento e correto = moderado, incorreto = fraco), nível de dificuldade de cada questão, e padrões de erro.
-
-FORMATO DE SAÍDA (JSON apenas, sem markdown, sem crases):
-{
-  "proficiency": [
-    {
-      "subject": "nome da matéria",
-      "subtopic": "subtópico",
-      "score": 0.0,
-      "confidence": 0.0,
-      "weakness_notes": "observação sobre pontos fracos"
+    if (!answers || answers.length === 0) {
+      throw new Error("No answers provided");
     }
-  ],
-  "overall_readiness": 0.0,
-  "priority_areas": ["subtópico1", "subtópico2"],
-  "summary": "Resumo em português para o aluno, 3-4 frases encorajadoras mas honestas"
-}`;
+
+    const prompt = "Voce eh um especialista em avaliacao educacional para vestibulares brasileiros.\n\n" +
+      "Analise os resultados do teste diagnostico abaixo e produza scores de proficiencia.\n\n" +
+      "PERFIL DO ALUNO:\n" +
+      "- Objetivo: " + (userProfile.education_goal || "ENEM") + "\n" +
+      "- Serie: " + (userProfile.school_year || "Nao informado") + "\n" +
+      "- Curso desejado: " + (userProfile.desired_course || "Nao informado") + "\n\n" +
+      "RESPOSTAS DO DIAGNOSTICO:\n" +
+      JSON.stringify(answers, null, 2) + "\n\n" +
+      "Considere: acerto/erro, tempo de resposta (rapido e correto = forte, lento e correto = moderado, incorreto = fraco), nivel de dificuldade de cada questao, e padroes de erro.\n\n" +
+      "FORMATO DE SAIDA (JSON apenas, sem markdown, sem crases):\n" +
+      '{"proficiency": [{"subject": "nome da materia", "subtopic": "subtopico", "score": 0.0, "confidence": 0.0, "weakness_notes": "observacao sobre pontos fracos"}], "overall_readiness": 0.0, "priority_areas": ["subtopico1", "subtopico2"], "summary": "Resumo em portugues para o aluno, 3-4 frases encorajadoras mas honestas"}';
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY!,
+        "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-20250514",
         max_tokens: 2000,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
+        messages: [{ role: "user", content: prompt }],
       }),
     });
 
-    const data = await response.json();
-    const resultText = data.content[0].text;
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error("Anthropic API error " + response.status + ": " + errorBody);
+    }
 
-    // Parse the JSON response from Claude
+    const data = await response.json();
+
+    if (!data.content || !data.content[0] || !data.content[0].text) {
+      throw new Error("Unexpected API response: " + JSON.stringify(data));
+    }
+
+    const resultText = data.content[0].text;
     const analysis = JSON.parse(resultText);
 
     return new Response(JSON.stringify(analysis), {
@@ -76,6 +69,7 @@ FORMATO DE SAÍDA (JSON apenas, sem markdown, sem crases):
       status: 200,
     });
   } catch (error) {
+    console.error("analyze-diagnostic error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,

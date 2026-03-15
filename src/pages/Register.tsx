@@ -29,7 +29,14 @@ const Register = () => {
     const result = await signUp(email, password, name);
     setLoading(false);
     if (result.error) {
-      toast.error(result.error.message || "Erro ao criar conta.");
+      const msg = (result.error as any).message || "";
+      if (msg.includes("signups are disabled")) {
+        toast.error("O cadastro por e-mail está desabilitado. Ative no painel do Supabase.");
+      } else if (msg.includes("already registered")) {
+        toast.error("Este e-mail já está cadastrado.");
+      } else {
+        toast.error(msg || "Erro ao criar conta.");
+      }
     } else if (result.needsEmailConfirmation) {
       toast.success("Conta criada! Verifique seu e-mail para confirmar o cadastro.");
     } else {

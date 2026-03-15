@@ -52,19 +52,26 @@ const DiagnosticResults = () => {
       return;
     }
     const fetchScores = async () => {
-      const { data: row, error } = await supabase
+      const { data: rows, error } = await supabase
         .from("proficiency_scores")
-        .select("proficiency, overall_readiness, priority_areas, summary")
+        .select("subject, subtopic, score, confidence, source")
         .eq("user_id", user.id)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .single();
-      if (!error && row) {
+        .eq("source", "diagnostic")
+        .order("measured_at", { ascending: false });
+      if (!error && rows && rows.length > 0) {
+        const proficiency = rows.map((r: any) => ({
+          subject: r.subject,
+          subtopic: r.subtopic,
+          score: r.score,
+          confidence: r.confidence,
+          weakness_notes: r.subtopic,
+        }));
+        const avgScore = proficiency.reduce((sum: number, p: any) => sum + p.score, 0) / proficiency.length;
         setData({
-          proficiency: row.proficiency ?? [],
-          overall_readiness: row.overall_readiness ?? 0,
-          priority_areas: row.priority_areas ?? [],
-          summary: row.summary ?? "",
+          proficiency,
+          overall_readiness: avgScore,
+          priority_areas: proficiency.filter((p: any) => p.score < 0.4).map((p: any) => p.subtopic),
+          summary: "",
         });
       }
       setLoading(false);
@@ -97,21 +104,30 @@ const DiagnosticResults = () => {
       if (invokeError) throw new Error(invokeError.message);
       if (plan?.error) throw new Error(plan.error);
 
+      // Delete old plans and missions
+      await supabase.from("daily_missions").delete().eq("user_id", user.id);
       await supabase.from("study_plans").delete().eq("user_id", user.id);
-      await supabase.from("study_plans").insert({
+
+      // Insert new plan
+      const { data: savedPlan, error: planError } = await supabase.from("study_plans").insert({
         user_id: user.id,
-        plan_data: plan,
-        updated_at: new Date().toISOString(),
-      });
+        week_number: 1,
+        start_date: new Date().toISOString().split("T")[0],
+        plan_json: plan,
+        is_current: true,
+        version: 1,
+      }).select("id").single();
+
+      if (planError) throw new Error(planError.message);
 
       const dayNames: Record<string, number> = {
         Domingo: 0,
         Segunda: 1,
-        Terça: 2,
+        Terca: 2,
         Quarta: 3,
         Quinta: 4,
         Sexta: 5,
-        Sábado: 6,
+        Sabado: 6,
       };
       const start = new Date();
       start.setHours(0, 0, 0, 0);
@@ -123,7 +139,7 @@ const DiagnosticResults = () => {
         firstOfWeekday[wd] = d;
       }
       const weekdayCount: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
-      const missionsToInsert: { user_id: string; date: string; subject: string; subtopic: string; mission_type: string; status: string; description?: string }[] = [];
+      const missionsToInsert: { user_id: string; study_plan_id: string; date: string; subject: string; subtopic: string; mission_type: string; status: string }[] = [];
 
       for (const week of plan.weeks ?? []) {
         for (const dayObj of week.days ?? []) {
@@ -137,12 +153,12 @@ const DiagnosticResults = () => {
           for (const mission of dayObj.missions ?? []) {
             missionsToInsert.push({
               user_id: user.id,
+              study_plan_id: savedPlan.id,
               date: dateStr,
               subject: mission.subject ?? "Geral",
               subtopic: mission.subtopic ?? "",
               mission_type: mission.type ?? "questions",
               status: "pending",
-              description: mission.description,
             });
           }
         }

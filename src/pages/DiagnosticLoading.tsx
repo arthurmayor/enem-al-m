@@ -72,23 +72,27 @@ const DiagnosticLoading = () => {
 
         const { proficiency, overall_readiness, priority_areas, summary } = analysis;
 
-        const firstItem = (proficiency ?? [])[0];
+        // Delete old diagnostic scores for this user
+        await supabase
+          .from("proficiency_scores")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("source", "diagnostic");
 
-        const { error: saveError } = await supabase.from("proficiency_scores").upsert(
-          {
+        // Insert one row per subject/subtopic
+        if (proficiency && proficiency.length > 0) {
+          const rows = proficiency.map((p: { subject: string; subtopic: string; score: number; confidence: number }) => ({
             user_id: user.id,
-            subject: firstItem?.subject ?? "Geral",
-            subtopic: firstItem?.subtopic ?? "Geral",
-            overall_readiness: overall_readiness ?? 0,
-            summary: summary ?? "",
-            priority_areas: priority_areas ?? [],
-            proficiency: proficiency ?? [],
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        );
-
-        if (saveError) throw new Error(saveError.message);
+            subject: p.subject,
+            subtopic: p.subtopic,
+            score: Math.min(1, Math.max(0, p.score)),
+            confidence: p.confidence ?? 0.5,
+            source: "diagnostic",
+            measured_at: new Date().toISOString(),
+          }));
+          const { error: saveError } = await supabase.from("proficiency_scores").insert(rows);
+          if (saveError) throw new Error(saveError.message);
+        }
 
         navigate("/diagnostic/results", {
           state: {

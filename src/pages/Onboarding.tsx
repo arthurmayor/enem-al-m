@@ -74,8 +74,7 @@ const Onboarding = () => {
   const handleFinish = async () => {
     if (!user) return;
     setLoading(true);
-    const { error } = await supabase.from("profiles").upsert({
-      id: user.id,
+    const { error } = await supabase.from("profiles").update({
       education_goal: selectedExam,
       desired_course: course,
       target_universities: targetUniversities,
@@ -85,7 +84,7 @@ const Onboarding = () => {
       study_days: selectedDays,
       exam_date: examDate || null,
       onboarding_complete: true,
-    });
+    }).eq("id", user.id);
     setLoading(false);
     if (error) {
       toast.error("Erro ao salvar seus dados. Tente novamente.");

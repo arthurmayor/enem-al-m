@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Brain, Sparkles, BarChart3 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ const DiagnosticLoading = () => {
   const { user } = useAuth();
   const [currentTip, setCurrentTip] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const hasStarted = useRef(false);
 
   useEffect(() => {
     const tipInterval = setInterval(() => {
@@ -25,7 +26,8 @@ const DiagnosticLoading = () => {
   }, []);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || hasStarted.current) return;
+    hasStarted.current = true;
 
     const runAnalysis = async () => {
       try {
@@ -50,15 +52,9 @@ const DiagnosticLoading = () => {
 
         const userProfile = profile || {};
 
-        console.log("Calling analyze-diagnostic with", answers.length, "answers");
-
-        await supabase.auth.refreshSession();
-
         const { data: analysis, error: invokeError } = await supabase.functions.invoke("analyze-diagnostic", {
           body: { answers, userProfile },
         });
-
-        console.log("analyze-diagnostic result:", { analysis, invokeError });
 
         if (invokeError) {
           let errorDetail = invokeError.message;
@@ -68,9 +64,8 @@ const DiagnosticLoading = () => {
               errorDetail = body.error || JSON.stringify(body);
             }
           } catch (e) {
-            console.error("Could not parse error context:", e);
+            // ignore parse error
           }
-          console.error("Edge function error:", errorDetail);
           throw new Error(errorDetail);
         }
         if (analysis?.error) throw new Error(analysis.error);

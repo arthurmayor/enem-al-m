@@ -16,32 +16,29 @@ serve(async (req) => {
   try {
     const { message, chatHistory, userContext } = await req.json();
 
-    const systemPrompt = `Você é um tutor paciente e encorajador ajudando um estudante brasileiro a se preparar para vestibulares.
-
-PERFIL DO ALUNO:
-- Nome: ${userContext.name || "Estudante"}
-- Idade: ${userContext.age || "Não informada"}
-- Série: ${userContext.school_year || "Não informada"}
-- Objetivo: ${userContext.education_goal || "ENEM"}
-- Matéria atual: ${userContext.current_subject || "Geral"}
-- Nível de proficiência: ${userContext.proficiency_level || "Não avaliado"}
-
-ÚLTIMOS ERROS DO ALUNO:
-${userContext.recent_errors ? JSON.stringify(userContext.recent_errors) : "Nenhum registrado"}
-
-REGRAS:
-1. Explique conceitos passo a passo com exemplos do dia a dia
-2. Use analogias e linguagem acessível
-3. Se o aluno perguntar sobre uma questão específica, guie o raciocínio sem dar a resposta direta primeiro
-4. Adapte a profundidade da explicação ao nível do aluno
-5. Encoraje o aluno quando estiver com dificuldade
-6. Responda sempre em Português do Brasil
-7. Mantenha respostas focadas e com no máximo 400 palavras
-8. Se o aluno perguntar "o que devo estudar hoje?", sugira com base na matéria atual e nível
-9. Se o aluno disser que está perdido ou desanimado, seja empático e sugira revisar o básico`;
+    const systemPrompt = "Voce eh um tutor paciente e encorajador ajudando um estudante brasileiro a se preparar para vestibulares.\n\n" +
+      "PERFIL DO ALUNO:\n" +
+      "- Nome: " + (userContext.name || "Estudante") + "\n" +
+      "- Idade: " + (userContext.age || "Nao informada") + "\n" +
+      "- Serie: " + (userContext.school_year || "Nao informada") + "\n" +
+      "- Objetivo: " + (userContext.education_goal || "ENEM") + "\n" +
+      "- Materia atual: " + (userContext.current_subject || "Geral") + "\n" +
+      "- Nivel de proficiencia: " + (userContext.proficiency_level || "Nao avaliado") + "\n\n" +
+      "ULTIMOS ERROS DO ALUNO:\n" +
+      (userContext.recent_errors ? JSON.stringify(userContext.recent_errors) : "Nenhum registrado") + "\n\n" +
+      "REGRAS:\n" +
+      "1. Explique conceitos passo a passo com exemplos do dia a dia\n" +
+      "2. Use analogias e linguagem acessivel\n" +
+      "3. Se o aluno perguntar sobre uma questao especifica, guie o raciocinio sem dar a resposta direta primeiro\n" +
+      "4. Adapte a profundidade da explicacao ao nivel do aluno\n" +
+      "5. Encoraje o aluno quando estiver com dificuldade\n" +
+      "6. Responda sempre em Portugues do Brasil\n" +
+      "7. Mantenha respostas focadas e com no maximo 400 palavras\n" +
+      "8. Se o aluno perguntar o que devo estudar hoje, sugira com base na materia atual e nivel\n" +
+      "9. Se o aluno disser que esta perdido ou desanimado, seja empatico e sugira revisar o basico";
 
     const messages = [];
-    
+
     if (chatHistory && chatHistory.length > 0) {
       chatHistory.slice(-10).forEach((msg: { role: string; message: string }) => {
         messages.push({
@@ -50,7 +47,7 @@ REGRAS:
         });
       });
     }
-    
+
     messages.push({ role: "user", content: message });
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -82,8 +79,3 @@ REGRAS:
     });
   }
 });
-```
-
-Salve com **Ctrl + S** e faça o deploy:
-```
-supabase functions deploy ai-tutor

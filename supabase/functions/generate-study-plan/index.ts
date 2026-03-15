@@ -1,32 +1,76 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Setup type definitions for built-in Supabase Runtime APIs
-import "@supabase/functions-js/edge-runtime.d.ts"
+const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 
-console.log("Hello from Functions!")
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-Deno.serve(async (req) => {
-  const { name } = await req.json()
-  const data = {
-    message: `Hello ${name}!`,
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  return new Response(
-    JSON.stringify(data),
-    { headers: { "Content-Type": "application/json" } },
-  )
-})
+  try {
+    const { proficiencyScores, userProfile } = await req.json();
 
-/* To invoke locally:
+    const daysUntilExam = userProfile.exam_date
+      ? Math.max(0, Math.ceil((new Date(userProfile.exam_date).getTime() - Date.now()) / 86400000))
+      : 180;
 
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
+    const prompt = "Voce eh um planejador de estudos especialista para estudantes brasileiros.\n\n" +
+      "PERFIL DO ALUNO:\n" +
+      "- Nome: " + (userProfile.name || "Estudante") + "\n" +
+      "- Objetivo: " + (userProfile.education_goal || "ENEM") + "\n" +
+      "- Curso desejado: " + (userProfile.desired_course || "Nao informado") + "\n" +
+      "- Dias ate a prova: " + daysUntilExam + "\n" +
+      "- Horas por dia disponiveis: " + (userProfile.hours_per_day || 2) + "\n" +
+      "- Dias da semana disponiveis: " + JSON.stringify(userProfile.study_days || ["Mon","Tue","Wed","Thu","Fri"]) + "\n\n" +
+      "SCORES DE PROFICIENCIA:\n" +
+      JSON.stringify(proficiencyScores, null, 2) + "\n\n" +
+      "REGRAS:\n" +
+      "1. Priorize areas fracas (score < 0.4) com 40% do tempo\n" +
+      "2. Mantenha areas fortes (score > 0.7) com 15% do tempo\n" +
+      "3. Respeite os horarios e dias disponiveis do aluno\n" +
+      "4. Inclua variedade: questoes, resumos, flashcards, revisao\n" +
+      "5. Cada dia deve ter 2-4 missoes dependendo das horas disponiveis\n" +
+      "6. Inclua uma sessao de revisao de erros por semana\n" +
+      "7. Use nomes de dias em portugues: Segunda, Terca, Quarta, Quinta, Sexta, Sabado, Domingo\n\n" +
+      "FORMATO DE SAIDA (JSON apenas, sem markdown, sem crases):\n" +
+      '{"weeks": [{"week": 1, "focus_areas": ["subtopico1", "subtopico2"], "days": [{"day": "Segunda", "missions": [{"subject": "Matematica", "subtopic": "Funcoes", "type": "questions", "estimated_minutes": 30, "description": "Resolver 10 questoes sobre funcoes do 1o e 2o grau"}]}]}]}';
 
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/generate-study-plan' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": ANTHROPIC_API_KEY!,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 4000,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
 
-*/
+    const data = await response.json();
+    const plan = JSON.parse(data.content[0].text);
+
+    return new Response(JSON.stringify(plan), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
+  }
+});
+```
+
+Salve com **Ctrl + S** e rode:
+```
+supabase functions deploy generate-study-plan

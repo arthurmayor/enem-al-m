@@ -72,22 +72,21 @@ const DiagnosticLoading = () => {
 
         const { proficiency, overall_readiness, priority_areas, summary } = analysis;
 
-        await supabase.from("proficiency_scores").delete().eq("user_id", user.id);
+        const firstItem = (proficiency ?? [])[0];
 
-        const rows = (proficiency ?? []).map((p: { subject: string; subtopic: string; score: number }) => ({
-          user_id: user.id,
-          subject: p.subject ?? "Geral",
-          subtopic: p.subtopic ?? "Geral",
-          overall_readiness: overall_readiness ?? 0,
-          summary: summary ?? "",
-          priority_areas: priority_areas ?? [],
-          proficiency: proficiency ?? [],
-          updated_at: new Date().toISOString(),
-        }));
-
-        const { error: saveError } = rows.length > 0
-          ? await supabase.from("proficiency_scores").insert(rows)
-          : { error: null };
+        const { error: saveError } = await supabase.from("proficiency_scores").upsert(
+          {
+            user_id: user.id,
+            subject: firstItem?.subject ?? "Geral",
+            subtopic: firstItem?.subtopic ?? "Geral",
+            overall_readiness: overall_readiness ?? 0,
+            summary: summary ?? "",
+            priority_areas: priority_areas ?? [],
+            proficiency: proficiency ?? [],
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
 
         if (saveError) throw new Error(saveError.message);
 

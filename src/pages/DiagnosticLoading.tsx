@@ -74,13 +74,10 @@ const DiagnosticLoading = () => {
 
         await supabase.from("proficiency_scores").delete().eq("user_id", user.id);
 
-        const rows = (proficiency ?? []).map((p: { subject: string; subtopic: string; score: number; confidence?: number; weakness_notes?: string }) => ({
+        const rows = (proficiency ?? []).map((p: { subject: string; subtopic: string; score: number }) => ({
           user_id: user.id,
           subject: p.subject ?? "Geral",
           subtopic: p.subtopic ?? "Geral",
-          score: p.score ?? 0,
-          confidence: p.confidence ?? null,
-          weakness_notes: p.weakness_notes ?? null,
           overall_readiness: overall_readiness ?? 0,
           summary: summary ?? "",
           priority_areas: priority_areas ?? [],

@@ -50,26 +50,27 @@ const DiagnosticLoading = () => {
 
         const userProfile = profile || {};
 
-        const { data: { session } } = await supabase.auth.getSession();
-        const anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iZmdxcmpjcnpncnByenFlZHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NDY2NTksImV4cCI6MjA4OTEyMjY1OX0.Q4jeuVOyZr3DheO7nLg4ISgD7SBnTUoBXA6VAgB4_0E";
+        console.log("Calling analyze-diagnostic with", answers.length, "answers");
 
-        const fnResponse = await fetch("https://nbfgqrjcrzgrprzqedtl.supabase.co/functions/v1/analyze-diagnostic", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + (session?.access_token || anonKey),
-            "apikey": anonKey,
-          },
-          body: JSON.stringify({ answers, userProfile }),
+        const { data: analysis, error: invokeError } = await supabase.functions.invoke("analyze-diagnostic", {
+          body: { answers, userProfile },
         });
 
-        if (!fnResponse.ok) {
-          const errBody = await fnResponse.text();
-          console.error("analyze-diagnostic response:", fnResponse.status, errBody);
-          throw new Error("Erro na analise: " + errBody);
-        }
+        console.log("analyze-diagnostic result:", { analysis, invokeError });
 
-        const analysis = await fnResponse.json();
+        if (invokeError) {
+          let errorDetail = invokeError.message;
+          try {
+            if (invokeError.context && typeof invokeError.context.json === "function") {
+              const body = await invokeError.context.json();
+              errorDetail = body.error || JSON.stringify(body);
+            }
+          } catch (e) {
+            console.error("Could not parse error context:", e);
+          }
+          console.error("Edge function error:", errorDetail);
+          throw new Error(errorDetail);
+        }
         if (analysis?.error) throw new Error(analysis.error);
 
         const { proficiency, overall_readiness, priority_areas, summary } = analysis;

@@ -75,13 +75,14 @@ const DiagnosticLoading = () => {
         const { error: saveError } = await supabase.from("proficiency_scores").upsert(
           {
             user_id: user.id,
+            subject: "diagnostic",
             overall_readiness: overall_readiness ?? 0,
             summary: summary ?? "",
             priority_areas: priority_areas ?? [],
             proficiency: proficiency ?? [],
             updated_at: new Date().toISOString(),
           },
-          { onConflict: "user_id" }
+          { onConflict: "user_id,subject" }
         );
 
         if (saveError) throw new Error(saveError.message);

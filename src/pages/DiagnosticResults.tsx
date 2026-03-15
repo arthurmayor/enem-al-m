@@ -1,35 +1,204 @@
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
-const subjectScores = [
-  { name: "Matemática", score: 45, weakness: "Geometria espacial e probabilidade" },
-  { name: "Português", score: 72, weakness: "Sintaxe e concordância verbal" },
-  { name: "Biologia", score: 58, weakness: "Genética e ecologia" },
-  { name: "Química", score: 35, weakness: "Química orgânica e estequiometria" },
-  { name: "Física", score: 42, weakness: "Termodinâmica e eletromagnetismo" },
-  { name: "História", score: 68, weakness: "Brasil República e Era Vargas" },
-  { name: "Geografia", score: 55, weakness: "Climatologia e geopolítica" },
-];
+interface ProficiencyItem {
+  subject: string;
+  subtopic: string;
+  score: number;
+  confidence?: number;
+  weakness_notes?: string;
+}
 
-const overallScore = Math.round(subjectScores.reduce((a, b) => a + b.score, 0) / subjectScores.length);
+interface DiagnosticState {
+  proficiency: ProficiencyItem[];
+  overall_readiness: number;
+  priority_areas: string[];
+  summary: string;
+}
 
-const getScoreColor = (score: number) => {
-  if (score >= 70) return "text-success bg-success/10";
-  if (score >= 40) return "text-warning bg-warning/10";
+const getScoreColor = (scorePercent: number) => {
+  if (scorePercent >= 70) return "text-success bg-success/10";
+  if (scorePercent >= 40) return "text-warning bg-warning/10";
   return "text-destructive bg-destructive/10";
 };
 
-const getBarColor = (score: number) => {
-  if (score >= 70) return "bg-success";
-  if (score >= 40) return "bg-warning";
+const getBarColor = (scorePercent: number) => {
+  if (scorePercent >= 70) return "bg-success";
+  if (scorePercent >= 40) return "bg-warning";
   return "bg-destructive";
 };
 
 const DiagnosticResults = () => {
-  const priorityAreas = [...subjectScores]
-    .sort((a, b) => a.score - b.score)
-    .slice(0, 4);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [data, setData] = useState<DiagnosticState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
+
+  useEffect(() => {
+    const state = location.state as DiagnosticState | null;
+    if (state?.proficiency?.length) {
+      setData(state);
+      setLoading(false);
+      return;
+    }
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    const fetchScores = async () => {
+      const { data: row, error } = await supabase
+        .from("proficiency_scores")
+        .select("proficiency, overall_readiness, priority_areas, summary")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (!error && row) {
+        setData({
+          proficiency: row.proficiency ?? [],
+          overall_readiness: row.overall_readiness ?? 0,
+          priority_areas: row.priority_areas ?? [],
+          summary: row.summary ?? "",
+        });
+      }
+      setLoading(false);
+    };
+    fetchScores();
+  }, [user, location.state]);
+
+  const handleGeneratePlan = async () => {
+    if (!user || !data) return;
+    setGeneratingPlan(true);
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name, education_goal, desired_course, exam_date, hours_per_day, study_days")
+        .eq("id", user.id)
+        .single();
+
+      const userProfile = profile || {};
+      const proficiencyScores = {
+        proficiency: data.proficiency,
+        overall_readiness: data.overall_readiness,
+        priority_areas: data.priority_areas,
+        summary: data.summary,
+      };
+
+      const { data: plan, error: invokeError } = await supabase.functions.invoke("generate-study-plan", {
+        body: { proficiencyScores, userProfile },
+      });
+
+      if (invokeError) throw new Error(invokeError.message);
+      if (plan?.error) throw new Error(plan.error);
+
+      await supabase.from("study_plans").upsert(
+        {
+          user_id: user.id,
+          plan_data: plan,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      );
+
+      const dayNames: Record<string, number> = {
+        Domingo: 0,
+        Segunda: 1,
+        Terça: 2,
+        Quarta: 3,
+        Quinta: 4,
+        Sexta: 5,
+        Sábado: 6,
+      };
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() + 1);
+      const firstOfWeekday: Record<number, Date> = {};
+      for (let wd = 0; wd <= 6; wd++) {
+        let d = new Date(start);
+        while (d.getDay() !== wd) d.setDate(d.getDate() + 1);
+        firstOfWeekday[wd] = d;
+      }
+      const weekdayCount: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+      const missionsToInsert: { user_id: string; date: string; subject: string; subtopic: string; mission_type: string; status: string; description?: string }[] = [];
+
+      for (const week of plan.weeks ?? []) {
+        for (const dayObj of week.days ?? []) {
+          const targetWeekday = dayNames[dayObj.day] ?? 1;
+          const n = weekdayCount[targetWeekday] ?? 0;
+          const base = firstOfWeekday[targetWeekday];
+          const d = new Date(base);
+          d.setDate(d.getDate() + n * 7);
+          weekdayCount[targetWeekday] = n + 1;
+          const dateStr = d.toISOString().split("T")[0];
+          for (const mission of dayObj.missions ?? []) {
+            missionsToInsert.push({
+              user_id: user.id,
+              date: dateStr,
+              subject: mission.subject ?? "Geral",
+              subtopic: mission.subtopic ?? "",
+              mission_type: mission.type ?? "questions",
+              status: "pending",
+              description: mission.description,
+            });
+          }
+        }
+      }
+
+      if (missionsToInsert.length > 0) {
+        await supabase.from("daily_missions").insert(missionsToInsert);
+      }
+
+      navigate("/dashboard");
+    } catch (err) {
+      console.error(err);
+      setGeneratingPlan(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!data?.proficiency?.length) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+        <div className="text-center">
+          <p className="text-muted-foreground">Nenhum resultado de diagnóstico encontrado.</p>
+          <Link to="/diagnostic/intro" className="mt-4 inline-block text-primary font-semibold">
+            Fazer diagnóstico
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const overallPercent = Math.round((data.overall_readiness ?? 0) * 100);
+  const subjectScores = data.proficiency.map((p) => ({
+    name: p.subject,
+    score: Math.round((p.score ?? 0) * 100),
+    weakness: p.weakness_notes ?? p.subtopic ?? "",
+  }));
+
+  const bySubject = subjectScores.reduce<{ name: string; score: number; weakness: string }[]>((acc, p) => {
+    const existing = acc.find((x) => x.name === p.name);
+    if (existing) {
+      existing.score = Math.round((existing.score + p.score) / 2);
+      if (p.weakness) existing.weakness = p.weakness;
+    } else acc.push({ ...p });
+    return acc;
+  }, []);
+
+  const priorityAreas = [...bySubject].sort((a, b) => a.score - b.score).slice(0, 4);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -40,21 +209,19 @@ const DiagnosticResults = () => {
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
-        {/* Overall Score */}
         <div className="text-center animate-fade-in">
-          <div className={`inline-flex items-center justify-center h-28 w-28 rounded-full ${getScoreColor(overallScore)} text-4xl font-bold`}>
-            {overallScore}%
+          <div className={`inline-flex items-center justify-center h-28 w-28 rounded-full ${getScoreColor(overallPercent)} text-4xl font-bold`}>
+            {overallPercent}%
           </div>
           <p className="mt-4 text-lg font-semibold text-foreground">
-            {overallScore >= 70 ? "Bom nível!" : overallScore >= 40 ? "Nível intermediário" : "Precisa de reforço"}
+            {overallPercent >= 70 ? "Bom nível!" : overallPercent >= 40 ? "Nível intermediário" : "Precisa de reforço"}
           </p>
           <p className="text-sm text-muted-foreground mt-1">Sua preparação geral para o exame</p>
         </div>
 
-        {/* Subject Scores */}
         <div className="mt-10 space-y-3 animate-fade-in" style={{ animationDelay: "0.1s" }}>
           <h2 className="text-base font-semibold text-foreground mb-4">Proficiência por Matéria</h2>
-          {subjectScores.map((s) => (
+          {bySubject.map((s) => (
             <div key={s.name} className="p-4 bg-card rounded-xl shadow-rest">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-foreground">{s.name}</span>
@@ -63,14 +230,13 @@ const DiagnosticResults = () => {
                 </span>
               </div>
               <div className="h-2 bg-muted rounded-full">
-                <div className={`h-2 rounded-full transition-all duration-700 ${getBarColor(s.score)}`} style={{ width: `${s.score}%` }} />
+                <div className={`h-2 rounded-full transition-all duration-700 ${getBarColor(s.score)}`} style={{ width: `${Math.min(100, s.score)}%` }} />
               </div>
               <p className="text-xs text-muted-foreground mt-2">Foco: {s.weakness}</p>
             </div>
           ))}
         </div>
 
-        {/* Priority Areas */}
         <div className="mt-10 animate-fade-in" style={{ animationDelay: "0.2s" }}>
           <h2 className="text-base font-semibold text-foreground mb-4">Áreas Prioritárias</h2>
           <div className="space-y-2">
@@ -86,22 +252,21 @@ const DiagnosticResults = () => {
           </div>
         </div>
 
-        {/* AI Summary */}
-        <div className="mt-10 p-5 bg-primary/5 rounded-xl border border-primary/10 animate-fade-in" style={{ animationDelay: "0.3s" }}>
-          <p className="text-sm text-foreground leading-relaxed">
-            Você demonstra bom conhecimento em <strong>Português</strong> e <strong>História</strong>, mas precisa reforçar significativamente <strong>Química</strong>, <strong>Física</strong> e <strong>Matemática</strong>. Recomendamos focar nessas áreas nos próximos 30 dias com exercícios diários e revisões espaçadas.
-          </p>
-        </div>
+        {data.summary && (
+          <div className="mt-10 p-5 bg-primary/5 rounded-xl border border-primary/10 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+            <p className="text-sm text-foreground leading-relaxed">{data.summary}</p>
+          </div>
+        )}
 
-        {/* CTA */}
         <div className="mt-10 animate-fade-in" style={{ animationDelay: "0.4s" }}>
-          <Link
-            to="/dashboard"
-            className="w-full h-12 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground text-base font-semibold hover:opacity-90 active:scale-[0.98] transition-all duration-200"
+          <button
+            onClick={handleGeneratePlan}
+            disabled={generatingPlan}
+            className="w-full h-12 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground text-base font-semibold hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-60"
           >
-            Gerar Meu Plano de Estudos
+            {generatingPlan ? "Gerando plano..." : "Gerar Meu Plano de Estudos"}
             <ChevronRight className="ml-1 h-4 w-4" />
-          </Link>
+          </button>
         </div>
       </main>
 

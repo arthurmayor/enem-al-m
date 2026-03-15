@@ -26,10 +26,12 @@ const Register = () => {
       return;
     }
     setLoading(true);
-    const { error } = await signUp(email, password, name);
+    const result = await signUp(email, password, name);
     setLoading(false);
-    if (error) {
-      toast.error(error.message || "Erro ao criar conta.");
+    if (result.error) {
+      toast.error(result.error.message || "Erro ao criar conta.");
+    } else if (result.needsEmailConfirmation) {
+      toast.success("Conta criada! Verifique seu e-mail para confirmar o cadastro.");
     } else {
       toast.success("Conta criada com sucesso!");
       navigate("/onboarding");

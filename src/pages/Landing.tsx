@@ -233,7 +233,7 @@ const Landing = () => {
               <a href="#" className="hover:text-background/60 transition-colors">Privacidade</a>
               <a href="#" className="hover:text-background/60 transition-colors">Contato</a>
             </div>
-            <p className="text-xs text-background/30">© 2026 Cátedra</p>
+            <p className="text-xs text-background/30">© 2026 Educ</p>
           </div>
         </div>
       </footer>

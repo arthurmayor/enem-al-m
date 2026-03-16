@@ -159,10 +159,10 @@ const Landing = () => {
         <div className="relative">
           <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-white to-transparent z-10" />
           <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-white to-transparent z-10" />
-          <div className="flex animate-marquee">
+          <div className="flex items-center animate-marquee">
             {[...logos, ...logos].map((logo, i) => (
               <img
-                key={i}
+                key={`logo-${i}`}
                 src={logo.src}
                 alt={logo.name}
                 className="h-8 object-contain opacity-40 grayscale px-8 flex-shrink-0"

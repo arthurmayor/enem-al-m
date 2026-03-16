@@ -226,7 +226,7 @@ const Landing = () => {
               <div className="h-6 w-6 rounded-md bg-background/10 flex items-center justify-center">
                 <BookOpen className="h-3 w-3 text-background/60" />
               </div>
-              <span className="text-sm font-semibold text-background/60">Cátedra</span>
+              <span className="text-sm font-semibold text-background/60">Educ</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-background/40">
               <a href="#" className="hover:text-background/60 transition-colors">Termos</a>

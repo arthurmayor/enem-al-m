@@ -59,7 +59,7 @@ const Landing = () => {
             Seu tutor com IA para o vestibular.
           </h1>
           <p className="mt-6 text-lg text-gray-500 font-normal max-w-[600px] mx-auto">
-            Plano de estudos personalizado, simulados adaptativos e tutor inteligente — tudo em um lugar.
+            Plano de estudos personalizado, simulados adaptativos, tutor inteligente, e muito mais.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
             <a

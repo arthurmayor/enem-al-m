@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -40,6 +40,8 @@ const Performance = () => {
   const [missions, setMissions] = useState<MissionRow[]>([]);
   const [answers, setAnswers] = useState<AnswerRow[]>([]);
   const [subtopicErrors, setSubtopicErrors] = useState<SubtopicError[]>([]);
+  const [examHistory, setExamHistory] = useState<{ exam_name: string; score_percent: number; created_at: string }[]>([]);
+  const [profileStats, setProfileStats] = useState<{ total_xp: number; current_streak: number; longest_streak: number; missions_completed: number; exams_completed: number } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -80,6 +82,23 @@ const Performance = () => {
           });
         setSubtopicErrors(Object.values(errorMap).sort((a, b) => b.gap - a.gap).slice(0, 5));
       }
+
+      // Fetch exam history
+      const { data: examData } = await supabase
+        .from("exam_results")
+        .select("exam_name, score_percent, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (examData) setExamHistory(examData);
+
+      // Fetch profile for streak/XP
+      const { data: profileStatsData } = await supabase
+        .from("profiles")
+        .select("total_xp, current_streak, longest_streak, missions_completed, exams_completed")
+        .eq("id", user.id)
+        .single();
+      if (profileStatsData) setProfileStats(profileStatsData);
 
       setLoading(false);
     };
@@ -200,6 +219,62 @@ const Performance = () => {
                 <p className="text-xs text-muted-foreground mt-1">Matérias avaliadas</p>
               </div>
             </div>
+
+            {/* Streak & XP */}
+            {profileStats && (
+              <div className="mt-4 flex gap-3 animate-fade-in" style={{ animationDelay: "0.15s" }}>
+                <div className="flex-1 p-4 bg-card rounded-xl shadow-rest text-center">
+                  <p className="text-2xl font-bold text-warning">{profileStats.current_streak || 0}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Dias seguidos</p>
+                </div>
+                <div className="flex-1 p-4 bg-card rounded-xl shadow-rest text-center">
+                  <p className="text-2xl font-bold text-primary">{profileStats.total_xp || 0}</p>
+                  <p className="text-xs text-muted-foreground mt-1">XP total</p>
+                </div>
+              </div>
+            )}
+
+            {/* Radar Chart */}
+            {subjects.length >= 3 && (
+              <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.25s" }}>
+                <h2 className="text-base font-semibold text-foreground mb-4">Perfil por Materia</h2>
+                <div className="bg-card rounded-xl shadow-rest p-4 flex justify-center">
+                  <ResponsiveContainer width={280} height={250}>
+                    <RadarChart data={subjects.map(s => {
+                      const rows = proficiencyData.filter(p => p.subject === s);
+                      const avg = rows.length > 0 ? Math.round((rows.reduce((sum, r) => sum + r.score, 0) / rows.length) * 100) : 0;
+                      return { subject: s.length > 6 ? s.slice(0, 6) + "." : s, score: avg };
+                    })}>
+                      <PolarGrid stroke="hsl(var(--border))" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                      <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9 }} />
+                      <Radar dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.2} strokeWidth={2} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Exam History */}
+            {examHistory.length > 0 && (
+              <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.35s" }}>
+                <h2 className="text-base font-semibold text-foreground mb-4">Ultimos Simulados</h2>
+                <div className="space-y-2">
+                  {examHistory.map((e, i) => {
+                    const c = e.score_percent >= 70 ? "text-success bg-success/10" : e.score_percent >= 40 ? "text-warning bg-warning/10" : "text-destructive bg-destructive/10";
+                    return (
+                      <div key={i} className="flex items-center justify-between p-4 bg-card rounded-xl shadow-rest">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{e.exam_name}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleDateString("pt-BR")}</p>
+                        </div>
+                        <span className={`text-sm font-bold px-3 py-1 rounded-full ${c}`}>{Math.round(e.score_percent)}%</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Chart */}
             {chartData.length > 0 && (

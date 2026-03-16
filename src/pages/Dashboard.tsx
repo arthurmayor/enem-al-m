@@ -227,7 +227,7 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-8 mb-4 grid grid-cols-3 gap-3 animate-fade-in" style={{ animationDelay: "0.4s" }}>
+        <div className="mt-8 mb-4 grid grid-cols-4 gap-3 animate-fade-in" style={{ animationDelay: "0.4s" }}>
           <Link to="/tutor" className="p-4 bg-card rounded-xl shadow-rest hover:shadow-interactive transition-all flex flex-col items-center gap-2 text-center">
             <Brain className="h-5 w-5 text-primary" />
             <span className="text-xs font-semibold text-foreground">Tutor IA</span>
@@ -239,6 +239,10 @@ const Dashboard = () => {
           <Link to="/exams" className="p-4 bg-card rounded-xl shadow-rest hover:shadow-interactive transition-all flex flex-col items-center gap-2 text-center">
             <FileText className="h-5 w-5 text-primary" />
             <span className="text-xs font-semibold text-foreground">Simulados</span>
+          </Link>
+          <Link to="/ranking" className="p-4 bg-card rounded-xl shadow-rest hover:shadow-interactive transition-all flex flex-col items-center gap-2 text-center">
+            <Trophy className="h-5 w-5 text-primary" />
+            <span className="text-xs font-semibold text-foreground">Ranking</span>
           </Link>
         </div>
       </main>

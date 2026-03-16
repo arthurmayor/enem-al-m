@@ -55,19 +55,75 @@ const MissionPage = () => {
 
       const subject = missionData?.subject || "";
       const subtopic = missionData?.subtopic || "";
-      const { data: questionData } = await supabase
+
+      // Buscar proficiência do aluno neste subtópico para ajustar dificuldade
+      const { data: profData } = await supabase
+        .from("proficiency_scores")
+        .select("score")
+        .eq("user_id", user.id)
+        .eq("subject", subject)
+        .order("measured_at", { ascending: false })
+        .limit(1);
+
+      const profScore = profData?.[0]?.score ?? 0.5;
+      // Mapear proficiência para dificuldade alvo: 0-0.3 → 1-2, 0.3-0.6 → 2-3, 0.6-0.8 → 3-4, 0.8+ → 4-5
+      const targetDifficulty = profScore < 0.3 ? 2 : profScore < 0.6 ? 3 : profScore < 0.8 ? 4 : 5;
+
+      // Tentar buscar por subtópico + dificuldade apropriada
+      const { data: exactMatch } = await supabase
         .from("questions")
         .select("*")
         .eq("subject", subject)
+        .ilike("subtopic", `%${subtopic}%`)
+        .gte("difficulty", Math.max(1, targetDifficulty - 1))
+        .lte("difficulty", Math.min(5, targetDifficulty + 1))
         .limit(10);
 
-      if (questionData && questionData.length > 0) {
-        const matching = questionData.filter((q: Question) =>
-          q.subtopic.toLowerCase().includes(subtopic.toLowerCase()) ||
-          subtopic.toLowerCase().includes(q.subtopic.toLowerCase())
-        );
-        setQuestions(matching.length >= 5 ? matching.slice(0, 8) : questionData.slice(0, 8));
+      let selectedQuestions: Question[] = exactMatch || [];
+
+      // Fallback: buscar apenas por subject se subtópico não retornou suficiente
+      if (selectedQuestions.length < 5) {
+        const { data: subjectMatch } = await supabase
+          .from("questions")
+          .select("*")
+          .eq("subject", subject)
+          .gte("difficulty", Math.max(1, targetDifficulty - 1))
+          .lte("difficulty", Math.min(5, targetDifficulty + 1))
+          .limit(10);
+        if (subjectMatch) {
+          const existingIds = new Set(selectedQuestions.map(q => q.id));
+          subjectMatch.forEach(q => { if (!existingIds.has(q.id)) selectedQuestions.push(q); });
+        }
       }
+
+      // Último fallback: qualquer questão do subject
+      if (selectedQuestions.length < 3) {
+        const { data: anyMatch } = await supabase
+          .from("questions")
+          .select("*")
+          .eq("subject", subject)
+          .limit(10);
+        if (anyMatch) {
+          const existingIds = new Set(selectedQuestions.map(q => q.id));
+          anyMatch.forEach(q => { if (!existingIds.has(q.id)) selectedQuestions.push(q); });
+        }
+      }
+
+      // Excluir questões já respondidas corretamente pelo aluno (evitar repetição)
+      if (selectedQuestions.length > 5) {
+        const { data: answeredCorrectly } = await supabase
+          .from("answer_history")
+          .select("question_id")
+          .eq("user_id", user.id)
+          .eq("is_correct", true);
+        const answeredIds = new Set((answeredCorrectly || []).map(a => a.question_id));
+        const fresh = selectedQuestions.filter(q => !answeredIds.has(q.id));
+        selectedQuestions = fresh.length >= 5 ? fresh : selectedQuestions;
+      }
+
+      // Shuffle e limitar a 8
+      selectedQuestions.sort(() => Math.random() - 0.5);
+      setQuestions(selectedQuestions.slice(0, 8));
       setLoading(false);
       setQuestionStartTime(Date.now());
     };
@@ -117,6 +173,37 @@ const MissionPage = () => {
       .update({ status: "completed", score: finalScore })
       .eq("id", id);
     setCompleted(true);
+
+    // Atualizar XP e streak
+    const today = new Date().toISOString().split("T")[0];
+    const { data: currentProfile } = await supabase
+      .from("profiles")
+      .select("total_xp, current_streak, longest_streak, missions_completed, last_activity_date")
+      .eq("id", user.id)
+      .single();
+
+    if (currentProfile) {
+      const lastDate = currentProfile.last_activity_date;
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+      const newStreak = lastDate === yesterdayStr
+        ? (currentProfile.current_streak || 0) + 1
+        : lastDate === today
+          ? currentProfile.current_streak || 1
+          : 1;
+
+      const xpEarned = 10 + Math.round(finalScore * 0.5); // 10 base + up to 50 bonus
+
+      await supabase.from("profiles").update({
+        total_xp: (currentProfile.total_xp || 0) + xpEarned,
+        current_streak: newStreak,
+        longest_streak: Math.max(newStreak, currentProfile.longest_streak || 0),
+        missions_completed: (currentProfile.missions_completed || 0) + 1,
+        last_activity_date: today,
+      }).eq("id", user.id);
+    }
   };
 
   if (loading) {

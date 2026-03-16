@@ -22,7 +22,9 @@ const Performance = lazy(() => import("./pages/Performance"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Study = lazy(() => import("./pages/Study"));
 const Exams = lazy(() => import("./pages/Exams"));
+const ExamSession = lazy(() => import("./pages/ExamSession"));
 const MissionPage = lazy(() => import("./pages/MissionPage"));
+const Ranking = lazy(() => import("./pages/Ranking"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -56,7 +58,9 @@ const App = () => (
               <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
               <Route path="/study" element={<ProtectedRoute><Study /></ProtectedRoute>} />
               <Route path="/exams" element={<ProtectedRoute><Exams /></ProtectedRoute>} />
+              <Route path="/exam/:examId" element={<ProtectedRoute><ExamSession /></ProtectedRoute>} />
               <Route path="/mission/:type/:id" element={<ProtectedRoute><MissionPage /></ProtectedRoute>} />
+              <Route path="/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

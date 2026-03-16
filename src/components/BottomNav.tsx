@@ -1,12 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
-import { Home, BookOpen, FileText, BarChart3, User } from "lucide-react";
+import { Home, BookOpen, FileText, BarChart3, Trophy } from "lucide-react";
 
 const navItems = [
   { to: "/dashboard", icon: Home, label: "Início" },
   { to: "/study", icon: BookOpen, label: "Estudar" },
   { to: "/exams", icon: FileText, label: "Simulados" },
   { to: "/desempenho", icon: BarChart3, label: "Performance" },
-  { to: "/perfil", icon: User, label: "Perfil" },
+  { to: "/ranking", icon: Trophy, label: "Ranking" },
 ];
 
 const BottomNav = () => {

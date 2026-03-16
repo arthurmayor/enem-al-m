@@ -161,9 +161,12 @@ const Landing = () => {
           <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-white to-transparent z-10" />
           <div className="flex animate-marquee">
             {[...logos, ...logos].map((logo, i) => (
-              <span key={i} className="text-xl font-bold text-gray-300 whitespace-nowrap px-8 flex-shrink-0">
-                {logo}
-              </span>
+              <img
+                key={i}
+                src={logo.src}
+                alt={logo.name}
+                className="h-8 object-contain opacity-40 grayscale px-8 flex-shrink-0"
+              />
             ))}
           </div>
         </div>

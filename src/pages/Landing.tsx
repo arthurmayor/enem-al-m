@@ -32,7 +32,7 @@ const Landing = () => {
             <div className="h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
               <BookOpen className="h-3.5 w-3.5 text-background" />
             </div>
-            <span className="text-base font-bold text-foreground tracking-tight">Cátedra</span>
+            <span className="text-base font-bold text-foreground tracking-tight">Educ</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link to="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
@@ -55,8 +55,8 @@ const Landing = () => {
             <h1 className="text-4xl md:text-6xl font-extrabold text-foreground leading-[1.1] animate-fade-in">
               Estude com <span className="gradient-text">IA</span>.<br />Passe no vestibular.
             </h1>
-            <p className="mt-5 text-base text-muted-foreground max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "0.1s" }}>Estude com estratégia
-
+            <p className="mt-5 text-base text-muted-foreground max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "0.1s" }}>
+              Grátis para começar. Comece a aprender.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: "0.2s" }}>
               <Link
@@ -226,14 +226,14 @@ const Landing = () => {
               <div className="h-6 w-6 rounded-md bg-background/10 flex items-center justify-center">
                 <BookOpen className="h-3 w-3 text-background/60" />
               </div>
-              <span className="text-sm font-semibold text-background/60">Cátedra</span>
+              <span className="text-sm font-semibold text-background/60">Educ</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-background/40">
               <a href="#" className="hover:text-background/60 transition-colors">Termos</a>
               <a href="#" className="hover:text-background/60 transition-colors">Privacidade</a>
               <a href="#" className="hover:text-background/60 transition-colors">Contato</a>
             </div>
-            <p className="text-xs text-background/30">© 2026 Cátedra</p>
+            <p className="text-xs text-background/30">© 2026 Educ</p>
           </div>
         </div>
       </footer>

@@ -32,7 +32,7 @@ const Landing = () => {
             <div className="h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
               <BookOpen className="h-3.5 w-3.5 text-background" />
             </div>
-            <span className="text-base font-bold text-foreground tracking-tight">Cátedra</span>
+            <span className="text-base font-bold text-foreground tracking-tight">Educ</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link to="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">

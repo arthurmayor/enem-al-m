@@ -56,7 +56,7 @@ const Landing = () => {
       <section className="pt-20 md:pt-24 pb-12 md:pb-16">
         <div className="max-w-[1100px] mx-auto px-4 text-center">
           <h1 className="text-5xl md:text-6xl font-semibold text-[#0A0A0A] leading-[1.1] tracking-[-0.02em]">
-            Seu tutor com IA para o vestibular.
+            Estude menos. Aprenda mais.
           </h1>
           <p className="mt-6 text-lg text-gray-500 font-normal max-w-[600px] mx-auto">
             Plano de estudos personalizado, simulados adaptativos, tutor inteligente, e muito mais.

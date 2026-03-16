@@ -22,7 +22,20 @@ const faqs = [
   { q: "Posso usar no celular?", a: "Sim, a plataforma é totalmente responsiva e funciona em qualquer dispositivo." },
 ];
 
-const logos = ["USP", "UNICAMP", "UNESP", "INSPER", "FGV", "PUC", "UFMG", "UFRJ", "MACKENZIE", "ALBERT EINSTEIN", "FUVEST", "OAB"];
+const logos = [
+  { name: "USP", src: "/logos/usp.png" },
+  { name: "UNICAMP", src: "/logos/unicamp.png" },
+  { name: "UNESP", src: "/logos/unesp.png" },
+  { name: "INSPER", src: "/logos/insper.png" },
+  { name: "FGV", src: "/logos/fgv.png" },
+  { name: "PUC", src: "/logos/puc.png" },
+  { name: "UFMG", src: "/logos/ufmg.png" },
+  { name: "UFRJ", src: "/logos/ufrj.png" },
+  { name: "MACKENZIE", src: "/logos/mackenzie.png" },
+  { name: "ALBERT EINSTEIN", src: "/logos/einstein.png" },
+  { name: "FUVEST", src: "/logos/fuvest.png" },
+  { name: "OAB", src: "/logos/oab.png" },
+];
 
 const Landing = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -148,9 +161,12 @@ const Landing = () => {
           <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-white to-transparent z-10" />
           <div className="flex animate-marquee">
             {[...logos, ...logos].map((logo, i) => (
-              <span key={i} className="text-xl font-bold text-gray-300 whitespace-nowrap px-8 flex-shrink-0">
-                {logo}
-              </span>
+              <img
+                key={i}
+                src={logo.src}
+                alt={logo.name}
+                className="h-8 object-contain opacity-40 grayscale px-8 flex-shrink-0"
+              />
             ))}
           </div>
         </div>

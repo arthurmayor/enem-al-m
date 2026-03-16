@@ -18,10 +18,7 @@ const DiagnosticLoading = () => {
   const hasStarted = useRef(false);
 
   useEffect(() => {
-    const tipInterval = setInterval(() => {
-      setCurrentTip((prev) => (prev + 1) % tips.length);
-    }, 2500);
-
+    const tipInterval = setInterval(() => { setCurrentTip((prev) => (prev + 1) % tips.length); }, 2500);
     return () => clearInterval(tipInterval);
   }, []);
 
@@ -31,77 +28,37 @@ const DiagnosticLoading = () => {
 
     const runAnalysis = async () => {
       try {
-        const { data: answers, error: answersError } = await supabase
-          .from("answer_history")
-          .select("*")
-          .eq("user_id", user.id)
-          .eq("context", "diagnostic")
-          .order("created_at", { ascending: true });
-
+        const { data: answers, error: answersError } = await supabase.from("answer_history").select("*").eq("user_id", user.id).eq("context", "diagnostic").order("created_at", { ascending: true });
         if (answersError) throw new Error(answersError.message);
-        if (!answers?.length) {
-          setError("Nenhuma resposta de diagnóstico encontrada.");
-          return;
-        }
+        if (!answers?.length) { setError("Nenhuma resposta de diagnóstico encontrada."); return; }
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("name, education_goal, school_year, desired_course, exam_date, hours_per_day, study_days")
-          .eq("id", user.id)
-          .single();
-
+        const { data: profile } = await supabase.from("profiles").select("name, education_goal, school_year, desired_course, exam_date, hours_per_day, study_days").eq("id", user.id).single();
         const userProfile = profile || {};
 
-        const { data: analysis, error: invokeError } = await supabase.functions.invoke("analyze-diagnostic", {
-          body: { answers, userProfile },
-        });
+        const { data: analysis, error: invokeError } = await supabase.functions.invoke("analyze-diagnostic", { body: { answers, userProfile } });
 
         if (invokeError) {
           let errorDetail = invokeError.message;
-          try {
-            if (invokeError.context && typeof invokeError.context.json === "function") {
-              const body = await invokeError.context.json();
-              errorDetail = body.error || JSON.stringify(body);
-            }
-          } catch (e) {
-            // ignore parse error
-          }
+          try { if (invokeError.context && typeof invokeError.context.json === "function") { const body = await invokeError.context.json(); errorDetail = body.error || JSON.stringify(body); } } catch (e) { /* ignore */ }
           throw new Error(errorDetail);
         }
         if (analysis?.error) throw new Error(analysis.error);
 
         const { proficiency, overall_readiness, priority_areas, summary } = analysis;
 
-        // Delete old diagnostic scores for this user
-        await supabase
-          .from("proficiency_scores")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("source", "diagnostic");
+        await supabase.from("proficiency_scores").delete().eq("user_id", user.id).eq("source", "diagnostic");
 
-        // Insert one row per subject/subtopic
         if (proficiency && proficiency.length > 0) {
           const rows = proficiency.map((p: { subject: string; subtopic: string; score: number; confidence: number }) => ({
-            user_id: user.id,
-            subject: p.subject,
-            subtopic: p.subtopic,
-            score: Math.min(1, Math.max(0, p.score)),
-            confidence: p.confidence ?? 0.5,
-            source: "diagnostic",
-            measured_at: new Date().toISOString(),
+            user_id: user.id, subject: p.subject, subtopic: p.subtopic,
+            score: Math.min(1, Math.max(0, p.score)), confidence: p.confidence ?? 0.5,
+            source: "diagnostic", measured_at: new Date().toISOString(),
           }));
           const { error: saveError } = await supabase.from("proficiency_scores").insert(rows);
           if (saveError) throw new Error(saveError.message);
         }
 
-        navigate("/diagnostic/results", {
-          state: {
-            proficiency,
-            overall_readiness,
-            priority_areas,
-            summary,
-          },
-        });
+        navigate("/diagnostic/results", { state: { proficiency, overall_readiness, priority_areas, summary } });
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erro ao analisar diagnóstico.");
       }
@@ -115,10 +72,7 @@ const DiagnosticLoading = () => {
       <div className="min-h-screen bg-background flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <p className="text-destructive font-medium">{error}</p>
-          <button
-            onClick={() => navigate("/diagnostic/intro")}
-            className="mt-4 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold"
-          >
+          <button onClick={() => navigate("/diagnostic/intro")} className="mt-4 px-4 py-2 rounded-xl gradient-bg text-primary-foreground text-sm font-semibold">
             Voltar
           </button>
         </div>
@@ -137,7 +91,7 @@ const DiagnosticLoading = () => {
             <Brain className="h-8 w-8 text-primary" />
           </div>
         </div>
-        <h1 className="text-2xl font-bold text-foreground">Analisando suas respostas...</h1>
+        <h1 className="text-2xl font-extrabold text-foreground">Analisando suas respostas...</h1>
         <div className="mt-8 flex items-center gap-3 justify-center text-muted-foreground animate-fade-in" key={currentTip}>
           <tip.icon className="h-5 w-5 text-primary shrink-0" />
           <p className="text-sm">{tip.text}</p>

@@ -6,15 +6,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 
+interface ProfileData {
+  name: string | null;
+  education_goal: string | null;
+  school_year: string | null;
+  hours_per_day: number | null;
+  exam_date: string | null;
+  target_universities: string[] | null;
+  total_xp: number | null;
+  current_streak: number | null;
+  missions_completed: number | null;
+  exams_completed: number | null;
+}
+
 const Profile = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const [profile, setProfile] = useState<Record<string, string | number | boolean | string[] | null> | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("*").eq("id", user.id).single().then(({ data }) => {
+    supabase.from("profiles").select("name, education_goal, school_year, hours_per_day, exam_date, target_universities, total_xp, current_streak, missions_completed, exams_completed").eq("id", user.id).single().then(({ data }) => {
       setProfile(data);
       setLoading(false);
     });
@@ -37,12 +50,12 @@ const Profile = () => {
     { icon: BookOpen, label: "Objetivo", value: profile?.education_goal?.toUpperCase() || "—" },
     { icon: User, label: "Série", value: profile?.school_year || "—" },
     { icon: Clock, label: "Horas/dia", value: profile?.hours_per_day ? `${profile.hours_per_day}h` : "—" },
-    { icon: Calendar, label: "Data do exame", value: profile?.exam_date ? new Date(profile.exam_date).toLocaleDateString("pt-BR") : "—" },
+    { icon: Calendar, label: "Data do exame", value: profile?.exam_date ? new Date(profile.exam_date as string).toLocaleDateString("pt-BR") : "—" },
   ];
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 z-40 bg-card/80 backdrop-blur-md shadow-rest">
+      <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-xl border-b border-border/50">
         <div className="container mx-auto flex h-14 items-center px-4 max-w-3xl">
           <span className="text-base font-bold text-foreground">Perfil</span>
         </div>
@@ -51,7 +64,7 @@ const Profile = () => {
       <main className="container mx-auto px-4 py-6 max-w-3xl">
         {/* User Info */}
         <div className="flex items-center gap-4 animate-fade-in">
-          <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xl font-bold">
+          <div className="h-16 w-16 rounded-2xl gradient-bg flex items-center justify-center text-primary-foreground text-xl font-bold">
             {profile?.name?.charAt(0) || "?"}
           </div>
           <div>
@@ -60,12 +73,34 @@ const Profile = () => {
           </div>
         </div>
 
+        {/* Stats */}
+        <div className="mt-6 grid grid-cols-4 gap-2 animate-fade-in" style={{ animationDelay: "0.05s" }}>
+          <div className="p-3 bg-card rounded-2xl border border-border/50 text-center">
+            <p className="text-lg font-extrabold text-xp">{profile?.total_xp || 0}</p>
+            <p className="text-[10px] text-muted-foreground font-medium">XP</p>
+          </div>
+          <div className="p-3 bg-card rounded-2xl border border-border/50 text-center">
+            <p className="text-lg font-extrabold text-warning">{profile?.current_streak || 0}</p>
+            <p className="text-[10px] text-muted-foreground font-medium">Streak</p>
+          </div>
+          <div className="p-3 bg-card rounded-2xl border border-border/50 text-center">
+            <p className="text-lg font-extrabold text-primary">{profile?.missions_completed || 0}</p>
+            <p className="text-[10px] text-muted-foreground font-medium">Missões</p>
+          </div>
+          <div className="p-3 bg-card rounded-2xl border border-border/50 text-center">
+            <p className="text-lg font-extrabold text-success">{profile?.exams_completed || 0}</p>
+            <p className="text-[10px] text-muted-foreground font-medium">Provas</p>
+          </div>
+        </div>
+
         {/* Info Cards */}
         <div className="mt-8 space-y-3 animate-fade-in" style={{ animationDelay: "0.1s" }}>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Informações</h2>
           {infoItems.map((item) => (
-            <div key={item.label} className="flex items-center gap-3 p-4 bg-card rounded-xl shadow-rest">
-              <item.icon className="h-5 w-5 text-primary shrink-0" />
+            <div key={item.label} className="flex items-center gap-3 p-4 bg-card rounded-2xl border border-border/50">
+              <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                <item.icon className="h-4 w-4 text-primary" />
+              </div>
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground">{item.label}</p>
                 <p className="text-sm font-semibold text-foreground">{item.value}</p>
@@ -75,12 +110,12 @@ const Profile = () => {
         </div>
 
         {/* Universities */}
-        {profile?.target_universities?.length > 0 && (
+        {profile?.target_universities && profile.target_universities.length > 0 && (
           <div className="mt-6 animate-fade-in" style={{ animationDelay: "0.15s" }}>
             <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Universidades Alvo</h2>
             <div className="flex gap-2 flex-wrap">
-              {profile.target_universities.map((uni: string) => (
-                <span key={uni} className="px-3 py-1.5 rounded-full bg-primary/5 text-sm font-semibold text-primary">
+              {profile.target_universities.map((uni) => (
+                <span key={uni} className="px-3 py-1.5 rounded-full bg-primary/10 text-sm font-semibold text-primary border border-primary/20">
                   {uni}
                 </span>
               ))}
@@ -88,18 +123,18 @@ const Profile = () => {
           </div>
         )}
 
-        {/* Subscription Placeholder */}
+        {/* Subscription */}
         <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Plano</h2>
-          <div className="p-5 bg-card rounded-xl shadow-rest">
+          <div className="p-5 bg-card rounded-2xl border border-border/50" style={{ borderImage: "linear-gradient(135deg, hsl(239 84% 67%), hsl(263 70% 50%)) 1" }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-foreground">Plano Gratuito</p>
+                <p className="text-sm font-bold text-foreground">Plano Gratuito</p>
                 <p className="text-xs text-muted-foreground mt-0.5">Acesso básico à plataforma</p>
               </div>
-              <span className="px-3 py-1 rounded-full bg-primary/5 text-xs font-semibold text-primary">Ativo</span>
+              <span className="px-3 py-1 rounded-full bg-primary/10 text-xs font-semibold text-primary">Ativo</span>
             </div>
-            <button className="mt-4 w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-all">
+            <button className="mt-4 w-full h-10 rounded-xl gradient-bg text-primary-foreground text-sm font-semibold hover:opacity-90 transition-all shadow-[0_2px_8px_rgba(99,102,241,0.25)]">
               Upgrade para Premium — R$29,90/mês
             </button>
           </div>
@@ -108,7 +143,7 @@ const Profile = () => {
         {/* Account Actions */}
         <div className="mt-8 space-y-2 animate-fade-in" style={{ animationDelay: "0.3s" }}>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Conta</h2>
-          <button className="w-full flex items-center justify-between p-4 bg-card rounded-xl shadow-rest text-foreground hover:shadow-interactive transition-all">
+          <button className="w-full flex items-center justify-between p-4 bg-card rounded-2xl border border-border/50 text-foreground hover:shadow-interactive transition-all">
             <div className="flex items-center gap-3">
               <Shield className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm font-medium">Alterar Senha</span>
@@ -117,7 +152,7 @@ const Profile = () => {
           </button>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 p-4 bg-card rounded-xl shadow-rest text-destructive hover:shadow-interactive transition-all"
+            className="w-full flex items-center gap-3 p-4 bg-card rounded-2xl border border-border/50 text-destructive hover:shadow-interactive transition-all"
           >
             <LogOut className="h-5 w-5" />
             <span className="text-sm font-medium">Sair da conta</span>

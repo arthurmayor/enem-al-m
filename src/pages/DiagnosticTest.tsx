@@ -6,13 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 const subjects = ["Matemática", "Português", "Biologia", "Química", "Física", "História", "Geografia"];
 
-// Mock questions for when DB has no questions
 const mockQuestions = subjects.flatMap((subject, si) =>
   Array.from({ length: 5 }, (_, qi) => ({
-    id: `mock-${si}-${qi}`,
-    subject,
-    subtopic: `Tópico ${qi + 1}`,
-    difficulty: 3,
+    id: `mock-${si}-${qi}`, subject, subtopic: `Tópico ${qi + 1}`, difficulty: 3,
     question_text: `[${subject}] Questão de exemplo ${qi + 1} — Esta é uma questão placeholder de dificuldade média. Selecione a alternativa correta.`,
     options: [
       { label: "A", text: "Alternativa A", is_correct: qi === 0 },
@@ -25,15 +21,7 @@ const mockQuestions = subjects.flatMap((subject, si) =>
   }))
 );
 
-interface Question {
-  id: string;
-  subject: string;
-  subtopic: string;
-  difficulty: number;
-  question_text: string;
-  options: { label: string; text: string; is_correct: boolean }[];
-  explanation: string;
-}
+interface Question { id: string; subject: string; subtopic: string; difficulty: number; question_text: string; options: { label: string; text: string; is_correct: boolean }[]; explanation: string; }
 
 const DiagnosticTest = () => {
   const navigate = useNavigate();
@@ -113,42 +101,38 @@ const DiagnosticTest = () => {
   }, [selectedOption, currentQuestion, currentIndex, questionStartTime, user, navigate]);
 
   if (loading || !currentQuestion) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>);
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-xl border-b border-border/50">
+    <div className="min-h-screen bg-white">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="flex items-center justify-between h-14">
-            <span className="text-sm font-bold text-foreground">Questão {currentIndex + 1} de 25</span>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-primary/10 text-primary">{currentSubject}</span>
+            <span className="text-sm font-semibold text-foreground">Questão {currentIndex + 1} de 25</span>
+            <span className="text-xs font-medium px-3 py-1 rounded-full bg-gray-100 text-foreground">{currentSubject}</span>
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               {formatTime(elapsedTime)}
             </div>
           </div>
-          <div className="h-1.5 bg-muted rounded-full -mt-1 mb-1">
-            <div className="h-1.5 gradient-bg rounded-full transition-all duration-500 ease-out" style={{ width: `${((currentIndex + 1) / 25) * 100}%` }} />
+          <div className="h-1.5 bg-gray-100 rounded-full -mt-1 mb-1">
+            <div className="h-1.5 bg-foreground rounded-full transition-all duration-500 ease-out" style={{ width: `${((currentIndex + 1) / 25) * 100}%` }} />
           </div>
         </div>
       </header>
 
       {usingMock && (
-        <div className="bg-warning/10 border-b border-warning/20 px-4 py-2">
-          <p className="text-xs text-center text-warning font-medium max-w-3xl mx-auto">
-            ⚠ Modo demonstração — banco de questões vazio. Importe questões no Supabase para diagnóstico real.
+        <div className="bg-gray-50 border-b border-gray-200 px-4 py-2">
+          <p className="text-xs text-center text-muted-foreground font-medium max-w-3xl mx-auto">
+            Modo demonstração — banco de questões vazio. Importe questões para diagnóstico real.
           </p>
         </div>
       )}
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="animate-fade-in" key={currentIndex}>
-          <p className="text-lg font-bold text-foreground leading-relaxed">{currentQuestion.question_text}</p>
+          <p className="text-lg font-semibold text-foreground leading-relaxed">{currentQuestion.question_text}</p>
 
           <div className="mt-8 space-y-3">
             {currentQuestion.options.map((option) => {
@@ -160,17 +144,17 @@ const DiagnosticTest = () => {
               if (showResult) {
                 if (isCorrect) optionClasses += "bg-success/10 shadow-[inset_0_0_0_2px_hsl(var(--success))]";
                 else if (isSelected && !isCorrect) optionClasses += "bg-destructive/10 shadow-[inset_0_0_0_2px_hsl(var(--destructive))]";
-                else optionClasses += "bg-background opacity-50";
+                else optionClasses += "bg-white opacity-50";
               } else {
-                optionClasses += "bg-card border border-border/50 hover:border-primary/30 hover:shadow-interactive cursor-pointer";
+                optionClasses += "bg-white border border-gray-200 hover:border-gray-400 hover:shadow-md cursor-pointer";
               }
 
               return (
                 <button key={option.label} onClick={() => handleAnswer(option.label)} disabled={!!selectedOption} className={optionClasses}>
-                  <span className={`h-8 w-8 shrink-0 rounded-xl flex items-center justify-center text-sm font-bold ${
+                  <span className={`h-8 w-8 shrink-0 rounded-xl flex items-center justify-center text-sm font-semibold ${
                     showResult && isCorrect ? "bg-success text-success-foreground" :
                     showResult && isSelected ? "bg-destructive text-destructive-foreground" :
-                    "bg-muted text-muted-foreground"
+                    "bg-gray-100 text-muted-foreground"
                   }`}>{option.label}</span>
                   <span className="text-sm text-foreground pt-1">{option.text}</span>
                 </button>
@@ -180,7 +164,7 @@ const DiagnosticTest = () => {
 
           <div className="mt-6 flex items-center justify-center gap-1">
             {[1, 2, 3, 4, 5].map((d) => (
-              <div key={d} className={`h-1.5 w-6 rounded-full transition-all ${d <= difficulty ? "gradient-bg" : "bg-muted"}`} />
+              <div key={d} className={`h-1.5 w-6 rounded-full transition-all ${d <= difficulty ? "bg-foreground" : "bg-gray-200"}`} />
             ))}
             <span className="ml-2 text-[10px] text-muted-foreground">Dificuldade</span>
           </div>

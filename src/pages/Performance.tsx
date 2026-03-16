@@ -6,30 +6,10 @@ import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, RadarChart
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
-interface ProficiencyRow {
-  subject: string;
-  subtopic: string;
-  score: number;
-  measured_at: string;
-  source: string;
-}
-
-interface MissionRow {
-  status: string;
-  score: number | null;
-  date: string;
-}
-
-interface AnswerRow {
-  is_correct: boolean;
-  created_at: string;
-}
-
-interface SubtopicError {
-  name: string;
-  subject: string;
-  gap: number;
-}
+interface ProficiencyRow { subject: string; subtopic: string; score: number; measured_at: string; source: string; }
+interface MissionRow { status: string; score: number | null; date: string; }
+interface AnswerRow { is_correct: boolean; created_at: string; }
+interface SubtopicError { name: string; subject: string; gap: number; }
 
 const Performance = () => {
   const { user } = useAuth();
@@ -47,14 +27,11 @@ const Performance = () => {
     const fetchAll = async () => {
       const { data: profData } = await supabase.from("proficiency_scores").select("subject, subtopic, score, measured_at, source").eq("user_id", user.id).order("measured_at", { ascending: true });
       if (profData) setProficiencyData(profData);
-
       const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
       const { data: missionData } = await supabase.from("daily_missions").select("status, score, date").eq("user_id", user.id).gte("date", weekAgo.toISOString().split("T")[0]);
       if (missionData) setMissions(missionData);
-
       const { data: answerData } = await supabase.from("answer_history").select("is_correct, created_at").eq("user_id", user.id).gte("created_at", weekAgo.toISOString());
       if (answerData) setAnswers(answerData);
-
       if (profData) {
         const errorMap: Record<string, SubtopicError> = {};
         profData.filter((p) => p.score < 0.5).forEach((p) => {
@@ -63,13 +40,10 @@ const Performance = () => {
         });
         setSubtopicErrors(Object.values(errorMap).sort((a, b) => b.gap - a.gap).slice(0, 5));
       }
-
       const { data: examData } = await supabase.from("exam_results").select("exam_name, score_percent, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5);
       if (examData) setExamHistory(examData);
-
       const { data: profileStatsData } = await supabase.from("profiles").select("total_xp, current_streak, longest_streak, missions_completed, exams_completed").eq("id", user.id).single();
       if (profileStatsData) setProfileStats(profileStatsData);
-
       setLoading(false);
     };
     fetchAll();
@@ -78,7 +52,6 @@ const Performance = () => {
   const completedMissions = missions.filter((m) => m.status === "completed").length;
   const totalMissions = missions.length;
   const accuracyRate = answers.length > 0 ? Math.round((answers.filter((a) => a.is_correct).length / answers.length) * 100) : 0;
-
   const subjects = [...new Set(proficiencyData.map((p) => p.subject))];
   const subjectFilters = ["all", ...subjects];
 
@@ -103,57 +76,52 @@ const Performance = () => {
   const probColor = passProb >= 70 ? "text-success" : passProb >= 40 ? "text-warning" : "text-destructive";
   const probBg = passProb >= 70 ? "bg-success/10" : passProb >= 40 ? "bg-warning/10" : "bg-destructive/10";
 
-  const chartColors: Record<string, string> = {
-    "Matemática": "hsl(var(--primary))", "Português": "hsl(var(--success))", "Física": "hsl(var(--warning))",
-    "Química": "hsl(var(--accent))", "Biologia": "hsl(142 64% 40%)", "História": "hsl(var(--destructive))", "Geografia": "hsl(28 80% 52%)",
-  };
-
   const hasData = proficiencyData.length > 0;
 
-  if (loading) { return (<div className="min-h-screen bg-background flex items-center justify-center"><div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>); }
+  if (loading) { return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>); }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-xl border-b border-border/50">
+    <div className="min-h-screen bg-white pb-20">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
         <div className="container mx-auto flex h-14 items-center gap-3 px-4 max-w-3xl">
           <Link to="/dashboard" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
-          <span className="text-base font-bold text-foreground">Performance</span>
+          <span className="text-base font-semibold text-foreground">Performance</span>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-3xl">
         {!hasData ? (
           <div className="text-center py-16 animate-fade-in">
-            <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4"><ArrowLeft className="h-6 w-6 text-muted-foreground rotate-180" /></div>
-            <h2 className="text-lg font-bold text-foreground">Sem dados ainda</h2>
+            <div className="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4"><ArrowLeft className="h-6 w-6 text-muted-foreground rotate-180" /></div>
+            <h2 className="text-lg font-semibold text-foreground">Sem dados ainda</h2>
             <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto">Complete o diagnóstico e algumas missões para ver suas estatísticas aqui.</p>
-            <Link to="/diagnostic/intro" className="mt-6 inline-flex items-center gap-1 text-sm font-semibold text-primary">Fazer diagnóstico</Link>
+            <Link to="/diagnostic/intro" className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-foreground">Fazer diagnóstico</Link>
           </div>
         ) : (
           <>
             <div className="text-center animate-fade-in">
-              <div className={`inline-flex items-center justify-center h-24 w-24 rounded-full ${probBg} ${probColor} text-3xl font-extrabold`}>{passProb}%</div>
-              <p className="mt-3 text-sm font-bold text-foreground">Probabilidade de Aprovação</p>
+              <div className={`inline-flex items-center justify-center h-24 w-24 rounded-full ${probBg} ${probColor} text-3xl font-semibold`}>{passProb}%</div>
+              <p className="mt-3 text-sm font-semibold text-foreground">Probabilidade de Aprovação</p>
               <p className="text-xs text-muted-foreground">Estimativa baseada no seu desempenho</p>
             </div>
 
             <div className="mt-8 grid grid-cols-2 gap-3 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-              <div className="p-4 bg-card rounded-2xl border border-border/50"><p className="text-lg font-extrabold text-foreground">{completedMissions}/{totalMissions}</p><p className="text-xs text-muted-foreground mt-1">Missões completadas</p></div>
-              <div className="p-4 bg-card rounded-2xl border border-border/50"><p className="text-lg font-extrabold text-foreground">{accuracyRate}%</p><p className="text-xs text-muted-foreground mt-1">Taxa de acerto</p></div>
-              <div className="p-4 bg-card rounded-2xl border border-border/50"><p className="text-lg font-extrabold text-foreground">{answers.length}</p><p className="text-xs text-muted-foreground mt-1">Questões respondidas</p></div>
-              <div className="p-4 bg-card rounded-2xl border border-border/50"><p className="text-lg font-extrabold text-foreground">{subjects.length}</p><p className="text-xs text-muted-foreground mt-1">Matérias avaliadas</p></div>
+              <div className="p-4 bg-gray-50 rounded-2xl"><p className="text-lg font-semibold text-foreground">{completedMissions}/{totalMissions}</p><p className="text-xs text-muted-foreground mt-1">Missões completadas</p></div>
+              <div className="p-4 bg-gray-50 rounded-2xl"><p className="text-lg font-semibold text-foreground">{accuracyRate}%</p><p className="text-xs text-muted-foreground mt-1">Taxa de acerto</p></div>
+              <div className="p-4 bg-gray-50 rounded-2xl"><p className="text-lg font-semibold text-foreground">{answers.length}</p><p className="text-xs text-muted-foreground mt-1">Questões respondidas</p></div>
+              <div className="p-4 bg-gray-50 rounded-2xl"><p className="text-lg font-semibold text-foreground">{subjects.length}</p><p className="text-xs text-muted-foreground mt-1">Matérias avaliadas</p></div>
             </div>
 
             {profileStats && (
               <div className="mt-4 flex gap-3 animate-fade-in" style={{ animationDelay: "0.15s" }}>
-                <div className="flex-1 p-4 bg-card rounded-2xl border border-border/50 text-center">
-                  <div className="flex items-center justify-center gap-1 mb-1"><Flame className="h-4 w-4 text-warning" /></div>
-                  <p className="text-2xl font-extrabold text-warning">{profileStats.current_streak || 0}</p>
+                <div className="flex-1 p-4 bg-gray-50 rounded-2xl text-center">
+                  <div className="flex items-center justify-center gap-1 mb-1"><Flame className="h-4 w-4 text-foreground" /></div>
+                  <p className="text-2xl font-semibold text-foreground">{profileStats.current_streak || 0}</p>
                   <p className="text-xs text-muted-foreground mt-1">Dias seguidos</p>
                 </div>
-                <div className="flex-1 p-4 bg-card rounded-2xl border border-border/50 text-center">
-                  <div className="flex items-center justify-center gap-1 mb-1"><Zap className="h-4 w-4 text-xp" /></div>
-                  <p className="text-2xl font-extrabold text-xp">{profileStats.total_xp || 0}</p>
+                <div className="flex-1 p-4 bg-gray-50 rounded-2xl text-center">
+                  <div className="flex items-center justify-center gap-1 mb-1"><Zap className="h-4 w-4 text-foreground" /></div>
+                  <p className="text-2xl font-semibold text-foreground">{profileStats.total_xp || 0}</p>
                   <p className="text-xs text-muted-foreground mt-1">XP total</p>
                 </div>
               </div>
@@ -161,8 +129,8 @@ const Performance = () => {
 
             {subjects.length >= 3 && (
               <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.25s" }}>
-                <h2 className="text-base font-bold text-foreground mb-4">Perfil por Matéria</h2>
-                <div className="bg-card rounded-2xl border border-border/50 p-4 flex justify-center">
+                <h2 className="text-base font-semibold text-foreground mb-4">Perfil por Matéria</h2>
+                <div className="bg-gray-50 rounded-2xl p-4 flex justify-center">
                   <ResponsiveContainer width={280} height={250}>
                     <RadarChart data={subjects.map(s => {
                       const rows = proficiencyData.filter(p => p.subject === s);
@@ -172,7 +140,7 @@ const Performance = () => {
                       <PolarGrid stroke="hsl(var(--border))" />
                       <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
                       <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9 }} />
-                      <Radar dataKey="score" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.2} strokeWidth={2} />
+                      <Radar dataKey="score" stroke="hsl(var(--foreground))" fill="hsl(var(--foreground))" fillOpacity={0.1} strokeWidth={2} />
                     </RadarChart>
                   </ResponsiveContainer>
                 </div>
@@ -181,14 +149,14 @@ const Performance = () => {
 
             {examHistory.length > 0 && (
               <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.35s" }}>
-                <h2 className="text-base font-bold text-foreground mb-4">Últimos Simulados</h2>
+                <h2 className="text-base font-semibold text-foreground mb-4">Últimos Simulados</h2>
                 <div className="space-y-2">
                   {examHistory.map((e, i) => {
                     const c = e.score_percent >= 70 ? "text-success bg-success/10" : e.score_percent >= 40 ? "text-warning bg-warning/10" : "text-destructive bg-destructive/10";
                     return (
-                      <div key={i} className="flex items-center justify-between p-4 bg-card rounded-2xl border border-border/50">
-                        <div><p className="text-sm font-bold text-foreground">{e.exam_name}</p><p className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleDateString("pt-BR")}</p></div>
-                        <span className={`text-sm font-bold px-3 py-1 rounded-full ${c}`}>{Math.round(e.score_percent)}%</span>
+                      <div key={i} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100">
+                        <div><p className="text-sm font-semibold text-foreground">{e.exam_name}</p><p className="text-xs text-muted-foreground">{new Date(e.created_at).toLocaleDateString("pt-BR")}</p></div>
+                        <span className={`text-sm font-semibold px-3 py-1 rounded-full ${c}`}>{Math.round(e.score_percent)}%</span>
                       </div>
                     );
                   })}
@@ -198,23 +166,23 @@ const Performance = () => {
 
             {chartData.length > 0 && (
               <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-                <h2 className="text-base font-bold text-foreground mb-4">Evolução por Matéria</h2>
+                <h2 className="text-base font-semibold text-foreground mb-4">Evolução por Matéria</h2>
                 <div className="flex gap-2 mb-4 overflow-x-auto">
                   {subjectFilters.map((s) => (
                     <button key={s} onClick={() => setSelectedSubject(s)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all shrink-0 ${selectedSubject === s ? "gradient-bg text-primary-foreground" : "bg-card border border-border/50 text-foreground"}`}>
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 ${selectedSubject === s ? "bg-foreground text-white" : "bg-white border border-gray-200 text-foreground"}`}>
                       {s === "all" ? "Todas" : s}
                     </button>
                   ))}
                 </div>
-                <div className="bg-card rounded-2xl border border-border/50 p-4 h-52">
+                <div className="bg-gray-50 rounded-2xl p-4 h-52">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                       <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                       <Tooltip />
                       {subjects.filter((s) => selectedSubject === "all" || selectedSubject === s).map((s) => (
-                        <Line key={s} type="monotone" dataKey={s} stroke={chartColors[s] || "hsl(var(--primary))"} strokeWidth={2} dot={false} name={s} />
+                        <Line key={s} type="monotone" dataKey={s} stroke="hsl(var(--foreground))" strokeWidth={2} dot={false} name={s} />
                       ))}
                     </LineChart>
                   </ResponsiveContainer>
@@ -224,12 +192,12 @@ const Performance = () => {
 
             {subtopicErrors.length > 0 && (
               <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.3s" }}>
-                <h2 className="text-base font-bold text-foreground mb-4">Tópicos com Mais Dificuldade</h2>
+                <h2 className="text-base font-semibold text-foreground mb-4">Tópicos com Mais Dificuldade</h2>
                 <div className="space-y-2">
                   {subtopicErrors.map((t) => (
-                    <div key={`${t.subject}-${t.name}`} className="flex items-center justify-between p-4 bg-card rounded-2xl border border-border/50">
-                      <div><p className="text-sm font-bold text-foreground">{t.name}</p><p className="text-xs text-muted-foreground">{t.subject}</p></div>
-                      <span className="text-xs font-semibold px-2 py-1 rounded-full bg-destructive/10 text-destructive">{t.gap}% lacuna</span>
+                    <div key={`${t.subject}-${t.name}`} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100">
+                      <div><p className="text-sm font-semibold text-foreground">{t.name}</p><p className="text-xs text-muted-foreground">{t.subject}</p></div>
+                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-destructive/10 text-destructive">{t.gap}% lacuna</span>
                     </div>
                   ))}
                 </div>

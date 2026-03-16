@@ -5,13 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface ExamOption {
-  id: string;
-  label: string;
-  desc: string;
-}
+interface ExamOption { id: string; label: string; desc: string; }
 
-// options arrays
 const examOptions: ExamOption[] = [
   { id: "enem", label: "ENEM", desc: "Exame Nacional do Ensino Médio" },
   { id: "fuvest", label: "Fuvest", desc: "Vestibular da USP" },
@@ -86,43 +81,43 @@ const Onboarding = () => {
   const handleNext = () => { if (step < 3) setStep(step + 1); else handleFinish(); };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-lg">
         <div className="flex items-center justify-center gap-2.5 mb-10">
-          <div className="h-9 w-9 rounded-xl gradient-bg flex items-center justify-center">
-            <BookOpen className="h-5 w-5 text-primary-foreground" />
+          <div className="h-9 w-9 rounded-xl bg-foreground flex items-center justify-center">
+            <BookOpen className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-foreground tracking-tight">Cátedra</span>
+          <span className="text-xl font-semibold text-foreground tracking-tight">Cátedra</span>
         </div>
 
         {/* Progress */}
         <div className="flex items-center gap-2 mb-8 justify-center">
           {[1, 2, 3].map((s) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-sm font-bold transition-all duration-200 ${
-                s <= step ? "gradient-bg text-primary-foreground" : "bg-muted text-muted-foreground"
+              <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-sm font-semibold transition-all duration-200 ${
+                s <= step ? "bg-foreground text-white" : "bg-gray-100 text-muted-foreground"
               }`}>
                 {s < step ? <Check className="h-4 w-4" /> : s}
               </div>
-              {s < 3 && <div className={`w-12 h-0.5 rounded-full ${s < step ? "gradient-bg" : "bg-muted"}`} />}
+              {s < 3 && <div className={`w-12 h-0.5 rounded-full ${s < step ? "bg-foreground" : "bg-gray-200"}`} />}
             </div>
           ))}
         </div>
 
-        <div className="bg-card rounded-2xl border border-border/50 p-8">
+        <div className="bg-white rounded-2xl border border-gray-200 p-8">
           {step === 1 && (
             <div className="animate-fade-in">
-              <h2 className="text-xl font-bold text-foreground text-center">Qual é o seu objetivo?</h2>
+              <h2 className="text-xl font-semibold text-foreground text-center">Qual é o seu objetivo?</h2>
               <p className="text-sm text-muted-foreground text-center mt-1">Selecione o exame e o curso desejado</p>
               <div className="mt-6 grid grid-cols-2 gap-3">
                 {examOptions.map((exam) => (
                   <button key={exam.id} onClick={() => setSelectedExam(exam.id)}
                     className={`p-4 rounded-2xl text-left transition-all duration-200 ${
                       selectedExam === exam.id
-                        ? "bg-primary/5 shadow-[inset_0_0_0_2px_hsl(var(--primary))]"
-                        : "bg-background border border-border/50 hover:border-primary/30 hover:shadow-interactive"
+                        ? "bg-gray-50 shadow-[inset_0_0_0_2px_hsl(var(--foreground))]"
+                        : "bg-white border border-gray-200 hover:border-gray-400 hover:shadow-md"
                     }`}>
-                    <span className="font-bold text-foreground text-sm">{exam.label}</span>
+                    <span className="font-semibold text-foreground text-sm">{exam.label}</span>
                     <span className="block text-xs text-muted-foreground mt-0.5">{exam.desc}</span>
                   </button>
                 ))}
@@ -131,7 +126,7 @@ const Onboarding = () => {
                 <div className="mt-5">
                   <label className="text-sm font-medium text-foreground">{isVestibular ? "Curso desejado" : "Área de foco"}</label>
                   <select value={course} onChange={(e) => setCourse(e.target.value)}
-                    className="mt-1.5 w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
+                    className="mt-1.5 w-full h-11 px-4 rounded-xl bg-white border border-gray-200 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-foreground transition-all">
                     <option value="">Selecione...</option>
                     {courseOptions.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
@@ -142,7 +137,7 @@ const Onboarding = () => {
 
           {step === 2 && (
             <div className="animate-fade-in">
-              <h2 className="text-xl font-bold text-foreground text-center">{isVestibular ? "Suas universidades alvo" : "Sobre você"}</h2>
+              <h2 className="text-xl font-semibold text-foreground text-center">{isVestibular ? "Suas universidades alvo" : "Sobre você"}</h2>
               <p className="text-sm text-muted-foreground text-center mt-1">{isVestibular ? "Selecione até 3 universidades" : "Nos conte mais para personalizar seu plano"}</p>
               <div className="mt-6 space-y-5">
                 {isVestibular && (
@@ -151,10 +146,10 @@ const Onboarding = () => {
                     <div className="mt-2 flex flex-wrap gap-2">
                       {universityOptions.map((uni) => (
                         <button key={uni} onClick={() => toggleUniversity(uni)}
-                          className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                          className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                             targetUniversities.includes(uni)
-                              ? "gradient-bg text-primary-foreground"
-                              : "bg-background border border-border/50 text-foreground hover:border-primary/30"
+                              ? "bg-foreground text-white"
+                              : "bg-white border border-gray-200 text-foreground hover:border-gray-400"
                           }`}>{uni}</button>
                       ))}
                     </div>
@@ -163,7 +158,7 @@ const Onboarding = () => {
                 <div>
                   <label className="text-sm font-medium text-foreground">Série / Escolaridade</label>
                   <select value={schoolYear} onChange={(e) => setSchoolYear(e.target.value)}
-                    className="mt-1.5 w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
+                    className="mt-1.5 w-full h-11 px-4 rounded-xl bg-white border border-gray-200 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-foreground transition-all">
                     <option value="">Selecione...</option>
                     {schoolYearOptions.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -171,7 +166,7 @@ const Onboarding = () => {
                 <div>
                   <label className="text-sm font-medium text-foreground">Idade</label>
                   <input type="number" min="13" max="60" value={age} onChange={(e) => setAge(e.target.value)}
-                    className="mt-1.5 w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    className="mt-1.5 w-full h-11 px-4 rounded-xl bg-white border border-gray-200 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-foreground transition-all"
                     placeholder="Sua idade" />
                 </div>
               </div>
@@ -180,7 +175,7 @@ const Onboarding = () => {
 
           {step === 3 && (
             <div className="animate-fade-in">
-              <h2 className="text-xl font-bold text-foreground text-center">Sua rotina de estudos</h2>
+              <h2 className="text-xl font-semibold text-foreground text-center">Sua rotina de estudos</h2>
               <p className="text-sm text-muted-foreground text-center mt-1">Quando e quanto você pode estudar?</p>
               <div className="mt-6 space-y-6">
                 <div>
@@ -188,8 +183,8 @@ const Onboarding = () => {
                   <div className="mt-3 flex gap-2 justify-center">
                     {weekDays.map((day) => (
                       <button key={day.id} onClick={() => toggleDay(day.id)}
-                        className={`h-10 w-10 rounded-xl text-xs font-bold transition-all duration-200 ${
-                          selectedDays.includes(day.id) ? "gradient-bg text-primary-foreground" : "bg-background text-muted-foreground border border-border/50 hover:border-primary/30"
+                        className={`h-10 w-10 rounded-full text-xs font-semibold transition-all duration-200 ${
+                          selectedDays.includes(day.id) ? "bg-foreground text-white" : "bg-white text-muted-foreground border border-gray-200 hover:border-gray-400"
                         }`}>{day.label}</button>
                     ))}
                   </div>
@@ -198,10 +193,10 @@ const Onboarding = () => {
                   <label className="text-sm font-medium text-foreground">Horas por dia</label>
                   <div className="mt-3">
                     <input type="range" min="1" max="8" value={hoursPerDay} onChange={(e) => setHoursPerDay(parseInt(e.target.value))}
-                      className="w-full accent-[hsl(var(--primary))]" />
+                      className="w-full accent-[hsl(var(--foreground))]" />
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
                       <span>1h</span>
-                      <span className="text-base font-extrabold text-foreground">{hoursPerDay}h/dia</span>
+                      <span className="text-base font-semibold text-foreground">{hoursPerDay}h/dia</span>
                       <span>8h</span>
                     </div>
                   </div>
@@ -210,7 +205,7 @@ const Onboarding = () => {
                 <div>
                   <label className="text-sm font-medium text-foreground">Data do próximo exame</label>
                   <input type="date" value={examDate} onChange={(e) => setExamDate(e.target.value)}
-                    className="mt-1.5 w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                    className="mt-1.5 w-full h-11 px-4 rounded-xl bg-white border border-gray-200 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-foreground transition-all" />
                 </div>
               </div>
             </div>
@@ -219,12 +214,12 @@ const Onboarding = () => {
           <div className="mt-8 flex gap-3">
             {step > 1 && (
               <button onClick={() => setStep(step - 1)}
-                className="flex-1 h-11 rounded-xl bg-background text-foreground text-sm font-medium border border-border/50 hover:shadow-interactive transition-all">
+                className="flex-1 h-11 rounded-full bg-white text-foreground text-sm font-medium border border-gray-200 hover:shadow-md transition-all">
                 Voltar
               </button>
             )}
             <button onClick={handleNext} disabled={!canProceed() || loading}
-              className="flex-1 h-11 rounded-xl gradient-bg text-primary-foreground text-sm font-semibold hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-40 shadow-[0_2px_8px_rgba(99,102,241,0.25)]">
+              className="flex-1 h-11 rounded-full bg-foreground text-white text-sm font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all duration-200 disabled:opacity-40">
               {loading ? "Salvando..." : step === 3 ? "Começar Diagnóstico" : "Continuar"}
             </button>
           </div>

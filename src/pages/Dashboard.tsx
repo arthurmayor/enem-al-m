@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Clock, Brain, BarChart3, FileText, ChevronRight, Trophy, Flame, Target } from "lucide-react";
+import { BookOpen, Clock, Brain, BarChart3, FileText, ChevronRight, Trophy, Flame, Target, Sparkles, Zap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -10,6 +10,8 @@ interface Profile {
   education_goal: string;
   exam_date: string | null;
   onboarding_complete: boolean;
+  total_xp?: number;
+  current_streak?: number;
 }
 
 interface Mission {
@@ -30,7 +32,7 @@ const missionTypeLabels: Record<string, string> = {
 
 const subjectColors: Record<string, string> = {
   "Matemática": "bg-primary",
-  "Português": "bg-accent",
+  "Português": "bg-secondary",
   "Física": "bg-warning",
   "Química": "bg-success",
   "Biologia": "bg-success",
@@ -49,7 +51,7 @@ const Dashboard = () => {
     const fetchData = async () => {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("name, education_goal, exam_date, onboarding_complete")
+        .select("name, education_goal, exam_date, onboarding_complete, total_xp, current_streak")
         .eq("id", user.id)
         .single();
       if (profileData) setProfile(profileData);
@@ -87,17 +89,27 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-card/80 backdrop-blur-md shadow-rest">
+      <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-xl border-b border-border/50">
         <div className="container mx-auto flex h-14 items-center justify-between px-4 max-w-3xl">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <span className="text-base font-bold text-foreground">Cátedra</span>
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-lg gradient-bg flex items-center justify-center">
+              <BookOpen className="h-3.5 w-3.5 text-primary-foreground" />
+            </div>
+            <span className="text-base font-bold text-foreground tracking-tight">Cátedra</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-semibold">
-              <Flame className="h-3.5 w-3.5" />
-              3 dias
-            </div>
+            {profile?.current_streak ? (
+              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-warning/10 text-warning text-xs font-semibold">
+                <Flame className="h-3.5 w-3.5" />
+                {profile.current_streak} dias
+              </div>
+            ) : null}
+            {profile?.total_xp ? (
+              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-xp/10 text-xp text-xs font-semibold">
+                <Zap className="h-3.5 w-3.5" />
+                {profile.total_xp} XP
+              </div>
+            ) : null}
           </div>
         </div>
       </header>
@@ -105,27 +117,27 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6 max-w-3xl">
         {/* Greeting */}
         <div className="animate-fade-in">
-          <h1 className="text-2xl font-bold text-foreground">Olá, {firstName} 👋</h1>
+          <h1 className="text-2xl font-extrabold text-foreground">Olá, {firstName} 👋</h1>
           <p className="text-sm text-muted-foreground mt-1">Vamos continuar de onde você parou.</p>
         </div>
 
         {/* Countdown */}
         {daysUntilExam !== null && (
-          <div className="mt-6 bg-primary rounded-xl p-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+          <div className="mt-6 gradient-bg rounded-2xl p-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
             <p className="text-primary-foreground/60 text-xs font-semibold uppercase tracking-wider">
               {examLabel} 2026
             </p>
             <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-5xl font-bold text-primary-foreground tabular-nums">{daysUntilExam}</span>
+              <span className="text-5xl font-extrabold text-primary-foreground tabular-nums">{daysUntilExam}</span>
               <span className="text-primary-foreground/70 text-lg">dias restantes</span>
             </div>
           </div>
         )}
 
         {/* Pass Probability */}
-        <div className="mt-4 bg-card rounded-xl shadow-rest p-5 flex items-center justify-between animate-fade-in" style={{ animationDelay: "0.15s" }}>
+        <div className="mt-4 bg-card rounded-2xl border border-border/50 p-5 flex items-center justify-between animate-fade-in" style={{ animationDelay: "0.15s" }}>
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-success/10 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-xl bg-success/10 flex items-center justify-center">
               <Trophy className="h-5 w-5 text-success" />
             </div>
             <div>
@@ -136,10 +148,10 @@ const Dashboard = () => {
           <span className="text-xs text-muted-foreground">Complete o diagnóstico</span>
         </div>
 
-        {/* Today's Missions or Empty State */}
+        {/* Today's Missions */}
         <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-foreground">Missões de Hoje</h2>
+            <h2 className="text-base font-bold text-foreground">Missões de Hoje</h2>
             {hasMissions && (
               <span className="text-xs text-muted-foreground">{completedMissions} de {missions.length} concluídas</span>
             )}
@@ -148,20 +160,20 @@ const Dashboard = () => {
           {needsDiagnostic ? (
             <Link
               to="/diagnostic/intro"
-              className="block p-6 bg-primary/5 rounded-xl border border-primary/10 text-center"
+              className="block p-6 bg-primary/5 rounded-2xl border border-primary/10 text-center hover:shadow-interactive transition-all"
             >
               <Target className="h-10 w-10 text-primary mx-auto mb-3" />
-              <h3 className="font-semibold text-foreground">Comece seu diagnóstico</h3>
+              <h3 className="font-bold text-foreground">Comece seu diagnóstico</h3>
               <p className="text-sm text-muted-foreground mt-1">Responda 25 questões para a IA montar seu plano personalizado</p>
               <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary">
                 Iniciar <ChevronRight className="h-4 w-4" />
               </span>
             </Link>
           ) : !hasMissions ? (
-            <div className="p-6 bg-card rounded-xl shadow-rest text-center">
+            <div className="p-6 bg-card rounded-2xl border border-border/50 text-center">
               <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-              <h3 className="font-semibold text-foreground">Sem missões para hoje</h3>
-              <p className="text-sm text-muted-foreground mt-1">Seu plano não tem atividades agendadas para hoje. Que tal praticar com o tutor?</p>
+              <h3 className="font-bold text-foreground">Sem missões para hoje</h3>
+              <p className="text-sm text-muted-foreground mt-1">Que tal praticar com o tutor?</p>
               <Link to="/tutor" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-primary">
                 Abrir Tutor IA <ChevronRight className="h-4 w-4" />
               </Link>
@@ -172,7 +184,7 @@ const Dashboard = () => {
                 <Link
                   key={mission.id}
                   to={`/mission/${mission.mission_type}/${mission.id}`}
-                  className="group flex items-center justify-between p-5 bg-card rounded-xl shadow-rest hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-300"
+                  className="group flex items-center justify-between p-5 bg-card rounded-2xl border border-border/50 hover:shadow-elevated hover:-translate-y-0.5 transition-all duration-300"
                 >
                   <div className="flex items-start gap-3">
                     <div className={`h-2 w-2 rounded-full mt-2 ${subjectColors[mission.subject] || "bg-primary"}`} />
@@ -182,7 +194,7 @@ const Dashboard = () => {
                       </span>
                       <h3 className="mt-0.5 font-semibold text-foreground text-sm">{mission.subtopic}</h3>
                       <div className="mt-2 flex items-center gap-2">
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/5 text-primary font-semibold">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
                           {missionTypeLabels[mission.mission_type] || mission.mission_type}
                         </span>
                         <span className="flex items-center text-xs text-muted-foreground">
@@ -207,19 +219,19 @@ const Dashboard = () => {
 
         {/* Weekly Progress */}
         <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.3s" }}>
-          <h2 className="text-base font-semibold text-foreground mb-4">Progresso Semanal</h2>
-          <div className="bg-card rounded-xl shadow-rest p-6">
+          <h2 className="text-base font-bold text-foreground mb-4">Progresso Semanal</h2>
+          <div className="bg-card rounded-2xl border border-border/50 p-6">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <p className="text-2xl font-bold text-foreground">{completedMissions}</p>
+                <p className="text-2xl font-extrabold text-foreground">{completedMissions}</p>
                 <p className="text-xs text-muted-foreground mt-1">Missões</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">—</p>
+                <p className="text-2xl font-extrabold text-foreground">—</p>
                 <p className="text-xs text-muted-foreground mt-1">Acerto</p>
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">—</p>
+                <p className="text-2xl font-extrabold text-foreground">—</p>
                 <p className="text-xs text-muted-foreground mt-1">Horas</p>
               </div>
             </div>
@@ -227,21 +239,29 @@ const Dashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-8 mb-4 grid grid-cols-4 gap-3 animate-fade-in" style={{ animationDelay: "0.4s" }}>
-          <Link to="/tutor" className="p-4 bg-card rounded-xl shadow-rest hover:shadow-interactive transition-all flex flex-col items-center gap-2 text-center">
-            <Brain className="h-5 w-5 text-primary" />
+        <div className="mt-8 mb-4 flex gap-3 overflow-x-auto pb-2 animate-fade-in" style={{ animationDelay: "0.4s" }}>
+          <Link to="/tutor" className="shrink-0 p-4 bg-card rounded-2xl border border-border/50 hover:shadow-interactive hover:-translate-y-0.5 transition-all flex flex-col items-center gap-2 text-center min-w-[80px]">
+            <div className="h-10 w-10 rounded-xl bg-xp/10 flex items-center justify-center">
+              <Brain className="h-5 w-5 text-xp" />
+            </div>
             <span className="text-xs font-semibold text-foreground">Tutor IA</span>
           </Link>
-          <Link to="/desempenho" className="p-4 bg-card rounded-xl shadow-rest hover:shadow-interactive transition-all flex flex-col items-center gap-2 text-center">
-            <BarChart3 className="h-5 w-5 text-primary" />
+          <Link to="/desempenho" className="shrink-0 p-4 bg-card rounded-2xl border border-border/50 hover:shadow-interactive hover:-translate-y-0.5 transition-all flex flex-col items-center gap-2 text-center min-w-[80px]">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <BarChart3 className="h-5 w-5 text-primary" />
+            </div>
             <span className="text-xs font-semibold text-foreground">Performance</span>
           </Link>
-          <Link to="/exams" className="p-4 bg-card rounded-xl shadow-rest hover:shadow-interactive transition-all flex flex-col items-center gap-2 text-center">
-            <FileText className="h-5 w-5 text-primary" />
+          <Link to="/exams" className="shrink-0 p-4 bg-card rounded-2xl border border-border/50 hover:shadow-interactive hover:-translate-y-0.5 transition-all flex flex-col items-center gap-2 text-center min-w-[80px]">
+            <div className="h-10 w-10 rounded-xl bg-warning/10 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-warning" />
+            </div>
             <span className="text-xs font-semibold text-foreground">Simulados</span>
           </Link>
-          <Link to="/ranking" className="p-4 bg-card rounded-xl shadow-rest hover:shadow-interactive transition-all flex flex-col items-center gap-2 text-center">
-            <Trophy className="h-5 w-5 text-primary" />
+          <Link to="/ranking" className="shrink-0 p-4 bg-card rounded-2xl border border-border/50 hover:shadow-interactive hover:-translate-y-0.5 transition-all flex flex-col items-center gap-2 text-center min-w-[80px]">
+            <div className="h-10 w-10 rounded-xl bg-success/10 flex items-center justify-center">
+              <Trophy className="h-5 w-5 text-success" />
+            </div>
             <span className="text-xs font-semibold text-foreground">Ranking</span>
           </Link>
         </div>

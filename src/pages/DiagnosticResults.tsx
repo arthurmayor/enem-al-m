@@ -5,20 +5,8 @@ import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
-interface ProficiencyItem {
-  subject: string;
-  subtopic: string;
-  score: number;
-  confidence?: number;
-  weakness_notes?: string;
-}
-
-interface DiagnosticState {
-  proficiency: ProficiencyItem[];
-  overall_readiness: number;
-  priority_areas: string[];
-  summary: string;
-}
+interface ProficiencyItem { subject: string; subtopic: string; score: number; confidence?: number; weakness_notes?: string; }
+interface DiagnosticState { proficiency: ProficiencyItem[]; overall_readiness: number; priority_areas: string[]; summary: string; }
 
 const getScoreColor = (scorePercent: number) => {
   if (scorePercent >= 70) return "text-success bg-success/10";
@@ -102,11 +90,11 @@ const DiagnosticResults = () => {
   };
 
   if (loading) {
-    return (<div className="min-h-screen bg-background flex items-center justify-center"><div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>);
+    return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>);
   }
 
   if (!data?.proficiency?.length) {
-    return (<div className="min-h-screen bg-background flex items-center justify-center px-4"><div className="text-center"><p className="text-muted-foreground">Nenhum resultado de diagnóstico encontrado.</p><Link to="/diagnostic/intro" className="mt-4 inline-block text-primary font-semibold">Fazer diagnóstico</Link></div></div>);
+    return (<div className="min-h-screen bg-white flex items-center justify-center px-4"><div className="text-center"><p className="text-muted-foreground">Nenhum resultado de diagnóstico encontrado.</p><Link to="/diagnostic/intro" className="mt-4 inline-block text-foreground font-medium">Fazer diagnóstico</Link></div></div>);
   }
 
   const overallPercent = Math.round((data.overall_readiness ?? 0) * 100);
@@ -120,33 +108,33 @@ const DiagnosticResults = () => {
   const priorityAreas = [...bySubject].sort((a, b) => a.score - b.score).slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-xl border-b border-border/50">
+    <div className="min-h-screen bg-white pb-20">
+      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
         <div className="container mx-auto flex h-14 items-center px-4 max-w-3xl">
-          <span className="text-base font-bold text-foreground">Resultado do Diagnóstico</span>
+          <span className="text-base font-semibold text-foreground">Resultado do Diagnóstico</span>
         </div>
       </header>
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="text-center animate-fade-in">
-          <div className={`inline-flex items-center justify-center h-28 w-28 rounded-full ${getScoreColor(overallPercent)} text-4xl font-extrabold`}>
+          <div className={`inline-flex items-center justify-center h-28 w-28 rounded-full ${getScoreColor(overallPercent)} text-4xl font-semibold`}>
             {overallPercent}%
           </div>
-          <p className="mt-4 text-lg font-bold text-foreground">
+          <p className="mt-4 text-lg font-semibold text-foreground">
             {overallPercent >= 70 ? "Bom nível!" : overallPercent >= 40 ? "Nível intermediário" : "Precisa de reforço"}
           </p>
           <p className="text-sm text-muted-foreground mt-1">Sua preparação geral para o exame</p>
         </div>
 
         <div className="mt-10 space-y-3 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-          <h2 className="text-base font-bold text-foreground mb-4">Proficiência por Matéria</h2>
+          <h2 className="text-base font-semibold text-foreground mb-4">Proficiência por Matéria</h2>
           {bySubject.map((s) => (
-            <div key={s.name} className="p-4 bg-card rounded-2xl border border-border/50">
+            <div key={s.name} className="p-4 bg-white rounded-2xl border border-gray-100">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-bold text-foreground">{s.name}</span>
-                <span className={`text-sm font-bold px-2 py-0.5 rounded-full ${getScoreColor(s.score)}`}>{s.score}%</span>
+                <span className="text-sm font-semibold text-foreground">{s.name}</span>
+                <span className={`text-sm font-semibold px-2 py-0.5 rounded-full ${getScoreColor(s.score)}`}>{s.score}%</span>
               </div>
-              <div className="h-2 bg-muted rounded-full">
+              <div className="h-2 bg-gray-100 rounded-full">
                 <div className={`h-2 rounded-full transition-all duration-700 ${getBarColor(s.score)}`} style={{ width: `${Math.min(100, s.score)}%` }} />
               </div>
               <p className="text-xs text-muted-foreground mt-2">Foco: {s.weakness}</p>
@@ -155,11 +143,11 @@ const DiagnosticResults = () => {
         </div>
 
         <div className="mt-10 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-          <h2 className="text-base font-bold text-foreground mb-4">Áreas Prioritárias</h2>
+          <h2 className="text-base font-semibold text-foreground mb-4">Áreas Prioritárias</h2>
           <div className="space-y-2">
             {priorityAreas.map((area, i) => (
-              <div key={area.name} className="flex items-center gap-3 p-3 bg-destructive/5 rounded-xl border border-destructive/10">
-                <span className="text-sm font-bold text-destructive">{i + 1}.</span>
+              <div key={area.name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                <span className="text-sm font-semibold text-foreground">{i + 1}.</span>
                 <div>
                   <p className="text-sm font-medium text-foreground">{area.name}</p>
                   <p className="text-xs text-muted-foreground">{area.weakness}</p>
@@ -170,14 +158,14 @@ const DiagnosticResults = () => {
         </div>
 
         {data.summary && (
-          <div className="mt-10 p-5 bg-primary/5 rounded-2xl border border-primary/10 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+          <div className="mt-10 p-5 bg-gray-50 rounded-2xl animate-fade-in" style={{ animationDelay: "0.3s" }}>
             <p className="text-sm text-foreground leading-relaxed">{data.summary}</p>
           </div>
         )}
 
         <div className="mt-10 animate-fade-in" style={{ animationDelay: "0.4s" }}>
           <button onClick={handleGeneratePlan} disabled={generatingPlan}
-            className="w-full h-12 inline-flex items-center justify-center rounded-xl gradient-bg text-primary-foreground text-base font-semibold hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-60 shadow-[0_4px_14px_rgba(99,102,241,0.3)]">
+            className="w-full h-12 inline-flex items-center justify-center rounded-full bg-foreground text-white text-base font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all duration-200 disabled:opacity-60">
             {generatingPlan ? "Gerando plano..." : "Gerar Meu Plano de Estudos"}
             <ChevronRight className="ml-1 h-4 w-4" />
           </button>

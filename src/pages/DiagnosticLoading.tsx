@@ -69,10 +69,10 @@ const DiagnosticLoading = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <div className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <p className="text-destructive font-medium">{error}</p>
-          <button onClick={() => navigate("/diagnostic/intro")} className="mt-4 px-4 py-2 rounded-xl gradient-bg text-primary-foreground text-sm font-semibold">
+          <button onClick={() => navigate("/diagnostic/intro")} className="mt-4 px-6 py-2.5 rounded-full bg-foreground text-white text-sm font-medium">
             Voltar
           </button>
         </div>
@@ -83,17 +83,17 @@ const DiagnosticLoading = () => {
   const tip = tips[currentTip];
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4">
       <div className="text-center max-w-sm">
         <div className="relative mx-auto mb-8">
-          <div className="h-24 w-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto" />
+          <div className="h-24 w-24 rounded-full border-4 border-gray-200 border-t-foreground animate-spin mx-auto" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <Brain className="h-8 w-8 text-primary" />
+            <Brain className="h-8 w-8 text-foreground" />
           </div>
         </div>
-        <h1 className="text-2xl font-extrabold text-foreground">Analisando suas respostas...</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Analisando suas respostas...</h1>
         <div className="mt-8 flex items-center gap-3 justify-center text-muted-foreground animate-fade-in" key={currentTip}>
-          <tip.icon className="h-5 w-5 text-primary shrink-0" />
+          <tip.icon className="h-5 w-5 text-foreground shrink-0" />
           <p className="text-sm">{tip.text}</p>
         </div>
       </div>

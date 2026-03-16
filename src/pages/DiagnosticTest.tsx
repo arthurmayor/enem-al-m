@@ -46,26 +46,19 @@ const DiagnosticTest = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [loading, setLoading] = useState(true);
-
   const [usingMock, setUsingMock] = useState(false);
 
-  // Timer
   useEffect(() => {
     const interval = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000);
     return () => clearInterval(interval);
   }, [startTime]);
 
-  // Load questions
   useEffect(() => {
     const loadQuestions = async () => {
       const { data } = await supabase.from("questions").select("*").limit(100);
       if (data && data.length >= 25) {
-        // Pick 25 questions cycling through subjects
         const bySubject: Record<string, Question[]> = {};
-        data.forEach((q: Question) => {
-          if (!bySubject[q.subject]) bySubject[q.subject] = [];
-          bySubject[q.subject].push(q);
-        });
+        data.forEach((q: Question) => { if (!bySubject[q.subject]) bySubject[q.subject] = []; bySubject[q.subject].push(q); });
         const picked: Question[] = [];
         let subjectIdx = 0;
         while (picked.length < 25) {
@@ -73,11 +66,10 @@ const DiagnosticTest = () => {
           const available = bySubject[subj]?.filter((q) => !picked.includes(q));
           if (available?.length) picked.push(available[0]);
           subjectIdx++;
-          if (subjectIdx > 175) break; // safety
+          if (subjectIdx > 175) break;
         }
         setQuestions(picked);
       } else {
-        // Use mock questions
         setUsingMock(true);
         setQuestions(mockQuestions.slice(0, 25));
       }
@@ -99,23 +91,16 @@ const DiagnosticTest = () => {
     const correct = q.options.find((o) => o.label === optionLabel)?.is_correct || false;
     const responseTime = Math.floor((Date.now() - questionStartTime) / 1000);
 
-    // Save to answer_history
     if (user && !q.id.startsWith("mock")) {
       await supabase.from("answer_history").insert({
-        user_id: user.id,
-        question_id: q.id,
-        selected_option: optionLabel,
-        is_correct: correct,
-        response_time_seconds: responseTime,
-        context: "diagnostic",
+        user_id: user.id, question_id: q.id, selected_option: optionLabel,
+        is_correct: correct, response_time_seconds: responseTime, context: "diagnostic",
       });
     }
 
-    // Adaptive difficulty
     if (correct && responseTime < 60) setDifficulty((d) => Math.min(5, d + 1));
     else if (!correct) setDifficulty((d) => Math.max(1, d - 1));
 
-    // Next question after delay
     setTimeout(() => {
       if (currentIndex < 24) {
         setCurrentIndex((i) => i + 1);
@@ -137,27 +122,18 @@ const DiagnosticTest = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top bar */}
-      <header className="sticky top-0 z-40 bg-card shadow-rest">
+      <header className="sticky top-0 z-40 bg-card/90 backdrop-blur-xl border-b border-border/50">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="flex items-center justify-between h-14">
-            <span className="text-sm font-semibold text-foreground">
-              Questão {currentIndex + 1} de 25
-            </span>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-primary/5 text-primary">
-              {currentSubject}
-            </span>
+            <span className="text-sm font-bold text-foreground">Questão {currentIndex + 1} de 25</span>
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-primary/10 text-primary">{currentSubject}</span>
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
               {formatTime(elapsedTime)}
             </div>
           </div>
-          {/* Progress bar */}
-          <div className="h-1 bg-muted rounded-full -mt-1 mb-1">
-            <div
-              className="h-1 bg-primary rounded-full transition-all duration-500"
-              style={{ width: `${((currentIndex + 1) / 25) * 100}%` }}
-            />
+          <div className="h-1.5 bg-muted rounded-full -mt-1 mb-1">
+            <div className="h-1.5 gradient-bg rounded-full transition-all duration-500 ease-out" style={{ width: `${((currentIndex + 1) / 25) * 100}%` }} />
           </div>
         </div>
       </header>
@@ -171,57 +147,40 @@ const DiagnosticTest = () => {
       )}
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
-        {/* Question */}
         <div className="animate-fade-in" key={currentIndex}>
-          <p className="text-lg font-semibold text-foreground leading-relaxed">
-            {currentQuestion.question_text}
-          </p>
+          <p className="text-lg font-bold text-foreground leading-relaxed">{currentQuestion.question_text}</p>
 
-          {/* Options */}
           <div className="mt-8 space-y-3">
             {currentQuestion.options.map((option) => {
               const isSelected = selectedOption === option.label;
               const showResult = selectedOption !== null;
               const isCorrect = option.is_correct;
 
-              let optionClasses = "w-full p-4 rounded-xl text-left transition-all duration-200 flex items-start gap-3 ";
+              let optionClasses = "w-full p-4 rounded-2xl text-left transition-all duration-200 flex items-start gap-3 ";
               if (showResult) {
                 if (isCorrect) optionClasses += "bg-success/10 shadow-[inset_0_0_0_2px_hsl(var(--success))]";
                 else if (isSelected && !isCorrect) optionClasses += "bg-destructive/10 shadow-[inset_0_0_0_2px_hsl(var(--destructive))]";
                 else optionClasses += "bg-background opacity-50";
               } else {
-                optionClasses += "bg-card shadow-rest hover:shadow-interactive cursor-pointer";
+                optionClasses += "bg-card border border-border/50 hover:border-primary/30 hover:shadow-interactive cursor-pointer";
               }
 
               return (
-                <button
-                  key={option.label}
-                  onClick={() => handleAnswer(option.label)}
-                  disabled={!!selectedOption}
-                  className={optionClasses}
-                >
-                  <span className={`h-8 w-8 shrink-0 rounded-lg flex items-center justify-center text-sm font-bold ${
+                <button key={option.label} onClick={() => handleAnswer(option.label)} disabled={!!selectedOption} className={optionClasses}>
+                  <span className={`h-8 w-8 shrink-0 rounded-xl flex items-center justify-center text-sm font-bold ${
                     showResult && isCorrect ? "bg-success text-success-foreground" :
                     showResult && isSelected ? "bg-destructive text-destructive-foreground" :
                     "bg-muted text-muted-foreground"
-                  }`}>
-                    {option.label}
-                  </span>
+                  }`}>{option.label}</span>
                   <span className="text-sm text-foreground pt-1">{option.text}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* Difficulty indicator */}
           <div className="mt-6 flex items-center justify-center gap-1">
             {[1, 2, 3, 4, 5].map((d) => (
-              <div
-                key={d}
-                className={`h-1.5 w-6 rounded-full transition-all ${
-                  d <= difficulty ? "bg-primary" : "bg-muted"
-                }`}
-              />
+              <div key={d} className={`h-1.5 w-6 rounded-full transition-all ${d <= difficulty ? "gradient-bg" : "bg-muted"}`} />
             ))}
             <span className="ml-2 text-[10px] text-muted-foreground">Dificuldade</span>
           </div>

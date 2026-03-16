@@ -55,8 +55,8 @@ const Landing = () => {
             <h1 className="text-4xl md:text-6xl font-extrabold text-foreground leading-[1.1] animate-fade-in">
               Estude com <span className="gradient-text">IA</span>.<br />Passe no vestibular.
             </h1>
-            <p className="mt-5 text-base text-muted-foreground max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "0.1s" }}>Grátis para começar. Comece a aprender.
-
+            <p className="mt-5 text-base text-muted-foreground max-w-lg mx-auto animate-fade-in" style={{ animationDelay: "0.1s" }}>
+              Grátis para começar. Comece a aprender.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center animate-fade-in" style={{ animationDelay: "0.2s" }}>
               <Link

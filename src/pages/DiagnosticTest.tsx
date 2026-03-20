@@ -61,10 +61,12 @@ function eloUpdate(rating: number, expected: number, actual: number, k: number):
   return rating + k * (actual - expected);
 }
 
-function getKFactor(numAttempts: number): number {
-  if (numAttempts < 10) return 32;
-  if (numAttempts < 30) return 16;
-  return 8;
+function getKFactor(numAttempts: number, totalQuestionsForSubject: number): number {
+  // Base K by experience
+  const baseK = numAttempts < 10 ? 32 : numAttempts < 30 ? 16 : 8;
+  // Boost for subjects with ≤3 questions in diagnostic: each answer weighs more
+  if (totalQuestionsForSubject <= 3) return Math.round(baseK * 1.5);
+  return baseK;
 }
 
 function expectedAccuracy(studentElo: number, meanDiff: number, sdDiff: number): number {
@@ -108,7 +110,7 @@ function calculatePassProbability(
   subjectsCovered: number
 ): number {
   const infoScore = (questionsAnswered / 100) + (simulados * 3) + (subjectsCovered * 0.5);
-  const sigmaStudent = Math.max(3, 10 / Math.sqrt(Math.max(0.1, infoScore)));
+  const sigmaStudent = Math.max(3, 8 / Math.sqrt(Math.max(0.1, infoScore)));
   const muDiff = score - cutoffMean;
   const sigmaDiff = Math.sqrt(sigmaStudent ** 2 + cutoffSd ** 2);
   const raw = normalCDF(muDiff / sigmaDiff);
@@ -127,9 +129,9 @@ function getProbabilityBand(prob: number) {
 
 function getLevel(elo: number) {
   if (elo >= 1500) return { label: "Avançado", color: "#14532d" };
-  if (elo >= 1300) return { label: "Bom", color: "#059669" };
-  if (elo >= 1100) return { label: "Intermediário", color: "#d97706" };
-  if (elo >= 900) return { label: "Baixo", color: "#dc2626" };
+  if (elo >= 1350) return { label: "Bom", color: "#059669" };
+  if (elo >= 1200) return { label: "Intermediário", color: "#d97706" };
+  if (elo >= 1050) return { label: "Baixo", color: "#dc2626" };
   return { label: "Muito baixo", color: "#991b1b" };
 }
 
@@ -239,6 +241,7 @@ const DiagnosticTest = () => {
   // Elo tracking per subject
   const proficienciesRef = useRef<Record<string, Proficiency>>({});
   const totalCorrectRef = useRef(0);
+  const rawAnswersRef = useRef<Array<{ question_id: string; subject: string; selected: string; is_correct: boolean; response_time: number; difficulty_elo: number }>>([]);
 
   useEffect(() => {
     const interval = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000);
@@ -336,13 +339,25 @@ const DiagnosticTest = () => {
       const subj = prof[q.subject];
       const expected = eloExpected(subj.elo, q.difficulty_elo);
       const actual = correct ? 1 : 0;
-      const k = getKFactor(subj.total);
+      // Count how many questions this subject has in the full diagnostic
+      const totalQuestionsForSubject = questions.filter((qq) => qq.subject === q.subject).length;
+      const k = getKFactor(subj.total, totalQuestionsForSubject);
       subj.elo = eloUpdate(subj.elo, expected, actual, k);
       subj.total += 1;
       if (correct) {
         subj.correct += 1;
         totalCorrectRef.current += 1;
       }
+
+      // Track raw answer for history
+      rawAnswersRef.current.push({
+        question_id: q.id,
+        subject: q.subject,
+        selected: optionLabel,
+        is_correct: correct,
+        response_time: responseTime,
+        difficulty_elo: q.difficulty_elo,
+      });
 
       // Save to answer_history
       if (user && !q.id.startsWith("fallback")) {
@@ -388,6 +403,16 @@ const DiagnosticTest = () => {
     const probability = calculatePassProbability(score, cutoffMean, cutoffSd, TOTAL_QUESTIONS, 0, subjectsCovered);
     const probBand = getProbabilityBand(probability);
 
+    // Debug log for probability verification
+    console.log("DEBUG probabilidade:", {
+      estimatedScore: score,
+      cutoffMean,
+      cutoffSd,
+      gap,
+      probability,
+      probBand,
+    });
+
     // Priority areas: subjects with Elo < 1200, sorted by impact
     const priorities = Object.entries(prof)
       .filter(([, p]) => p.elo < 1200)
@@ -397,6 +422,27 @@ const DiagnosticTest = () => {
         elo: Math.round(p.elo),
         level: getLevel(p.elo),
       }));
+
+    // Save diagnostic_results history
+    try {
+      await supabase.from("diagnostic_results").insert({
+        user_id: user.id,
+        exam_config_id: examConfig.id,
+        estimated_score: score,
+        cutoff_used: cutoffMean,
+        gap,
+        probability,
+        probability_band: probBand.band,
+        probability_label: probBand.label,
+        total_correct: totalCorrectRef.current,
+        total_questions: TOTAL_QUESTIONS,
+        proficiencies: prof,
+        priority_areas: priorities,
+        raw_answers: rawAnswersRef.current,
+      });
+    } catch (err) {
+      console.warn("Could not save diagnostic_results (table may not exist yet):", err);
+    }
 
     // Save proficiency scores
     await supabase

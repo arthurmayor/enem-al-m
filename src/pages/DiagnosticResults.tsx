@@ -82,9 +82,9 @@ function getBarWidth(elo: number): number {
 
 function getBarColor(elo: number): string {
   if (elo >= 1500) return "bg-emerald-500";
-  if (elo >= 1300) return "bg-green-500";
-  if (elo >= 1100) return "bg-yellow-500";
-  if (elo >= 900) return "bg-orange-500";
+  if (elo >= 1350) return "bg-green-500";
+  if (elo >= 1200) return "bg-yellow-500";
+  if (elo >= 1050) return "bg-orange-500";
   return "bg-red-500";
 }
 
@@ -219,15 +219,30 @@ const DiagnosticResults = () => {
           )}
         </div>
 
-        {/* Score + Cutoff Card */}
-        <div className="grid grid-cols-2 gap-3 animate-fade-in" style={{ animationDelay: "0.05s" }}>
+        {/* Acertos no diagnóstico — shown first */}
+        <div className="p-4 bg-card rounded-xl shadow-rest text-center animate-fade-in" style={{ animationDelay: "0.05s" }}>
+          <span className="text-sm font-medium text-muted-foreground">Acertos no diagnóstico</span>
+          <p className="text-2xl font-bold text-foreground mt-1">
+            Você acertou {totalCorrect} de {totalQuestions} questões
+          </p>
+        </div>
+
+        {/* Explanatory bridge */}
+        <p className="text-xs text-center text-muted-foreground animate-fade-in" style={{ animationDelay: "0.08s" }}>
+          Com base nos seus acertos e na dificuldade de cada questão, estimamos sua nota na prova real de {examConfig.total_questions} questões
+        </p>
+
+        {/* Score + Cutoff Cards */}
+        <div className="grid grid-cols-2 gap-3 animate-fade-in" style={{ animationDelay: "0.1s" }}>
           <div className="p-5 bg-card rounded-xl shadow-rest text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
               <Target className="h-4 w-4 text-primary" />
-              <span className="text-xs font-medium text-muted-foreground">Nota estimada</span>
+              <span className="text-xs font-medium text-muted-foreground">Nota estimada na prova</span>
             </div>
             <p className="text-3xl font-bold text-foreground">{estimatedScore}</p>
-            <p className="text-xs text-muted-foreground">de {examConfig.total_questions}</p>
+            <p className="text-xs text-muted-foreground">
+              Se você fizesse a {examConfig.exam_name} hoje, estimamos esta nota
+            </p>
           </div>
           <div className="p-5 bg-card rounded-xl shadow-rest text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
@@ -235,6 +250,7 @@ const DiagnosticResults = () => {
               <span className="text-xs font-medium text-muted-foreground">Nota de corte</span>
             </div>
             <p className="text-3xl font-bold text-foreground">{cutoff}</p>
+            <p className="text-[10px] text-muted-foreground mb-1">{examConfig.course_name}</p>
             <p className={`text-xs font-semibold ${gap >= 0 ? "text-green-600" : "text-red-600"}`}>
               {gap >= 0 ? `+${gap} acima` : `${gap} abaixo`}
             </p>
@@ -247,7 +263,7 @@ const DiagnosticResults = () => {
           style={{
             backgroundColor: probBand.bgColor,
             borderColor: probBand.borderColor,
-            animationDelay: "0.1s",
+            animationDelay: "0.15s",
           }}
         >
           <div className="flex items-center gap-2 mb-2">
@@ -264,14 +280,6 @@ const DiagnosticResults = () => {
           </p>
           <p className="text-xs text-muted-foreground mt-2">
             Estimativa preliminar, confiança baixa
-          </p>
-        </div>
-
-        {/* Acertos */}
-        <div className="p-4 bg-card rounded-xl shadow-rest text-center animate-fade-in" style={{ animationDelay: "0.15s" }}>
-          <span className="text-sm text-muted-foreground">Acertos no diagnóstico</span>
-          <p className="text-2xl font-bold text-foreground mt-1">
-            {totalCorrect}<span className="text-base text-muted-foreground font-normal">/{totalQuestions}</span>
           </p>
         </div>
 
@@ -363,7 +371,8 @@ const DiagnosticResults = () => {
               <p>
                 <strong>Sistema Elo:</strong> Cada matéria começa com rating 1200. A cada questão,
                 o rating é atualizado usando a função logística do Elo (K=32 nas primeiras 10 questões,
-                K=16 até 30, K=8 depois).
+                K=16 até 30, K=8 depois). Matérias com poucas questões no diagnóstico (≤3) recebem
+                fator K ampliado (×1.5) para compensar a amostra menor.
               </p>
               <p>
                 <strong>Nota estimada:</strong> Para cada matéria do vestibular, calculamos a taxa de acerto

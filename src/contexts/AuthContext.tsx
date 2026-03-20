@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
 // ⚠️ MUDAR PARA false ANTES DO DEPLOY
-export const DEV_SKIP_AUTH = true;
+export const DEV_SKIP_AUTH = false;
 
 const FAKE_USER = {
   id: "test-user-00000000-0000-0000-0000-000000000000",

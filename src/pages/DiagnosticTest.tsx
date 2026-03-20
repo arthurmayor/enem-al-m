@@ -85,10 +85,20 @@ function estimateScore(
   subjectDist: Record<string, SubjectDistEntry>
 ): number {
   let score = 0;
+  let totalQuestions = 0;
+
   for (const [subject, dist] of Object.entries(subjectDist)) {
     const elo = proficiencies[subject]?.elo || 1200;
     score += expectedAccuracy(elo, dist.meanDiff, dist.sdDiff) * dist.questions;
+    totalQuestions += dist.questions;
   }
+
+  // VALIDAÇÃO: se totalQuestions != 90, normalizar para escala de 90
+  if (totalQuestions !== 90 && totalQuestions > 0) {
+    console.warn(`estimateScore: subject_distribution soma ${totalQuestions}, normalizando para 90`);
+    score = (score / totalQuestions) * 90;
+  }
+
   return Math.round(score * 10) / 10;
 }
 
@@ -109,10 +119,18 @@ function calculatePassProbability(
   simulados: number,
   subjectsCovered: number
 ): number {
+  // Validação: cutoff_sd não pode ser maior que 5 (seria absurdo para nota de corte)
+  const safeCutoffSd = Math.min(cutoffSd, 5);
+
+  // Validação: score e cutoff devem estar na mesma escala
+  if (score > 100 && cutoffMean < 100) {
+    console.error(`ESCALA INCOMPATÍVEL: score=${score}, cutoff=${cutoffMean}. Corrigir exam_configs.`);
+  }
+
   const infoScore = (questionsAnswered / 100) + (simulados * 3) + (subjectsCovered * 0.5);
   const sigmaStudent = Math.max(3, 8 / Math.sqrt(Math.max(0.1, infoScore)));
   const muDiff = score - cutoffMean;
-  const sigmaDiff = Math.sqrt(sigmaStudent ** 2 + cutoffSd ** 2);
+  const sigmaDiff = Math.sqrt(sigmaStudent ** 2 + safeCutoffSd ** 2);
   const raw = normalCDF(muDiff / sigmaDiff);
   return Math.max(0.01, Math.min(0.98, raw));
 }
@@ -187,6 +205,21 @@ function interleaveQuestions(questions: Question[], total: number): Question[] {
   }
   return result.slice(0, total);
 }
+
+// ─── Default Fuvest distribution (soma = 90) ────────────────────────────────
+
+const DEFAULT_FUVEST_DISTRIBUTION: Record<string, SubjectDistEntry> = {
+  "Português": { questions: 15, meanDiff: 1150, sdDiff: 250 },
+  "Matemática": { questions: 12, meanDiff: 1300, sdDiff: 300 },
+  "História": { questions: 12, meanDiff: 1200, sdDiff: 250 },
+  "Geografia": { questions: 10, meanDiff: 1200, sdDiff: 250 },
+  "Biologia": { questions: 10, meanDiff: 1200, sdDiff: 280 },
+  "Física": { questions: 10, meanDiff: 1300, sdDiff: 300 },
+  "Química": { questions: 8, meanDiff: 1250, sdDiff: 280 },
+  "Inglês": { questions: 5, meanDiff: 1050, sdDiff: 200 },
+  "Filosofia": { questions: 5, meanDiff: 1200, sdDiff: 250 },
+  "Artes": { questions: 3, meanDiff: 1100, sdDiff: 200 },
+};
 
 // ─── Fallback mock questions ─────────────────────────────────────────────────
 
@@ -390,7 +423,13 @@ const DiagnosticTest = () => {
     if (!user || !examConfig) return;
 
     const prof = proficienciesRef.current;
-    const subjectDist = examConfig.subject_distribution || {};
+
+    // CORREÇÃO 4: Fallback para DEFAULT_FUVEST_DISTRIBUTION se subject_distribution inválida
+    let subjectDist = examConfig.subject_distribution;
+    if (!subjectDist || Object.keys(subjectDist).length === 0) {
+      console.warn("subject_distribution vazia ou nula, usando DEFAULT_FUVEST_DISTRIBUTION");
+      subjectDist = DEFAULT_FUVEST_DISTRIBUTION;
+    }
 
     // Compute estimated score
     const score = estimateScore(prof, subjectDist);
@@ -403,14 +442,19 @@ const DiagnosticTest = () => {
     const probability = calculatePassProbability(score, cutoffMean, cutoffSd, TOTAL_QUESTIONS, 0, subjectsCovered);
     const probBand = getProbabilityBand(probability);
 
-    // Debug log for probability verification
-    console.log("DEBUG probabilidade:", {
+    // CORREÇÃO 5: Debug log permanente — NÃO REMOVER
+    const distTotal = Object.values(subjectDist).reduce((s, d) => s + d.questions, 0);
+    console.log("=== DIAGNOSTIC RESULT DEBUG ===", {
+      totalQuestionsInDist: distTotal,
       estimatedScore: score,
       cutoffMean,
       cutoffSd,
       gap,
       probability,
       probBand,
+      proficiencies: Object.fromEntries(
+        Object.entries(prof).map(([k, v]) => [k, { elo: Math.round(v.elo), correct: v.correct, total: v.total }])
+      ),
     });
 
     // Priority areas: subjects with Elo < 1200, sorted by impact

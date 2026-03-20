@@ -23,7 +23,7 @@ const DiagnosticIntro = () => {
           </div>
           <h1 className="text-2xl font-semibold text-foreground">Vamos descobrir seu nível atual</h1>
           <p className="text-muted-foreground mt-3 leading-relaxed">
-            Você vai responder <strong className="text-foreground">25 questões adaptativas</strong>. O teste ajusta a dificuldade com base nas suas respostas.
+            Você vai responder <strong className="text-foreground">30 questões adaptativas</strong>. O teste ajusta a dificuldade com base nas suas respostas.
           </p>
         </div>
 

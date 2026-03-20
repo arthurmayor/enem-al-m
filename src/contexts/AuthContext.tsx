@@ -2,6 +2,19 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
+// ⚠️ MUDAR PARA false ANTES DO DEPLOY
+export const DEV_SKIP_AUTH = true;
+
+const FAKE_USER = {
+  id: "test-user-00000000-0000-0000-0000-000000000000",
+  email: "teste@catedra.com",
+  aud: "authenticated",
+  role: "authenticated",
+  app_metadata: {},
+  user_metadata: { name: "Usuário Teste" },
+  created_at: new Date().toISOString(),
+} as unknown as User;
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -15,11 +28,13 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(DEV_SKIP_AUTH ? FAKE_USER : null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(DEV_SKIP_AUTH ? false : true);
 
   useEffect(() => {
+    if (DEV_SKIP_AUTH) return;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -36,6 +51,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signUp = async (email: string, password: string, name: string) => {
+    if (DEV_SKIP_AUTH) return { error: null, needsEmailConfirmation: false };
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -45,8 +61,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       },
     });
     if (error) return { error: error as Error | null };
-
-    // If email confirmation is enabled, session won't exist yet
     const { data: { session: newSession } } = await supabase.auth.getSession();
     if (newSession?.user) {
       await supabase.from("profiles").upsert({
@@ -55,20 +69,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         onboarding_complete: false,
       });
     }
-
     return { error: null, needsEmailConfirmation: !newSession };
   };
 
   const signIn = async (email: string, password: string) => {
+    if (DEV_SKIP_AUTH) return { error: null };
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
   };
 
   const signOut = async () => {
+    if (DEV_SKIP_AUTH) return;
     await supabase.auth.signOut();
   };
 
   const resetPassword = async (email: string) => {
+    if (DEV_SKIP_AUTH) return { error: null };
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });

@@ -100,6 +100,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  if (!context) {
+    // Fallback for HMR/hot-reload edge cases
+    if (DEV_SKIP_AUTH) {
+      return {
+        user: FAKE_USER,
+        session: null,
+        loading: false,
+        signUp: async () => ({ error: null, needsEmailConfirmation: false }),
+        signIn: async () => ({ error: null }),
+        signOut: async () => {},
+        resetPassword: async () => ({ error: null }),
+      } as AuthContextType;
+    }
+    throw new Error("useAuth must be used within AuthProvider");
+  }
   return context;
 };

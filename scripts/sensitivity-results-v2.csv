@@ -1,0 +1,196 @@
+sim_id,course,cutoff_mean,cutoff_sd,strategy,description,category,param,flag,total_correct,pct_correct,estimated_score,gap,probability_pct,probability_band,Biologia_elo,Biologia_pct,Filosofia_elo,Filosofia_pct,Fisica_elo,Fisica_pct,Geografia_elo,Geografia_pct,Historia_elo,Historia_pct,Ingles_elo,Ingles_pct,Matematica_elo,Matematica_pct,Portugues_elo,Portugues_pct,Quimica_elo,Quimica_pct
+1,administracao,55,2,fixed_0pct,"Acerta exatamente 0%",fixed_accuracy,0,SUSPEITO,0,0,42.2,-12.8,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1141,0,1141,0,1142,0,1143,0,1140,0
+2,administracao,55,2,fixed_10pct,"Acerta exatamente 10%",fixed_accuracy,10,SUSPEITO,3,10,43.5,-11.5,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1171,25,1141,0,1172,25,1172,25,1140,0
+3,administracao,55,2,fixed_20pct,"Acerta exatamente 20%",fixed_accuracy,20,SUSPEITO,6,20,45,-10,1,"< 3%",1172,33,1141,0,1172,33,1172,33,1171,25,1141,0,1172,25,1172,25,1140,0
+4,administracao,55,2,fixed_30pct,"Acerta exatamente 30%",fixed_accuracy,30,SUSPEITO,9,30,45.9,-9.1,1.09,"< 3%",1172,33,1185,33,1172,33,1172,33,1171,25,1185,33,1172,25,1172,25,1182,33
+5,administracao,55,2,fixed_40pct,"Acerta exatamente 40%",fixed_accuracy,40,OK,12,40,47.3,-7.7,2.46,"< 3%",1172,33,1185,33,1172,33,1172,33,1201,50,1185,33,1203,50,1203,50,1182,33
+6,administracao,55,2,fixed_50pct,"Acerta exatamente 50%",fixed_accuracy,50,OK,15,50,48.9,-6.1,5.6,"3-10%",1218,67,1185,33,1218,67,1218,67,1201,50,1185,33,1203,50,1203,50,1182,33
+7,administracao,55,2,fixed_60pct,"Acerta exatamente 60%",fixed_accuracy,60,OK,18,60,49.9,-5.1,8.81,"3-10%",1218,67,1232,67,1218,67,1218,67,1201,50,1230,67,1203,50,1203,50,1227,67
+8,administracao,55,2,fixed_70pct,"Acerta exatamente 70%",fixed_accuracy,70,OK,21,70,51.3,-3.7,15.5,"10-25%",1218,67,1232,67,1218,67,1218,67,1232,75,1230,67,1234,75,1234,75,1227,67
+9,administracao,55,2,fixed_80pct,"Acerta exatamente 80%",fixed_accuracy,80,OK,24,80,53,-2,27.88,"25-40%",1266,100,1232,67,1266,100,1266,100,1232,75,1230,67,1234,75,1234,75,1227,67
+10,administracao,55,2,fixed_90pct,"Acerta exatamente 90%",fixed_accuracy,90,SUSPEITO,27,90,53.9,-1.1,36.69,"25-40%",1266,100,1280,100,1266,100,1266,100,1232,75,1278,100,1234,75,1234,75,1275,100
+11,administracao,55,2,fixed_100pct,"Acerta exatamente 100%",fixed_accuracy,100,SUSPEITO,30,100,55.4,0.4,55.2,"55-70%",1266,100,1280,100,1266,100,1266,100,1264,100,1278,100,1266,100,1266,100,1275,100
+12,administracao,55,2,pessimo_t1,"Aluno pessimo ~17% (trial 1)",realistic_profile,pessimo,SUSPEITO,3,10,43.5,-11.5,1,"< 3%",1129,0,1141,0,1172,33,1129,0,1173,25,1141,0,1174,25,1143,0,1140,0
+13,administracao,55,2,pessimo_t2,"Aluno pessimo ~17% (trial 2)",realistic_profile,pessimo,SUSPEITO,5,17,44,-11,1,"< 3%",1129,0,1280,100,1129,0,1129,0,1141,0,1141,0,1174,25,1174,25,1140,0
+14,administracao,55,2,pessimo_t3,"Aluno pessimo ~17% (trial 3)",realistic_profile,pessimo,SUSPEITO,6,20,44.9,-10.1,1,"< 3%",1175,33,1185,33,1129,0,1129,0,1141,0,1141,0,1203,50,1203,50,1140,0
+15,administracao,55,2,pessimo_t4,"Aluno pessimo ~17% (trial 4)",realistic_profile,pessimo,SUSPEITO,5,17,44.3,-10.7,1,"< 3%",1172,33,1141,0,1129,0,1129,0,1173,25,1189,33,1142,0,1143,0,1233,67
+16,administracao,55,2,fraco_t1,"Aluno fraco ~30%, forte humanas (trial 1)",realistic_profile,fraco,SUSPEITO,7,23,45.2,-9.8,1,"< 3%",1129,0,1185,33,1172,33,1177,33,1171,25,1141,0,1204,50,1143,0,1188,33
+17,administracao,55,2,fraco_t2,"Aluno fraco ~30%, forte humanas (trial 2)",realistic_profile,fraco,SUSPEITO,9,30,46,-9,1.16,"< 3%",1129,0,1280,100,1129,0,1177,33,1202,50,1141,0,1174,25,1203,50,1140,0
+18,administracao,55,2,fraco_t3,"Aluno fraco ~30%, forte humanas (trial 3)",realistic_profile,fraco,SUSPEITO,11,37,47.2,-7.8,2.33,"< 3%",1129,0,1185,33,1172,33,1218,67,1234,75,1185,33,1142,0,1235,75,1140,0
+19,administracao,55,2,fraco_t4,"Aluno fraco ~30%, forte humanas (trial 4)",realistic_profile,fraco,SUSPEITO,9,30,45.8,-9.2,1.02,"< 3%",1129,0,1236,67,1129,0,1172,33,1171,25,1234,67,1142,0,1234,75,1140,0
+20,administracao,55,2,mediano_t1,"Aluno mediano ~47% (trial 1)",realistic_profile,mediano,OK,13,43,47.7,-7.3,3.06,"3-10%",1218,67,1232,67,1175,33,1175,33,1173,25,1233,67,1174,25,1175,25,1233,67
+21,administracao,55,2,mediano_t2,"Aluno mediano ~47% (trial 2)",realistic_profile,mediano,OK,16,53,49.6,-5.4,7.72,"3-10%",1223,67,1188,33,1218,67,1175,33,1233,75,1185,33,1172,25,1237,75,1233,67
+22,administracao,55,2,mediano_t3,"Aluno mediano ~47% (trial 3)",realistic_profile,mediano,OK,13,43,47.9,-7.1,3.4,"3-10%",1129,0,1232,67,1223,67,1220,67,1141,0,1185,33,1235,75,1205,50,1185,33
+23,administracao,55,2,mediano_t4,"Aluno mediano ~47% (trial 4)",realistic_profile,mediano,OK,17,57,49.9,-5.1,8.81,"3-10%",1177,33,1233,67,1177,33,1220,67,1234,75,1141,0,1236,75,1203,50,1275,100
+24,administracao,55,2,bom_t1,"Aluno bom ~67%, fraco em 2 materias (trial 1)",realistic_profile,bom,OK,22,73,52.3,-2.7,22.16,"10-25%",1266,100,1233,67,1177,33,1266,100,1264,100,1185,33,1266,100,1266,100,1140,0
+25,administracao,55,2,bom_t2,"Aluno bom ~67%, fraco em 2 materias (trial 2)",realistic_profile,bom,OK,18,60,49.7,-5.3,8.07,"3-10%",1172,33,1236,67,1177,33,1223,67,1233,75,1278,100,1234,75,1206,50,1182,33
+26,administracao,55,2,bom_t3,"Aluno bom ~67%, fraco em 2 materias (trial 3)",realistic_profile,bom,OK,20,67,50.7,-4.3,12.28,"10-25%",1223,67,1280,100,1177,33,1172,33,1264,100,1234,67,1235,75,1234,75,1185,33
+27,administracao,55,2,bom_t4,"Aluno bom ~67%, fraco em 2 materias (trial 4)",realistic_profile,bom,OK,21,70,51.4,-3.6,16.09,"10-25%",1223,67,1236,67,1175,33,1266,100,1234,75,1278,100,1234,75,1266,100,1140,0
+28,administracao,55,2,excelente_t1,"Aluno excelente ~87% (trial 1)",realistic_profile,excelente,SUSPEITO,25,83,53.1,-1.9,28.78,"25-40%",1266,100,1280,100,1266,100,1223,67,1234,75,1278,100,1204,50,1266,100,1230,67
+29,administracao,55,2,excelente_t2,"Aluno excelente ~87% (trial 2)",realistic_profile,excelente,SUSPEITO,27,90,53.9,-1.1,36.69,"25-40%",1223,67,1280,100,1266,100,1220,67,1264,100,1278,100,1266,100,1266,100,1227,67
+30,administracao,55,2,excelente_t3,"Aluno excelente ~87% (trial 3)",realistic_profile,excelente,SUSPEITO,25,83,53.6,-1.4,33.56,"25-40%",1223,67,1236,67,1266,100,1266,100,1264,100,1234,67,1236,75,1266,100,1233,67
+31,administracao,55,2,excelente_t4,"Aluno excelente ~87% (trial 4)",realistic_profile,excelente,SUSPEITO,27,90,53.7,-1.3,34.58,"25-40%",1266,100,1280,100,1266,100,1218,67,1264,100,1278,100,1266,100,1205,50,1275,100
+32,administracao,55,2,chute_puro_t1,"Chute puro ~20% (trial 1)",edge_guess,guess,SUSPEITO,5,17,44.3,-10.7,1,"< 3%",1129,0,1188,33,1129,0,1175,33,1172,25,1141,0,1206,50,1143,0,1140,0
+33,administracao,55,2,chute_puro_t2,"Chute puro ~20% (trial 2)",edge_guess,guess,SUSPEITO,8,27,45.6,-9.4,1,"< 3%",1175,33,1185,33,1172,33,1129,0,1233,75,1141,0,1205,50,1143,0,1140,0
+34,administracao,55,2,chute_puro_t3,"Chute puro ~20% (trial 3)",edge_guess,guess,SUSPEITO,9,30,46.4,-8.6,1.47,"< 3%",1218,67,1141,0,1129,0,1220,67,1141,0,1186,33,1174,25,1174,25,1233,67
+35,administracao,55,2,chute_puro_t4,"Chute puro ~20% (trial 4)",edge_guess,guess,SUSPEITO,5,17,44.6,-10.4,1,"< 3%",1129,0,1141,0,1218,67,1177,33,1141,0,1141,0,1172,25,1143,0,1188,33
+36,administracao,55,2,chute_puro_t5,"Chute puro ~20% (trial 5)",edge_guess,guess,SUSPEITO,3,10,43.5,-11.5,1,"< 3%",1129,0,1141,0,1172,33,1129,0,1141,0,1141,0,1174,25,1143,0,1188,33
+37,administracao,55,2,so_portugues,"100% Portugues, 0% resto",edge_subject,port,SUSPEITO,4,13,44.3,-10.7,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1141,0,1141,0,1142,0,1266,100,1140,0
+38,administracao,55,2,so_matematica,"100% Matematica, 0% resto",edge_subject,mat,SUSPEITO,4,13,43.9,-11.1,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1141,0,1141,0,1266,100,1143,0,1140,0
+39,administracao,55,2,acerta_faceis,"Acerta se difficulty_elo < 1200",edge_diff,1200,OK,12,40,47.4,-7.6,2.6,"< 3%",1172,33,1185,33,1172,33,1172,33,1204,50,1185,33,1203,50,1203,50,1188,33
+40,administracao,55,2,acerta_dificeis,"Acerta dificeis (>1300), erra faceis",edge_diff,inverse,OK,13,43,48.1,-6.9,3.77,"3-10%",1129,0,1189,33,1223,67,1223,67,1201,50,1186,33,1205,50,1206,50,1182,33
+41,administracao,55,2,fadiga,"Comeca 90% termina 20%",edge_temporal,fatigue,OK,17,57,49.6,-5.4,7.72,"3-10%",1218,67,1185,33,1172,33,1218,67,1232,75,1230,67,1205,50,1205,50,1230,67
+42,administracao,55,2,aquecimento,"Comeca 20% termina 90%",edge_temporal,warmup,OK,17,57,49.9,-5.1,8.81,"3-10%",1266,100,1236,67,1220,67,1177,33,1234,75,1186,33,1204,50,1206,50,1188,33
+43,administracao,55,2,alternado,"Acerta/erra intercalado 50%",edge_pattern,alt,OK,15,50,48.8,-6.2,5.33,"3-10%",1220,67,1233,67,1175,33,1175,33,1202,50,1186,33,1205,50,1203,50,1230,67
+44,administracao,55,2,elo_800,"Aluno Elo real 800",elo_realistic,800,SUSPEITO,7,23,45.5,-9.5,1,"< 3%",1129,0,1141,0,1172,33,1172,33,1204,50,1141,0,1203,50,1174,25,1140,0
+45,administracao,55,2,elo_900,"Aluno Elo real 900",elo_realistic,900,SUSPEITO,2,7,42.9,-12.1,1,"< 3%",1172,33,1141,0,1129,0,1129,0,1141,0,1185,33,1142,0,1143,0,1140,0
+46,administracao,55,2,elo_1000,"Aluno Elo real 1000",elo_realistic,1000,SUSPEITO,9,30,46.2,-8.8,1.31,"< 3%",1218,67,1185,33,1172,33,1172,33,1172,25,1189,33,1174,25,1174,25,1140,0
+47,administracao,55,2,elo_1100,"Aluno Elo real 1100",elo_realistic,1100,SUSPEITO,8,27,45.9,-9.1,1.09,"< 3%",1172,33,1185,33,1129,0,1218,67,1203,50,1141,0,1174,25,1172,25,1140,0
+48,administracao,55,2,elo_1200,"Aluno Elo real 1200",elo_realistic,1200,OK,16,53,49.4,-5.6,7.06,"3-10%",1266,100,1232,67,1172,33,1218,67,1203,50,1185,33,1204,50,1203,50,1188,33
+49,administracao,55,2,elo_1300,"Aluno Elo real 1300",elo_realistic,1300,OK,16,53,49.3,-5.7,6.75,"3-10%",1129,0,1232,67,1218,67,1218,67,1204,50,1185,33,1204,50,1235,75,1233,67
+50,administracao,55,2,elo_1400,"Aluno Elo real 1400",elo_realistic,1400,OK,18,60,50.3,-4.7,10.44,"10-25%",1266,100,1188,33,1266,100,1177,33,1173,25,1234,67,1203,50,1203,50,1275,100
+51,administracao,55,2,elo_1500,"Aluno Elo real 1500",elo_realistic,1500,OK,20,67,50.8,-4.2,12.78,"10-25%",1220,67,1232,67,1266,100,1218,67,1203,50,1278,100,1203,50,1203,50,1233,67
+52,administracao,55,2,elo_1600,"Aluno Elo real 1600",elo_realistic,1600,OK,22,73,51.5,-3.5,16.69,"10-25%",1266,100,1232,67,1223,67,1172,33,1233,75,1278,100,1234,75,1205,50,1275,100
+53,administracao,55,2,elo_1800,"Aluno Elo real 1800",elo_realistic,1800,SUSPEITO,30,100,55.4,0.4,55.2,"55-70%",1266,100,1280,100,1266,100,1266,100,1264,100,1278,100,1266,100,1266,100,1275,100
+54,administracao,55,2,mono_000pct,"Monotonicidade 0%",monotonicity,0,SUSPEITO,0,0,42.2,-12.8,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1141,0,1141,0,1142,0,1143,0,1140,0
+55,administracao,55,2,mono_009pct,"Monotonicidade 9%",monotonicity,9,SUSPEITO,3,10,43.5,-11.5,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1171,25,1141,0,1172,25,1172,25,1140,0
+56,administracao,55,2,mono_018pct,"Monotonicidade 18%",monotonicity,18,SUSPEITO,5,17,44.6,-10.4,1,"< 3%",1172,33,1141,0,1129,0,1172,33,1171,25,1141,0,1172,25,1172,25,1140,0
+57,administracao,55,2,mono_027pct,"Monotonicidade 27%",monotonicity,27,SUSPEITO,8,27,45.7,-9.3,1,"< 3%",1172,33,1141,0,1172,33,1172,33,1171,25,1185,33,1172,25,1172,25,1182,33
+58,administracao,55,2,mono_036pct,"Monotonicidade 36%",monotonicity,36,SUSPEITO,11,37,46.9,-8.1,1.97,"< 3%",1172,33,1185,33,1172,33,1172,33,1171,25,1185,33,1203,50,1203,50,1182,33
+59,administracao,55,2,mono_045pct,"Monotonicidade 45%",monotonicity,45,OK,14,47,48.4,-6.6,4.39,"3-10%",1218,67,1185,33,1172,33,1218,67,1201,50,1185,33,1203,50,1203,50,1182,33
+60,administracao,55,2,mono_055pct,"Monotonicidade 55%",monotonicity,55,OK,17,57,49.6,-5.4,7.72,"3-10%",1218,67,1185,33,1218,67,1218,67,1201,50,1230,67,1203,50,1203,50,1227,67
+61,administracao,55,2,mono_064pct,"Monotonicidade 64%",monotonicity,64,OK,19,63,50.4,-4.6,10.88,"10-25%",1218,67,1232,67,1218,67,1218,67,1201,50,1230,67,1203,50,1234,75,1227,67
+62,administracao,55,2,mono_073pct,"Monotonicidade 73%",monotonicity,73,OK,22,73,51.9,-3.1,19.29,"10-25%",1218,67,1232,67,1218,67,1266,100,1232,75,1230,67,1234,75,1234,75,1227,67
+63,administracao,55,2,mono_082pct,"Monotonicidade 82%",monotonicity,82,SUSPEITO,25,83,53.4,-1.6,31.59,"25-40%",1266,100,1232,67,1266,100,1266,100,1232,75,1230,67,1234,75,1234,75,1275,100
+64,administracao,55,2,mono_091pct,"Monotonicidade 91%",monotonicity,91,SUSPEITO,27,90,53.9,-1.1,36.69,"25-40%",1266,100,1280,100,1266,100,1266,100,1232,75,1278,100,1234,75,1234,75,1275,100
+65,administracao,55,2,mono_100pct,"Monotonicidade 100%",monotonicity,100,SUSPEITO,30,100,55.4,0.4,55.2,"55-70%",1266,100,1280,100,1266,100,1266,100,1264,100,1278,100,1266,100,1266,100,1275,100
+66,direito,66,2,fixed_0pct,"Acerta exatamente 0%",fixed_accuracy,0,SUSPEITO,0,0,42.1,-23.9,1,"< 3%",1128,0,1140,0,1126,0,1128,0,1142,0,1140,0,1143,0,1143,0,1140,0
+67,direito,66,2,fixed_10pct,"Acerta exatamente 10%",fixed_accuracy,10,SUSPEITO,3,10,43.5,-22.5,1,"< 3%",1128,0,1140,0,1126,0,1128,0,1171,25,1140,0,1172,25,1172,25,1140,0
+68,direito,66,2,fixed_20pct,"Acerta exatamente 20%",fixed_accuracy,20,SUSPEITO,6,20,45,-21,1,"< 3%",1172,33,1140,0,1170,33,1172,33,1171,25,1140,0,1172,25,1172,25,1140,0
+69,direito,66,2,fixed_30pct,"Acerta exatamente 30%",fixed_accuracy,30,SUSPEITO,9,30,45.9,-20.1,1,"< 3%",1172,33,1184,33,1170,33,1172,33,1171,25,1182,33,1172,25,1172,25,1182,33
+70,direito,66,2,fixed_40pct,"Acerta exatamente 40%",fixed_accuracy,40,OK,12,40,47.3,-18.7,1,"< 3%",1172,33,1184,33,1170,33,1172,33,1201,50,1182,33,1203,50,1202,50,1182,33
+71,direito,66,2,fixed_50pct,"Acerta exatamente 50%",fixed_accuracy,50,OK,15,50,48.9,-17.1,1,"< 3%",1217,67,1184,33,1217,67,1217,67,1201,50,1182,33,1203,50,1202,50,1182,33
+72,direito,66,2,fixed_60pct,"Acerta exatamente 60%",fixed_accuracy,60,OK,18,60,49.8,-16.2,1,"< 3%",1217,67,1230,67,1217,67,1217,67,1201,50,1227,67,1203,50,1202,50,1227,67
+73,direito,66,2,fixed_70pct,"Acerta exatamente 70%",fixed_accuracy,70,OK,21,70,51.2,-14.8,1,"< 3%",1217,67,1230,67,1217,67,1217,67,1232,75,1227,67,1234,75,1233,75,1227,67
+74,direito,66,2,fixed_80pct,"Acerta exatamente 80%",fixed_accuracy,80,BUG,24,80,52.9,-13.1,1,"< 3%",1265,100,1230,67,1265,100,1265,100,1232,75,1227,67,1234,75,1233,75,1227,67
+75,direito,66,2,fixed_90pct,"Acerta exatamente 90%",fixed_accuracy,90,BUG,27,90,53.9,-12.1,1,"< 3%",1265,100,1278,100,1265,100,1265,100,1232,75,1275,100,1234,75,1233,75,1275,100
+76,direito,66,2,fixed_100pct,"Acerta exatamente 100%",fixed_accuracy,100,BUG,30,100,55.3,-10.7,1,"< 3%",1265,100,1278,100,1265,100,1265,100,1264,100,1275,100,1266,100,1265,100,1275,100
+77,direito,66,2,pessimo_t1,"Aluno pessimo ~17% (trial 1)",realistic_profile,pessimo,SUSPEITO,6,20,44.9,-21.1,1,"< 3%",1128,0,1140,0,1126,0,1221,67,1172,25,1140,0,1203,50,1143,0,1185,33
+78,direito,66,2,pessimo_t2,"Aluno pessimo ~17% (trial 2)",realistic_profile,pessimo,SUSPEITO,2,7,43.2,-22.8,1,"< 3%",1128,0,1140,0,1126,0,1128,0,1174,25,1140,0,1143,0,1175,25,1140,0
+79,direito,66,2,pessimo_t3,"Aluno pessimo ~17% (trial 3)",realistic_profile,pessimo,SUSPEITO,7,23,45.3,-20.7,1,"< 3%",1217,67,1185,33,1218,67,1128,0,1142,0,1188,33,1143,0,1175,25,1140,0
+80,direito,66,2,pessimo_t4,"Aluno pessimo ~17% (trial 4)",realistic_profile,pessimo,SUSPEITO,9,30,46.3,-19.7,1,"< 3%",1176,33,1140,0,1126,0,1176,33,1204,50,1185,33,1205,50,1203,50,1140,0
+81,direito,66,2,fraco_t1,"Aluno fraco ~30%, forte humanas (trial 1)",realistic_profile,fraco,SUSPEITO,2,7,43,-23,1,"< 3%",1128,0,1188,33,1126,0,1128,0,1142,0,1140,0,1143,0,1175,25,1140,0
+82,direito,66,2,fraco_t2,"Aluno fraco ~30%, forte humanas (trial 2)",realistic_profile,fraco,SUSPEITO,7,23,45.3,-20.7,1,"< 3%",1128,0,1184,33,1174,33,1172,33,1142,0,1140,0,1174,25,1202,50,1182,33
+83,direito,66,2,fraco_t3,"Aluno fraco ~30%, forte humanas (trial 3)",realistic_profile,fraco,SUSPEITO,10,33,46.9,-19.1,1,"< 3%",1172,33,1230,67,1170,33,1265,100,1172,25,1140,0,1143,0,1206,50,1140,0
+84,direito,66,2,fraco_t4,"Aluno fraco ~30%, forte humanas (trial 4)",realistic_profile,fraco,SUSPEITO,10,33,46.2,-19.8,1,"< 3%",1128,0,1278,100,1126,0,1173,33,1264,100,1140,0,1172,25,1175,25,1140,0
+85,direito,66,2,mediano_t1,"Aluno mediano ~47% (trial 1)",realistic_profile,mediano,OK,14,47,48.4,-17.6,1,"< 3%",1172,33,1140,0,1174,33,1176,33,1232,75,1233,67,1205,50,1233,75,1188,33
+86,direito,66,2,mediano_t2,"Aluno mediano ~47% (trial 2)",realistic_profile,mediano,OK,13,43,47.6,-18.4,1,"< 3%",1221,67,1278,100,1174,33,1217,67,1142,0,1188,33,1206,50,1143,0,1230,67
+87,direito,66,2,mediano_t3,"Aluno mediano ~47% (trial 3)",realistic_profile,mediano,OK,14,47,48.1,-17.9,1,"< 3%",1221,67,1188,33,1170,33,1128,0,1172,25,1227,67,1204,50,1204,50,1275,100
+88,direito,66,2,mediano_t4,"Aluno mediano ~47% (trial 4)",realistic_profile,mediano,OK,16,53,48.9,-17.1,1,"< 3%",1221,67,1188,33,1218,67,1217,67,1202,50,1275,100,1204,50,1143,0,1230,67
+89,direito,66,2,bom_t1,"Aluno bom ~67%, fraco em 2 materias (trial 1)",realistic_profile,bom,OK,20,67,50.8,-15.2,1,"< 3%",1217,67,1230,67,1174,33,1265,100,1204,50,1275,100,1237,75,1235,75,1185,33
+90,direito,66,2,bom_t2,"Aluno bom ~67%, fraco em 2 materias (trial 2)",realistic_profile,bom,OK,20,67,51.1,-14.9,1,"< 3%",1220,67,1232,67,1126,0,1220,67,1264,100,1185,33,1203,50,1265,100,1275,100
+91,direito,66,2,bom_t3,"Aluno bom ~67%, fraco em 2 materias (trial 3)",realistic_profile,bom,OK,19,63,50.5,-15.5,1,"< 3%",1221,67,1278,100,1174,33,1265,100,1264,100,1188,33,1234,75,1174,25,1188,33
+92,direito,66,2,bom_t4,"Aluno bom ~67%, fraco em 2 materias (trial 4)",realistic_profile,bom,OK,15,50,48.6,-17.4,1,"< 3%",1221,67,1185,33,1170,33,1128,0,1203,50,1233,67,1234,75,1206,50,1230,67
+93,direito,66,2,excelente_t1,"Aluno excelente ~87% (trial 1)",realistic_profile,excelente,BUG,26,87,53.6,-12.4,1,"< 3%",1217,67,1278,100,1220,67,1265,100,1264,100,1227,67,1266,100,1265,100,1227,67
+94,direito,66,2,excelente_t2,"Aluno excelente ~87% (trial 2)",realistic_profile,excelente,BUG,25,83,53,-13,1,"< 3%",1265,100,1278,100,1174,33,1265,100,1264,100,1275,100,1237,75,1235,75,1233,67
+95,direito,66,2,excelente_t3,"Aluno excelente ~87% (trial 3)",realistic_profile,excelente,OK,21,70,51.5,-14.5,1,"< 3%",1217,67,1232,67,1220,67,1265,100,1234,75,1230,67,1235,75,1233,75,1182,33
+96,direito,66,2,excelente_t4,"Aluno excelente ~87% (trial 4)",realistic_profile,excelente,BUG,29,97,55.1,-10.9,1,"< 3%",1265,100,1278,100,1265,100,1265,100,1264,100,1233,67,1266,100,1265,100,1275,100
+97,direito,66,2,chute_puro_t1,"Chute puro ~20% (trial 1)",edge_guess,guess,SUSPEITO,6,20,44.8,-21.2,1,"< 3%",1176,33,1140,0,1172,33,1173,33,1142,0,1182,33,1203,50,1143,0,1140,0
+98,direito,66,2,chute_puro_t2,"Chute puro ~20% (trial 2)",edge_guess,guess,SUSPEITO,9,30,46.1,-19.9,1,"< 3%",1173,33,1140,0,1126,0,1128,0,1171,25,1182,33,1207,50,1204,50,1227,67
+99,direito,66,2,chute_puro_t3,"Chute puro ~20% (trial 3)",edge_guess,guess,SUSPEITO,7,23,45.5,-20.5,1,"< 3%",1221,67,1184,33,1126,0,1172,33,1172,25,1140,0,1175,25,1175,25,1140,0
+100,direito,66,2,chute_puro_t4,"Chute puro ~20% (trial 4)",edge_guess,guess,SUSPEITO,6,20,44.6,-21.4,1,"< 3%",1128,0,1188,33,1174,33,1128,0,1172,25,1140,0,1205,50,1143,0,1182,33
+101,direito,66,2,chute_puro_t5,"Chute puro ~20% (trial 5)",edge_guess,guess,SUSPEITO,6,20,44.8,-21.2,1,"< 3%",1128,0,1140,0,1218,67,1128,0,1172,25,1188,33,1175,25,1175,25,1140,0
+102,direito,66,2,so_portugues,"100% Portugues, 0% resto",edge_subject,port,SUSPEITO,4,13,44.2,-21.8,1,"< 3%",1128,0,1140,0,1126,0,1128,0,1142,0,1140,0,1143,0,1265,100,1140,0
+103,direito,66,2,so_matematica,"100% Matematica, 0% resto",edge_subject,mat,SUSPEITO,4,13,43.8,-22.2,1,"< 3%",1128,0,1140,0,1126,0,1128,0,1142,0,1140,0,1266,100,1143,0,1140,0
+104,direito,66,2,acerta_faceis,"Acerta se difficulty_elo < 1200",edge_diff,1200,OK,12,40,47.5,-18.5,1,"< 3%",1173,33,1188,33,1174,33,1173,33,1204,50,1188,33,1203,50,1203,50,1188,33
+105,direito,66,2,acerta_dificeis,"Acerta dificeis (>1300), erra faceis",edge_diff,inverse,OK,18,60,50.3,-15.7,1,"< 3%",1220,67,1185,33,1265,100,1220,67,1172,25,1227,67,1207,50,1234,75,1227,67
+106,direito,66,2,fadiga,"Comeca 90% termina 20%",edge_temporal,fatigue,OK,17,57,49.6,-16.4,1,"< 3%",1217,67,1188,33,1172,33,1173,33,1264,100,1227,67,1204,50,1233,75,1182,33
+107,direito,66,2,aquecimento,"Comeca 20% termina 90%",edge_temporal,warmup,OK,18,60,50.5,-15.5,1,"< 3%",1176,33,1188,33,1265,100,1221,67,1234,75,1185,33,1237,75,1206,50,1233,67
+108,direito,66,2,alternado,"Acerta/erra intercalado 50%",edge_pattern,alt,OK,15,50,48.7,-17.3,1,"< 3%",1220,67,1232,67,1172,33,1173,33,1202,50,1185,33,1206,50,1203,50,1230,67
+109,direito,66,2,elo_800,"Aluno Elo real 800",elo_realistic,800,SUSPEITO,9,30,46.4,-19.6,1,"< 3%",1173,33,1140,0,1174,33,1128,0,1234,75,1140,0,1172,25,1203,50,1185,33
+110,direito,66,2,elo_900,"Aluno Elo real 900",elo_realistic,900,SUSPEITO,6,20,44.9,-21.1,1,"< 3%",1173,33,1188,33,1126,0,1128,0,1172,25,1140,0,1143,0,1204,50,1188,33
+111,direito,66,2,elo_1000,"Aluno Elo real 1000",elo_realistic,1000,SUSPEITO,6,20,44.9,-21.1,1,"< 3%",1128,0,1140,0,1170,33,1128,0,1172,25,1140,0,1174,25,1203,50,1185,33
+112,direito,66,2,elo_1100,"Aluno Elo real 1100",elo_realistic,1100,SUSPEITO,11,37,46.8,-19.2,1,"< 3%",1128,0,1184,33,1170,33,1173,33,1203,50,1188,33,1203,50,1172,25,1233,67
+113,direito,66,2,elo_1200,"Aluno Elo real 1200",elo_realistic,1200,OK,17,57,49.3,-16.7,1,"< 3%",1172,33,1184,33,1218,67,1221,67,1234,75,1275,100,1203,50,1172,25,1233,67
+114,direito,66,2,elo_1300,"Aluno Elo real 1300",elo_realistic,1300,OK,18,60,50,-16,1,"< 3%",1221,67,1232,67,1218,67,1217,67,1204,50,1233,67,1203,50,1203,50,1230,67
+115,direito,66,2,elo_1400,"Aluno Elo real 1400",elo_realistic,1400,OK,19,63,50.6,-15.4,1,"< 3%",1173,33,1232,67,1218,67,1265,100,1234,75,1233,67,1172,25,1235,75,1230,67
+116,direito,66,2,elo_1500,"Aluno Elo real 1500",elo_realistic,1500,BUG,25,83,53,-13,1,"< 3%",1265,100,1278,100,1265,100,1217,67,1234,75,1275,100,1266,100,1235,75,1185,33
+117,direito,66,2,elo_1600,"Aluno Elo real 1600",elo_realistic,1600,BUG,23,77,51.9,-14.1,1,"< 3%",1265,100,1278,100,1218,67,1173,33,1234,75,1275,100,1266,100,1235,75,1188,33
+118,direito,66,2,elo_1800,"Aluno Elo real 1800",elo_realistic,1800,BUG,29,97,54.9,-11.1,1,"< 3%",1265,100,1278,100,1265,100,1265,100,1234,75,1275,100,1266,100,1265,100,1275,100
+119,direito,66,2,mono_000pct,"Monotonicidade 0%",monotonicity,0,SUSPEITO,0,0,42.1,-23.9,1,"< 3%",1128,0,1140,0,1126,0,1128,0,1142,0,1140,0,1143,0,1143,0,1140,0
+120,direito,66,2,mono_009pct,"Monotonicidade 9%",monotonicity,9,SUSPEITO,3,10,43.5,-22.5,1,"< 3%",1128,0,1140,0,1126,0,1128,0,1171,25,1140,0,1172,25,1172,25,1140,0
+121,direito,66,2,mono_018pct,"Monotonicidade 18%",monotonicity,18,SUSPEITO,5,17,44.5,-21.5,1,"< 3%",1172,33,1140,0,1126,0,1172,33,1171,25,1140,0,1172,25,1172,25,1140,0
+122,direito,66,2,mono_027pct,"Monotonicidade 27%",monotonicity,27,SUSPEITO,8,27,45.6,-20.4,1,"< 3%",1172,33,1140,0,1170,33,1172,33,1171,25,1182,33,1172,25,1172,25,1182,33
+123,direito,66,2,mono_036pct,"Monotonicidade 36%",monotonicity,36,SUSPEITO,11,37,46.8,-19.2,1,"< 3%",1172,33,1184,33,1170,33,1172,33,1171,25,1182,33,1203,50,1202,50,1182,33
+124,direito,66,2,mono_045pct,"Monotonicidade 45%",monotonicity,45,OK,14,47,48.4,-17.6,1,"< 3%",1217,67,1184,33,1170,33,1217,67,1201,50,1182,33,1203,50,1202,50,1182,33
+125,direito,66,2,mono_055pct,"Monotonicidade 55%",monotonicity,55,OK,17,57,49.6,-16.4,1,"< 3%",1217,67,1184,33,1217,67,1217,67,1201,50,1227,67,1203,50,1202,50,1227,67
+126,direito,66,2,mono_064pct,"Monotonicidade 64%",monotonicity,64,OK,19,63,50.4,-15.6,1,"< 3%",1217,67,1230,67,1217,67,1217,67,1201,50,1227,67,1203,50,1233,75,1227,67
+127,direito,66,2,mono_073pct,"Monotonicidade 73%",monotonicity,73,BUG,22,73,51.8,-14.2,1,"< 3%",1217,67,1230,67,1217,67,1265,100,1232,75,1227,67,1234,75,1233,75,1227,67
+128,direito,66,2,mono_082pct,"Monotonicidade 82%",monotonicity,82,BUG,25,83,53.4,-12.6,1,"< 3%",1265,100,1230,67,1265,100,1265,100,1232,75,1227,67,1234,75,1233,75,1275,100
+129,direito,66,2,mono_091pct,"Monotonicidade 91%",monotonicity,91,BUG,27,90,53.9,-12.1,1,"< 3%",1265,100,1278,100,1265,100,1265,100,1232,75,1275,100,1234,75,1233,75,1275,100
+130,direito,66,2,mono_100pct,"Monotonicidade 100%",monotonicity,100,BUG,30,100,55.3,-10.7,1,"< 3%",1265,100,1278,100,1265,100,1265,100,1264,100,1275,100,1266,100,1265,100,1275,100
+131,medicina,80,2,fixed_0pct,"Acerta exatamente 0%",fixed_accuracy,0,SUSPEITO,0,0,42.2,-37.8,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1141,0,1140,0,1143,0,1143,0,1141,0
+132,medicina,80,2,fixed_10pct,"Acerta exatamente 10%",fixed_accuracy,10,SUSPEITO,3,10,43.5,-36.5,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1170,25,1140,0,1172,25,1172,25,1141,0
+133,medicina,80,2,fixed_20pct,"Acerta exatamente 20%",fixed_accuracy,20,SUSPEITO,6,20,45,-35,1,"< 3%",1172,33,1141,0,1172,33,1172,33,1170,25,1140,0,1172,25,1172,25,1141,0
+134,medicina,80,2,fixed_30pct,"Acerta exatamente 30%",fixed_accuracy,30,SUSPEITO,9,30,45.9,-34.1,1,"< 3%",1172,33,1185,33,1172,33,1172,33,1170,25,1182,33,1172,25,1172,25,1185,33
+135,medicina,80,2,fixed_40pct,"Acerta exatamente 40%",fixed_accuracy,40,OK,12,40,47.3,-32.7,1,"< 3%",1172,33,1185,33,1172,33,1172,33,1200,50,1182,33,1203,50,1203,50,1185,33
+136,medicina,80,2,fixed_50pct,"Acerta exatamente 50%",fixed_accuracy,50,OK,15,50,48.9,-31.1,1,"< 3%",1218,67,1185,33,1218,67,1218,67,1200,50,1182,33,1203,50,1203,50,1185,33
+137,medicina,80,2,fixed_60pct,"Acerta exatamente 60%",fixed_accuracy,60,OK,18,60,49.9,-30.1,1,"< 3%",1218,67,1232,67,1218,67,1218,67,1200,50,1227,67,1203,50,1203,50,1230,67
+138,medicina,80,2,fixed_70pct,"Acerta exatamente 70%",fixed_accuracy,70,OK,21,70,51.3,-28.7,1,"< 3%",1218,67,1232,67,1218,67,1218,67,1232,75,1227,67,1234,75,1234,75,1230,67
+139,medicina,80,2,fixed_80pct,"Acerta exatamente 80%",fixed_accuracy,80,BUG,24,80,53,-27,1,"< 3%",1266,100,1232,67,1266,100,1266,100,1232,75,1227,67,1234,75,1234,75,1230,67
+140,medicina,80,2,fixed_90pct,"Acerta exatamente 90%",fixed_accuracy,90,BUG,27,90,53.9,-26.1,1,"< 3%",1266,100,1280,100,1266,100,1266,100,1232,75,1275,100,1234,75,1234,75,1278,100
+141,medicina,80,2,fixed_100pct,"Acerta exatamente 100%",fixed_accuracy,100,BUG,30,100,55.4,-24.6,1,"< 3%",1266,100,1280,100,1266,100,1266,100,1264,100,1275,100,1266,100,1266,100,1278,100
+142,medicina,80,2,pessimo_t1,"Aluno pessimo ~17% (trial 1)",realistic_profile,pessimo,SUSPEITO,4,13,44.1,-35.9,1,"< 3%",1172,33,1141,0,1129,0,1175,33,1141,0,1188,33,1143,0,1172,25,1141,0
+143,medicina,80,2,pessimo_t2,"Aluno pessimo ~17% (trial 2)",realistic_profile,pessimo,OK,12,40,47.6,-32.4,1,"< 3%",1172,33,1189,33,1129,0,1175,33,1172,25,1185,33,1204,50,1235,75,1233,67
+144,medicina,80,2,pessimo_t3,"Aluno pessimo ~17% (trial 3)",realistic_profile,pessimo,SUSPEITO,6,20,45,-35,1,"< 3%",1175,33,1185,33,1129,0,1175,33,1171,25,1140,0,1143,0,1175,25,1185,33
+145,medicina,80,2,pessimo_t4,"Aluno pessimo ~17% (trial 4)",realistic_profile,pessimo,SUSPEITO,4,13,44.2,-35.8,1,"< 3%",1220,67,1141,0,1177,33,1129,0,1141,0,1140,0,1174,25,1143,0,1141,0
+146,medicina,80,2,fraco_t1,"Aluno fraco ~30%, forte humanas (trial 1)",realistic_profile,fraco,OK,12,40,47.2,-32.8,1,"< 3%",1129,0,1280,100,1129,0,1218,67,1203,50,1182,33,1207,50,1203,50,1141,0
+147,medicina,80,2,fraco_t2,"Aluno fraco ~30%, forte humanas (trial 2)",realistic_profile,fraco,OK,12,40,47.5,-32.5,1,"< 3%",1177,33,1280,100,1129,0,1172,33,1234,75,1140,0,1143,0,1206,50,1234,67
+148,medicina,80,2,fraco_t3,"Aluno fraco ~30%, forte humanas (trial 3)",realistic_profile,fraco,SUSPEITO,9,30,46,-34,1,"< 3%",1129,0,1232,67,1129,0,1220,67,1232,75,1188,33,1143,0,1175,25,1141,0
+149,medicina,80,2,fraco_t4,"Aluno fraco ~30%, forte humanas (trial 4)",realistic_profile,fraco,SUSPEITO,9,30,47,-33,1,"< 3%",1218,67,1141,0,1177,33,1266,100,1170,25,1140,0,1143,0,1207,50,1141,0
+150,medicina,80,2,mediano_t1,"Aluno mediano ~47% (trial 1)",realistic_profile,mediano,OK,17,57,49.5,-30.5,1,"< 3%",1177,33,1280,100,1266,100,1177,33,1232,75,1182,33,1234,75,1175,25,1185,33
+151,medicina,80,2,mediano_t2,"Aluno mediano ~47% (trial 2)",realistic_profile,mediano,OK,18,60,50.1,-29.9,1,"< 3%",1223,67,1232,67,1266,100,1266,100,1170,25,1275,100,1175,25,1203,50,1186,33
+152,medicina,80,2,mediano_t3,"Aluno mediano ~47% (trial 3)",realistic_profile,mediano,OK,14,47,48.1,-31.9,1,"< 3%",1172,33,1185,33,1129,0,1220,67,1232,75,1233,67,1206,50,1172,25,1230,67
+153,medicina,80,2,mediano_t4,"Aluno mediano ~47% (trial 4)",realistic_profile,mediano,OK,16,53,49.6,-30.4,1,"< 3%",1223,67,1189,33,1218,67,1266,100,1171,25,1230,67,1206,50,1234,75,1141,0
+154,medicina,80,2,bom_t1,"Aluno bom ~67%, fraco em 2 materias (trial 1)",realistic_profile,bom,OK,20,67,51.5,-28.5,1,"< 3%",1218,67,1189,33,1220,67,1266,100,1232,75,1188,33,1266,100,1234,75,1189,33
+155,medicina,80,2,bom_t2,"Aluno bom ~67%, fraco em 2 materias (trial 2)",realistic_profile,bom,OK,20,67,51,-29,1,"< 3%",1223,67,1189,33,1177,33,1218,67,1264,100,1275,100,1236,75,1237,75,1189,33
+156,medicina,80,2,bom_t3,"Aluno bom ~67%, fraco em 2 materias (trial 3)",realistic_profile,bom,OK,18,60,50.3,-29.7,1,"< 3%",1266,100,1236,67,1177,33,1177,33,1233,75,1230,67,1204,50,1266,100,1141,0
+157,medicina,80,2,bom_t4,"Aluno bom ~67%, fraco em 2 materias (trial 4)",realistic_profile,bom,OK,19,63,50.1,-29.9,1,"< 3%",1218,67,1280,100,1129,0,1220,67,1233,75,1275,100,1235,75,1234,75,1141,0
+158,medicina,80,2,excelente_t1,"Aluno excelente ~87% (trial 1)",realistic_profile,excelente,BUG,27,90,53.8,-26.2,1,"< 3%",1218,67,1280,100,1266,100,1220,67,1232,75,1275,100,1266,100,1266,100,1278,100
+159,medicina,80,2,excelente_t2,"Aluno excelente ~87% (trial 2)",realistic_profile,excelente,BUG,27,90,53.8,-26.2,1,"< 3%",1218,67,1280,100,1266,100,1218,67,1232,75,1275,100,1266,100,1266,100,1278,100
+160,medicina,80,2,excelente_t3,"Aluno excelente ~87% (trial 3)",realistic_profile,excelente,BUG,24,80,52.5,-27.5,1,"< 3%",1266,100,1280,100,1220,67,1175,33,1203,50,1275,100,1236,75,1266,100,1278,100
+161,medicina,80,2,excelente_t4,"Aluno excelente ~87% (trial 4)",realistic_profile,excelente,BUG,24,80,52.7,-27.3,1,"< 3%",1266,100,1236,67,1218,67,1223,67,1264,100,1275,100,1237,75,1234,75,1233,67
+162,medicina,80,2,chute_puro_t1,"Chute puro ~20% (trial 1)",edge_guess,guess,SUSPEITO,9,30,46.4,-33.6,1,"< 3%",1129,0,1189,33,1218,67,1220,67,1171,25,1140,0,1172,25,1175,25,1189,33
+163,medicina,80,2,chute_puro_t2,"Chute puro ~20% (trial 2)",edge_guess,guess,SUSPEITO,5,17,44.3,-35.7,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1173,25,1140,0,1234,75,1143,0,1185,33
+164,medicina,80,2,chute_puro_t3,"Chute puro ~20% (trial 3)",edge_guess,guess,SUSPEITO,10,33,46.4,-33.6,1,"< 3%",1223,67,1185,33,1172,33,1220,67,1141,0,1227,67,1172,25,1143,0,1185,33
+165,medicina,80,2,chute_puro_t4,"Chute puro ~20% (trial 4)",edge_guess,guess,SUSPEITO,3,10,43.9,-36.1,1,"< 3%",1223,67,1141,0,1129,0,1129,0,1141,0,1140,0,1143,0,1175,25,1141,0
+166,medicina,80,2,chute_puro_t5,"Chute puro ~20% (trial 5)",edge_guess,guess,SUSPEITO,11,37,47.5,-32.5,1,"< 3%",1218,67,1141,0,1266,100,1177,33,1171,25,1185,33,1175,25,1175,25,1186,33
+167,medicina,80,2,so_portugues,"100% Portugues, 0% resto",edge_subject,port,SUSPEITO,4,13,44.3,-35.7,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1141,0,1140,0,1143,0,1266,100,1141,0
+168,medicina,80,2,so_matematica,"100% Matematica, 0% resto",edge_subject,mat,SUSPEITO,4,13,43.9,-36.1,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1141,0,1140,0,1266,100,1143,0,1141,0
+169,medicina,80,2,acerta_faceis,"Acerta se difficulty_elo < 1200",edge_diff,1200,OK,12,40,47.4,-32.6,1,"< 3%",1172,33,1185,33,1172,33,1172,33,1204,50,1188,33,1203,50,1203,50,1185,33
+170,medicina,80,2,acerta_dificeis,"Acerta dificeis (>1300), erra faceis",edge_diff,inverse,OK,17,57,49.6,-30.4,1,"< 3%",1220,67,1280,100,1172,33,1177,33,1232,75,1182,33,1207,50,1207,50,1234,67
+171,medicina,80,2,fadiga,"Comeca 90% termina 20%",edge_temporal,fatigue,OK,18,60,50,-30,1,"< 3%",1218,67,1232,67,1172,33,1220,67,1232,75,1227,67,1175,25,1234,75,1230,67
+172,medicina,80,2,aquecimento,"Comeca 20% termina 90%",edge_temporal,warmup,OK,17,57,49.8,-30.2,1,"< 3%",1177,33,1236,67,1223,67,1175,33,1204,50,1233,67,1237,75,1237,75,1189,33
+173,medicina,80,2,alternado,"Acerta/erra intercalado 50%",edge_pattern,alt,OK,15,50,48.8,-31.2,1,"< 3%",1220,67,1233,67,1175,33,1175,33,1201,50,1185,33,1206,50,1204,50,1233,67
+174,medicina,80,2,elo_800,"Aluno Elo real 800",elo_realistic,800,SUSPEITO,3,10,43.5,-36.5,1,"< 3%",1129,0,1141,0,1172,33,1129,0,1173,25,1140,0,1172,25,1143,0,1141,0
+175,medicina,80,2,elo_900,"Aluno Elo real 900",elo_realistic,900,SUSPEITO,8,27,46,-34,1,"< 3%",1172,33,1141,0,1129,0,1129,0,1204,50,1140,0,1204,50,1203,50,1189,33
+176,medicina,80,2,elo_1000,"Aluno Elo real 1000",elo_realistic,1000,SUSPEITO,7,23,45.3,-34.7,1,"< 3%",1129,0,1185,33,1172,33,1220,67,1173,25,1140,0,1203,50,1143,0,1141,0
+177,medicina,80,2,elo_1100,"Aluno Elo real 1100",elo_realistic,1100,SUSPEITO,11,37,47.4,-32.6,1,"< 3%",1218,67,1141,0,1175,33,1220,67,1170,25,1188,33,1172,25,1203,50,1185,33
+178,medicina,80,2,elo_1200,"Aluno Elo real 1200",elo_realistic,1200,OK,15,50,48.7,-31.3,1,"< 3%",1172,33,1185,33,1218,67,1218,67,1204,50,1233,67,1203,50,1203,50,1185,33
+179,medicina,80,2,elo_1300,"Aluno Elo real 1300",elo_realistic,1300,OK,19,63,50.8,-29.2,1,"< 3%",1218,67,1185,33,1266,100,1175,33,1234,75,1233,67,1235,75,1237,75,1189,33
+180,medicina,80,2,elo_1400,"Aluno Elo real 1400",elo_realistic,1400,BUG,23,77,52.5,-27.5,1,"< 3%",1266,100,1232,67,1266,100,1266,100,1234,75,1233,67,1235,75,1203,50,1233,67
+181,medicina,80,2,elo_1500,"Aluno Elo real 1500",elo_realistic,1500,OK,21,70,51.5,-28.5,1,"< 3%",1218,67,1232,67,1266,100,1218,67,1204,50,1233,67,1234,75,1234,75,1233,67
+182,medicina,80,2,elo_1600,"Aluno Elo real 1600",elo_realistic,1600,BUG,22,73,52.1,-27.9,1,"< 3%",1266,100,1232,67,1218,67,1266,100,1233,75,1230,67,1203,50,1234,75,1233,67
+183,medicina,80,2,elo_1800,"Aluno Elo real 1800",elo_realistic,1800,BUG,29,97,55,-25,1,"< 3%",1266,100,1280,100,1266,100,1266,100,1234,75,1275,100,1266,100,1266,100,1278,100
+184,medicina,80,2,mono_000pct,"Monotonicidade 0%",monotonicity,0,SUSPEITO,0,0,42.2,-37.8,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1141,0,1140,0,1143,0,1143,0,1141,0
+185,medicina,80,2,mono_009pct,"Monotonicidade 9%",monotonicity,9,SUSPEITO,3,10,43.5,-36.5,1,"< 3%",1129,0,1141,0,1129,0,1129,0,1170,25,1140,0,1172,25,1172,25,1141,0
+186,medicina,80,2,mono_018pct,"Monotonicidade 18%",monotonicity,18,SUSPEITO,5,17,44.6,-35.4,1,"< 3%",1172,33,1141,0,1129,0,1172,33,1170,25,1140,0,1172,25,1172,25,1141,0
+187,medicina,80,2,mono_027pct,"Monotonicidade 27%",monotonicity,27,SUSPEITO,8,27,45.7,-34.3,1,"< 3%",1172,33,1141,0,1172,33,1172,33,1170,25,1182,33,1172,25,1172,25,1185,33
+188,medicina,80,2,mono_036pct,"Monotonicidade 36%",monotonicity,36,SUSPEITO,11,37,46.9,-33.1,1,"< 3%",1172,33,1185,33,1172,33,1172,33,1170,25,1182,33,1203,50,1203,50,1185,33
+189,medicina,80,2,mono_045pct,"Monotonicidade 45%",monotonicity,45,OK,14,47,48.4,-31.6,1,"< 3%",1218,67,1185,33,1172,33,1218,67,1200,50,1182,33,1203,50,1203,50,1185,33
+190,medicina,80,2,mono_055pct,"Monotonicidade 55%",monotonicity,55,OK,17,57,49.6,-30.4,1,"< 3%",1218,67,1185,33,1218,67,1218,67,1200,50,1227,67,1203,50,1203,50,1230,67
+191,medicina,80,2,mono_064pct,"Monotonicidade 64%",monotonicity,64,OK,19,63,50.4,-29.6,1,"< 3%",1218,67,1232,67,1218,67,1218,67,1200,50,1227,67,1203,50,1234,75,1230,67
+192,medicina,80,2,mono_073pct,"Monotonicidade 73%",monotonicity,73,BUG,22,73,51.9,-28.1,1,"< 3%",1218,67,1232,67,1218,67,1266,100,1232,75,1227,67,1234,75,1234,75,1230,67
+193,medicina,80,2,mono_082pct,"Monotonicidade 82%",monotonicity,82,BUG,25,83,53.4,-26.6,1,"< 3%",1266,100,1232,67,1266,100,1266,100,1232,75,1227,67,1234,75,1234,75,1278,100
+194,medicina,80,2,mono_091pct,"Monotonicidade 91%",monotonicity,91,BUG,27,90,53.9,-26.1,1,"< 3%",1266,100,1280,100,1266,100,1266,100,1232,75,1275,100,1234,75,1234,75,1278,100
+195,medicina,80,2,mono_100pct,"Monotonicidade 100%",monotonicity,100,BUG,30,100,55.4,-24.6,1,"< 3%",1266,100,1280,100,1266,100,1266,100,1264,100,1275,100,1266,100,1266,100,1278,100

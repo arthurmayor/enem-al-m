@@ -32,18 +32,40 @@ function expectedAccuracy(studentElo, meanDiff, sdDiff) {
   return totalP;
 }
 
-// CORRIGIDO: normaliza para escala 90
-function estimateScore(proficiencies, subjectDist) {
-  let score = 0;
-  let totalQuestions = 0;
+// CORRIGIDO v2: blend acerto direto + Elo
+function estimateScore(proficiencies, subjectDist, totalDiagnosticQuestions, totalDiagnosticCorrect, totalSimulados = 0, totalQuestionsEver = 0) {
+  // === ACERTO DIRETO ===
+  const rawAccuracyRate = totalDiagnosticQuestions > 0 ? totalDiagnosticCorrect / totalDiagnosticQuestions : 0;
+  const directScore = rawAccuracyRate * 90;
+
+  // === ACERTO POR ELO ===
+  let eloScore = 0;
+  let totalQInDist = 0;
   for (const [subject, dist] of Object.entries(subjectDist)) {
     const elo = proficiencies[subject]?.elo || 1200;
-    score += expectedAccuracy(elo, dist.meanDiff, dist.sdDiff) * dist.questions;
-    totalQuestions += dist.questions;
+    eloScore += expectedAccuracy(elo, dist.meanDiff, dist.sdDiff) * dist.questions;
+    totalQInDist += dist.questions;
   }
-  if (totalQuestions !== 90 && totalQuestions > 0) {
-    score = (score / totalQuestions) * 90;
+  if (totalQInDist !== 90 && totalQInDist > 0) {
+    eloScore = (eloScore / totalQInDist) * 90;
   }
+
+  // === BLEND ===
+  const dataVolume = (totalQuestionsEver || totalDiagnosticQuestions) + (totalSimulados * 90);
+  let directWeight;
+  if (dataVolume <= 50) directWeight = 0.75;
+  else if (dataVolume <= 200) directWeight = 0.50;
+  else if (dataVolume <= 500) directWeight = 0.25;
+  else directWeight = 0.10;
+
+  let score = directScore * directWeight + eloScore * (1 - directWeight);
+
+  // === Sanity checks ===
+  if (score > 90) score = 90;
+  if (score < 0) score = 0;
+  const maxReasonableScore = rawAccuracyRate * 90 * 1.2;
+  if (score > maxReasonableScore && rawAccuracyRate > 0) score = maxReasonableScore;
+
   return Math.round(score * 10) / 10;
 }
 
@@ -173,7 +195,7 @@ function runOneDiagnostic(questions, course) {
       if (isCorrect) { subj.correct += 1; totalCorrect += 1; }
     }
 
-    const score = estimateScore(proficiencies, examConfig.subject_distribution);
+    const score = estimateScore(proficiencies, examConfig.subject_distribution, TOTAL_QUESTIONS, totalCorrect, 0, TOTAL_QUESTIONS);
     const subjectsCovered = Object.keys(proficiencies).length;
     const probability = calculatePassProbability(score, examConfig.cutoff_mean, examConfig.cutoff_sd, TOTAL_QUESTIONS, 0, subjectsCovered);
     const probBand = getProbabilityBand(probability);

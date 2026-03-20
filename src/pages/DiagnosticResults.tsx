@@ -49,6 +49,12 @@ interface ProbBand {
   borderColor: string;
 }
 
+interface BlendInfo {
+  directWeight: number;
+  confidenceLabel: string;
+  accuracyPct: number;
+}
+
 interface DiagnosticState {
   proficiencies: Record<string, ProficiencyEntry>;
   estimatedScore: number;
@@ -60,6 +66,7 @@ interface DiagnosticState {
   totalCorrect: number;
   totalQuestions: number;
   examConfig: ExamConfigState;
+  blendInfo?: BlendInfo;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -188,7 +195,7 @@ const DiagnosticResults = () => {
     );
   }
 
-  const { proficiencies, estimatedScore, cutoff, gap, probBand, priorities, totalCorrect, totalQuestions, examConfig } = data;
+  const { proficiencies, estimatedScore, cutoff, gap, probBand, priorities, totalCorrect, totalQuestions, examConfig, blendInfo } = data;
   const phase2Set = new Set(examConfig.phase2_subjects || []);
   const subjectDist = examConfig.subject_distribution || {};
 
@@ -241,8 +248,19 @@ const DiagnosticResults = () => {
             </div>
             <p className="text-3xl font-bold text-foreground">{estimatedScore}</p>
             <p className="text-xs text-muted-foreground">
-              Se você fizesse a {examConfig.exam_name} hoje, estimamos esta nota
+              {blendInfo
+                ? `Baseada em ${blendInfo.accuracyPct}% de acerto + ajuste por dificuldade`
+                : `Se você fizesse a ${examConfig.exam_name} hoje, estimamos esta nota`}
             </p>
+            {blendInfo && (
+              <span className={`inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                blendInfo.confidenceLabel === "baixa" ? "bg-orange-100 text-orange-700" :
+                blendInfo.confidenceLabel === "média" ? "bg-yellow-100 text-yellow-700" :
+                "bg-green-100 text-green-700"
+              }`}>
+                Confiança {blendInfo.confidenceLabel}
+              </span>
+            )}
           </div>
           <div className="p-5 bg-card rounded-xl shadow-rest text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
@@ -375,9 +393,10 @@ const DiagnosticResults = () => {
                 fator K ampliado (×1.5) para compensar a amostra menor.
               </p>
               <p>
-                <strong>Nota estimada:</strong> Para cada matéria do vestibular, calculamos a taxa de acerto
-                esperada usando uma grade discreta de dificuldades (11 pontos ponderados) multiplicada pelo
-                número de questões daquela matéria.
+                <strong>Nota estimada:</strong> Combinamos duas estimativas: (1) projeção direta da sua taxa de
+                acerto real no diagnóstico e (2) projeção via Elo por matéria usando grade discreta de dificuldades.
+                No diagnóstico, o peso da taxa real é 75% e do Elo 25%. Conforme você responde mais questões,
+                o peso do Elo aumenta progressivamente.
               </p>
               <p>
                 <strong>Probabilidade:</strong> Comparamos sua nota estimada com a nota de corte histórica

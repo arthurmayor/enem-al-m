@@ -82,21 +82,61 @@ function expectedAccuracy(studentElo: number, meanDiff: number, sdDiff: number):
 
 function estimateScore(
   proficiencies: Record<string, Proficiency>,
-  subjectDist: Record<string, SubjectDistEntry>
+  subjectDist: Record<string, SubjectDistEntry>,
+  totalDiagnosticQuestions: number,
+  totalDiagnosticCorrect: number,
+  totalSimulados: number = 0,
+  totalQuestionsEver: number = 0,
 ): number {
-  let score = 0;
-  let totalQuestions = 0;
+  // === ACERTO DIRETO: projeção linear da taxa de acerto real ===
+  // Se acertou 50% do diagnóstico, projeta 50% × 90 = 45 pontos
+  const rawAccuracyRate = totalDiagnosticQuestions > 0
+    ? totalDiagnosticCorrect / totalDiagnosticQuestions
+    : 0;
+  const directScore = rawAccuracyRate * 90;
 
+  // === ACERTO POR ELO: projeção via grade discreta por matéria ===
+  let eloScore = 0;
+  let totalQInDist = 0;
   for (const [subject, dist] of Object.entries(subjectDist)) {
     const elo = proficiencies[subject]?.elo || 1200;
-    score += expectedAccuracy(elo, dist.meanDiff, dist.sdDiff) * dist.questions;
-    totalQuestions += dist.questions;
+    eloScore += expectedAccuracy(elo, dist.meanDiff, dist.sdDiff) * dist.questions;
+    totalQInDist += dist.questions;
+  }
+  // Normalizar para 90 se a distribuição não somar 90
+  if (totalQInDist !== 90 && totalQInDist > 0) {
+    eloScore = (eloScore / totalQInDist) * 90;
   }
 
-  // VALIDAÇÃO: se totalQuestions != 90, normalizar para escala de 90
-  if (totalQuestions !== 90 && totalQuestions > 0) {
-    console.warn(`estimateScore: subject_distribution soma ${totalQuestions}, normalizando para 90`);
-    score = (score / totalQuestions) * 90;
+  // === BLEND: peso do acerto direto diminui conforme mais dados ===
+  // No diagnóstico (30 questões, 0 simulados): peso direto = 0.75, peso Elo = 0.25
+  // Após 100 questões + 1 simulado: peso direto = 0.50, peso Elo = 0.50
+  // Após 300 questões + 3 simulados: peso direto = 0.25, peso Elo = 0.75
+  // Após 500+ questões + 5 simulados: peso direto = 0.10, peso Elo = 0.90
+  const dataVolume = (totalQuestionsEver || totalDiagnosticQuestions) + (totalSimulados * 90);
+  let directWeight: number;
+  if (dataVolume <= 50) directWeight = 0.75;
+  else if (dataVolume <= 200) directWeight = 0.50;
+  else if (dataVolume <= 500) directWeight = 0.25;
+  else directWeight = 0.10;
+
+  const eloWeight = 1 - directWeight;
+  let score = directScore * directWeight + eloScore * eloWeight;
+
+  // === Sanity checks ===
+  if (score > 90) {
+    console.error('SCORE > 90, clamping:', score);
+    score = 90;
+  }
+  if (score < 0) {
+    console.error('SCORE < 0, clamping:', score);
+    score = 0;
+  }
+  // Score não pode ser maior que acerto_real * 90 * 1.2 (no máximo 20% acima do acerto real)
+  const maxReasonableScore = rawAccuracyRate * 90 * 1.2;
+  if (score > maxReasonableScore && rawAccuracyRate > 0) {
+    console.warn(`Score ${score} acima do razoável (max ${maxReasonableScore}). Clamping.`);
+    score = maxReasonableScore;
   }
 
   return Math.round(score * 10) / 10;
@@ -431,8 +471,17 @@ const DiagnosticTest = () => {
       subjectDist = DEFAULT_FUVEST_DISTRIBUTION;
     }
 
-    // Compute estimated score
-    const score = estimateScore(prof, subjectDist);
+    // Compute estimated score (blend: acerto direto + Elo)
+    const totalCorrect = Object.values(prof).reduce((s, v) => s + v.correct, 0);
+    const totalQuestionsAnswered = Object.values(prof).reduce((s, v) => s + v.total, 0);
+    const score = estimateScore(
+      prof,
+      subjectDist,
+      totalQuestionsAnswered,  // 30 (diagnóstico)
+      totalCorrect,            // ex: 15
+      0,                       // 0 simulados (é o diagnóstico)
+      totalQuestionsAnswered,  // total de questões já respondidas
+    );
     const cutoffMean = examConfig.cutoff_mean;
     const cutoffSd = examConfig.cutoff_sd;
     const gap = Math.round((score - cutoffMean) * 10) / 10;
@@ -520,6 +569,12 @@ const DiagnosticTest = () => {
       };
     }
 
+    // Confidence level based on data volume
+    const dataVolume = totalQuestionsAnswered;
+    const directWeight = dataVolume <= 50 ? 0.75 : dataVolume <= 200 ? 0.50 : dataVolume <= 500 ? 0.25 : 0.10;
+    const confidenceLabel = directWeight > 0.5 ? "baixa" : directWeight >= 0.25 ? "média" : "alta";
+    const accuracyPct = Math.round((totalCorrect / Math.max(1, totalQuestionsAnswered)) * 100);
+
     navigate("/diagnostic/results", {
       state: {
         proficiencies: proficienciesForResults,
@@ -532,6 +587,11 @@ const DiagnosticTest = () => {
         totalCorrect: totalCorrectRef.current,
         totalQuestions: TOTAL_QUESTIONS,
         examConfig,
+        blendInfo: {
+          directWeight,
+          confidenceLabel,
+          accuracyPct,
+        },
       },
     });
   };

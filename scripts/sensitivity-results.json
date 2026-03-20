@@ -1,0 +1,7096 @@
+{
+  "metadata": {
+    "generated_at": "2026-03-20T19:42:52.606Z",
+    "total_simulations": 49,
+    "exam_config": {
+      "name": "ENEM",
+      "cutoff_mean": 65,
+      "cutoff_sd": 8,
+      "subject_distribution": {
+        "Português": {
+          "questions": 40,
+          "meanDiff": 1150,
+          "sdDiff": 200
+        },
+        "Matemática": {
+          "questions": 45,
+          "meanDiff": 1200,
+          "sdDiff": 250
+        },
+        "História": {
+          "questions": 15,
+          "meanDiff": 1100,
+          "sdDiff": 180
+        },
+        "Geografia": {
+          "questions": 15,
+          "meanDiff": 1100,
+          "sdDiff": 180
+        },
+        "Biologia": {
+          "questions": 15,
+          "meanDiff": 1150,
+          "sdDiff": 200
+        },
+        "Física": {
+          "questions": 15,
+          "meanDiff": 1250,
+          "sdDiff": 220
+        },
+        "Química": {
+          "questions": 15,
+          "meanDiff": 1200,
+          "sdDiff": 210
+        },
+        "Inglês": {
+          "questions": 5,
+          "meanDiff": 1050,
+          "sdDiff": 150
+        },
+        "Filosofia": {
+          "questions": 15,
+          "meanDiff": 1050,
+          "sdDiff": 170
+        }
+      }
+    },
+    "questions_source": "fallback",
+    "questions_count": 30,
+    "questions_per_diagnostic": 30,
+    "subject_counts": {
+      "Português": 4,
+      "Matemática": 4,
+      "História": 4,
+      "Geografia": 3,
+      "Biologia": 3,
+      "Física": 3,
+      "Química": 3,
+      "Inglês": 3,
+      "Filosofia": 3
+    },
+    "elo_distribution": {
+      "< 1000": 6,
+      "1000-1200": 6,
+      "1200-1400": 6,
+      "> 1400": 12
+    }
+  },
+  "results": [
+    {
+      "simulation_id": 1,
+      "strategy_name": "fixed_0pct",
+      "strategy_description": "Acerta exatamente 0% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 0,
+      "using_fallback": true,
+      "totalCorrect": 0,
+      "totalQuestions": 30,
+      "pctCorrect": 0,
+      "estimatedScore": 93.8,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 28.8,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Matemática": {
+          "elo": 1142,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "História": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Geografia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Biologia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1126,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Química": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Filosofia": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Física",
+          "elo": 1126,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1142,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1143,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 2,
+      "strategy_name": "fixed_10pct",
+      "strategy_description": "Acerta exatamente 10% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 10,
+      "using_fallback": true,
+      "totalCorrect": 3,
+      "totalQuestions": 30,
+      "pctCorrect": 10,
+      "estimatedScore": 97.5,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 32.5,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "História": {
+          "elo": 1171,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Biologia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1126,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Química": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Filosofia": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Física",
+          "elo": 1126,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1171,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1172,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 3,
+      "strategy_name": "fixed_20pct",
+      "strategy_description": "Acerta exatamente 20% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 20,
+      "using_fallback": true,
+      "totalCorrect": 6,
+      "totalQuestions": 30,
+      "pctCorrect": 20,
+      "estimatedScore": 99.9,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 34.9,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1171,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "História": {
+          "elo": 1171,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Filosofia": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Filosofia",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1171,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1171,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1172,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 4,
+      "strategy_name": "fixed_30pct",
+      "strategy_description": "Acerta exatamente 30% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 30,
+      "using_fallback": true,
+      "totalCorrect": 9,
+      "totalQuestions": 30,
+      "pctCorrect": 30,
+      "estimatedScore": 101.7,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 36.7,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1171,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "História": {
+          "elo": 1171,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1169,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1182,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Física",
+          "elo": 1169,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1171,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1171,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1182,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1185,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 5,
+      "strategy_name": "fixed_40pct",
+      "strategy_description": "Acerta exatamente 40% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 40,
+      "using_fallback": true,
+      "totalCorrect": 12,
+      "totalQuestions": 30,
+      "pctCorrect": 40,
+      "estimatedScore": 105.4,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 40.4,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1200,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1170,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1182,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1182,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Física",
+          "elo": 1170,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1182,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1182,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1185,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 6,
+      "strategy_name": "fixed_50pct",
+      "strategy_description": "Acerta exatamente 50% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 50,
+      "using_fallback": true,
+      "totalCorrect": 15,
+      "totalQuestions": 30,
+      "pctCorrect": 50,
+      "estimatedScore": 107.7,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 42.7,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1201,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1200,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1202,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1215,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Biologia": {
+          "elo": 1215,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1218,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1182,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1182,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Química",
+          "elo": 1182,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1182,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1185,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 7,
+      "strategy_name": "fixed_60pct",
+      "strategy_description": "Acerta exatamente 60% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 60,
+      "using_fallback": true,
+      "totalCorrect": 18,
+      "totalQuestions": 30,
+      "pctCorrect": 60,
+      "estimatedScore": 109.7,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 44.7,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1200,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1202,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1215,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Biologia": {
+          "elo": 1218,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1218,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1227,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 8,
+      "strategy_name": "fixed_70pct",
+      "strategy_description": "Acerta exatamente 70% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 70,
+      "using_fallback": true,
+      "totalCorrect": 21,
+      "totalQuestions": 30,
+      "pctCorrect": 70,
+      "estimatedScore": 113.3,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 48.3,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1232,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1232,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1232,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1215,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Biologia": {
+          "elo": 1216,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1215,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1230,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1230,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 9,
+      "strategy_name": "fixed_80pct",
+      "strategy_description": "Acerta exatamente 80% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 80,
+      "using_fallback": true,
+      "totalCorrect": 24,
+      "totalQuestions": 30,
+      "pctCorrect": 80,
+      "estimatedScore": 116.1,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 51.1,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1233,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1234,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1233,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1265,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1227,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1230,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 10,
+      "strategy_name": "fixed_90pct",
+      "strategy_description": "Acerta exatamente 90% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 90,
+      "using_fallback": true,
+      "totalCorrect": 27,
+      "totalQuestions": 30,
+      "pctCorrect": 90,
+      "estimatedScore": 117.9,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 52.9,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1233,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1232,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1234,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1265,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Inglês": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Filosofia": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 11,
+      "strategy_name": "fixed_100pct",
+      "strategy_description": "Acerta exatamente 100% (sequencial)",
+      "strategy_category": "fixed_accuracy",
+      "strategy_param": 100,
+      "using_fallback": true,
+      "totalCorrect": 30,
+      "totalQuestions": 30,
+      "pctCorrect": 100,
+      "estimatedScore": 121.6,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 56.6,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1266,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Matemática": {
+          "elo": 1266,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "História": {
+          "elo": 1264,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Geografia": {
+          "elo": 1264,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Inglês": {
+          "elo": 1278,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Filosofia": {
+          "elo": 1275,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 12,
+      "strategy_name": "random_20pct_t1",
+      "strategy_description": "Random com ~20% de acerto (trial 1)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 20,
+      "using_fallback": true,
+      "totalCorrect": 10,
+      "totalQuestions": 30,
+      "pctCorrect": 33,
+      "estimatedScore": 102.7,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 37.7,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "História": {
+          "elo": 1171,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1128,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1177,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1182,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1128,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1171,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1177,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1182,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1188,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 13,
+      "strategy_name": "random_20pct_t2",
+      "strategy_description": "Random com ~20% de acerto (trial 2)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 20,
+      "using_fallback": true,
+      "totalCorrect": 8,
+      "totalQuestions": 30,
+      "pctCorrect": 27,
+      "estimatedScore": 102.8,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 37.8,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1234,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "História": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Biologia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1177,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Geografia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1177,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1188,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1188,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 14,
+      "strategy_name": "random_20pct_t3",
+      "strategy_description": "Random com ~20% de acerto (trial 3)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 20,
+      "using_fallback": true,
+      "totalCorrect": 8,
+      "totalQuestions": 30,
+      "pctCorrect": 27,
+      "estimatedScore": 100,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 35,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "História": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Biologia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1176,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Filosofia": {
+          "elo": 1183,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1176,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1183,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 15,
+      "strategy_name": "random_35pct_t1",
+      "strategy_description": "Random com ~35% de acerto (trial 1)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 35,
+      "using_fallback": true,
+      "totalCorrect": 13,
+      "totalQuestions": 30,
+      "pctCorrect": 43,
+      "estimatedScore": 106.8,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 41.8,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1202,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1202,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1176,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1169,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1175,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1231,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1234,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1169,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1175,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1176,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1185,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 16,
+      "strategy_name": "random_35pct_t2",
+      "strategy_description": "Random com ~35% de acerto (trial 2)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 35,
+      "using_fallback": true,
+      "totalCorrect": 14,
+      "totalQuestions": 30,
+      "pctCorrect": 47,
+      "estimatedScore": 109.2,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 44.2,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1235,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1234,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1264,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1177,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Química": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1182,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Física",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1173,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1177,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1182,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1185,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 17,
+      "strategy_name": "random_35pct_t3",
+      "strategy_description": "Random com ~35% de acerto (trial 3)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 35,
+      "using_fallback": true,
+      "totalCorrect": 11,
+      "totalQuestions": 30,
+      "pctCorrect": 37,
+      "estimatedScore": 101.1,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 36.1,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "História": {
+          "elo": 1232,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1218,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Biologia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1220,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Filosofia": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1173,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 18,
+      "strategy_name": "random_50pct_t1",
+      "strategy_description": "Random com ~50% de acerto (trial 1)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 50,
+      "using_fallback": true,
+      "totalCorrect": 17,
+      "totalQuestions": 30,
+      "pctCorrect": 57,
+      "estimatedScore": 109.3,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 44.3,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1233,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1264,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Geografia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1215,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1169,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1236,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Química",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1169,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1172,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 19,
+      "strategy_name": "random_50pct_t2",
+      "strategy_description": "Random com ~50% de acerto (trial 2)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 50,
+      "using_fallback": true,
+      "totalCorrect": 12,
+      "totalQuestions": 30,
+      "pctCorrect": 40,
+      "estimatedScore": 104,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 39,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "História": {
+          "elo": 1205,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1126,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1221,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1189,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1126,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1189,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 20,
+      "strategy_name": "random_50pct_t3",
+      "strategy_description": "Random com ~50% de acerto (trial 3)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 50,
+      "using_fallback": true,
+      "totalCorrect": 15,
+      "totalQuestions": 30,
+      "pctCorrect": 50,
+      "estimatedScore": 107.1,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 42.1,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1201,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "História": {
+          "elo": 1232,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1176,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1220,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1236,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1182,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1173,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1176,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1182,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 21,
+      "strategy_name": "random_65pct_t1",
+      "strategy_description": "Random com ~65% de acerto (trial 1)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 65,
+      "using_fallback": true,
+      "totalCorrect": 25,
+      "totalQuestions": 30,
+      "pctCorrect": 83,
+      "estimatedScore": 118.3,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 53.3,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1265,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Matemática": {
+          "elo": 1266,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "História": {
+          "elo": 1266,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Geografia": {
+          "elo": 1220,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Biologia": {
+          "elo": 1215,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 22,
+      "strategy_name": "random_65pct_t2",
+      "strategy_description": "Random com ~65% de acerto (trial 2)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 65,
+      "using_fallback": true,
+      "totalCorrect": 22,
+      "totalQuestions": 30,
+      "pctCorrect": 73,
+      "estimatedScore": 114.3,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 49.3,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1264,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "História": {
+          "elo": 1235,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1236,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1236,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1187,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Português",
+          "elo": 1173,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1187,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 23,
+      "strategy_name": "random_65pct_t3",
+      "strategy_description": "Random com ~65% de acerto (trial 3)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 65,
+      "using_fallback": true,
+      "totalCorrect": 17,
+      "totalQuestions": 30,
+      "pctCorrect": 57,
+      "estimatedScore": 108.9,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 43.9,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1234,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1204,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1175,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1222,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1278,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Filosofia": {
+          "elo": 1235,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Química",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1175,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 24,
+      "strategy_name": "random_80pct_t1",
+      "strategy_description": "Random com ~80% de acerto (trial 1)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 80,
+      "using_fallback": true,
+      "totalCorrect": 18,
+      "totalQuestions": 30,
+      "pctCorrect": 60,
+      "estimatedScore": 109.4,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 44.4,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1205,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1206,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1235,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1128,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Biologia": {
+          "elo": 1221,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1276,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Filosofia": {
+          "elo": 1227,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Geografia",
+          "elo": 1128,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1185,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 25,
+      "strategy_name": "random_80pct_t2",
+      "strategy_description": "Random com ~80% de acerto (trial 2)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 80,
+      "using_fallback": true,
+      "totalCorrect": 25,
+      "totalQuestions": 30,
+      "pctCorrect": 83,
+      "estimatedScore": 116.4,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 51.4,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1266,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Matemática": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1202,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1265,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1264,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Filosofia": {
+          "elo": 1278,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 26,
+      "strategy_name": "random_80pct_t3",
+      "strategy_description": "Random com ~80% de acerto (trial 3)",
+      "strategy_category": "random_accuracy",
+      "strategy_param": 80,
+      "using_fallback": true,
+      "totalCorrect": 27,
+      "totalQuestions": 30,
+      "pctCorrect": 90,
+      "estimatedScore": 119.1,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 54.1,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1233,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1264,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "História": {
+          "elo": 1266,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Geografia": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1265,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1275,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Inglês": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 27,
+      "strategy_name": "diff_below_950",
+      "strategy_description": "Acerta se difficulty_elo < 950",
+      "strategy_category": "difficulty_threshold",
+      "strategy_param": 950,
+      "using_fallback": true,
+      "totalCorrect": 6,
+      "totalQuestions": 30,
+      "pctCorrect": 20,
+      "estimatedScore": 100.1,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 35.1,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "História": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Filosofia": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Filosofia",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1173,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1174,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 28,
+      "strategy_name": "diff_below_1100",
+      "strategy_description": "Acerta se difficulty_elo < 1100",
+      "strategy_category": "difficulty_threshold",
+      "strategy_param": 1100,
+      "using_fallback": true,
+      "totalCorrect": 12,
+      "totalQuestions": 30,
+      "pctCorrect": 40,
+      "estimatedScore": 105.9,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 40.9,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1204,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Geografia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1173,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1188,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1188,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1188,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 29,
+      "strategy_name": "diff_below_1200",
+      "strategy_description": "Acerta se difficulty_elo < 1200",
+      "strategy_category": "difficulty_threshold",
+      "strategy_param": 1200,
+      "using_fallback": true,
+      "totalCorrect": 12,
+      "totalQuestions": 30,
+      "pctCorrect": 40,
+      "estimatedScore": 105.9,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 40.9,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1204,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1173,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1188,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 30,
+      "strategy_name": "diff_below_1350",
+      "strategy_description": "Acerta se difficulty_elo < 1350",
+      "strategy_category": "difficulty_threshold",
+      "strategy_param": 1350,
+      "using_fallback": true,
+      "totalCorrect": 18,
+      "totalQuestions": 30,
+      "pctCorrect": 60,
+      "estimatedScore": 110.1,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 45.1,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1204,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1218,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Biologia": {
+          "elo": 1218,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1220,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 31,
+      "strategy_name": "diff_below_1500",
+      "strategy_description": "Acerta se difficulty_elo < 1500",
+      "strategy_category": "difficulty_threshold",
+      "strategy_param": 1500,
+      "using_fallback": true,
+      "totalCorrect": 24,
+      "totalQuestions": 30,
+      "pctCorrect": 80,
+      "estimatedScore": 116.4,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 51.4,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1235,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1235,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1234,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 32,
+      "strategy_name": "forte_exatas_fraco_humanas",
+      "strategy_description": "90% em exatas, 20% em humanas, 50% bio",
+      "strategy_category": "subject_bias",
+      "strategy_param": "exatas>humanas",
+      "using_fallback": true,
+      "totalCorrect": 15,
+      "totalQuestions": 30,
+      "pctCorrect": 50,
+      "estimatedScore": 107.2,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 42.2,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Matemática": {
+          "elo": 1233,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Biologia": {
+          "elo": 1169,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Geografia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1169,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1173,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 33,
+      "strategy_name": "forte_humanas_fraco_exatas",
+      "strategy_description": "90% em humanas, 20% em exatas, 50% bio",
+      "strategy_category": "subject_bias",
+      "strategy_param": "humanas>exatas",
+      "using_fallback": true,
+      "totalCorrect": 18,
+      "totalQuestions": 30,
+      "pctCorrect": 60,
+      "estimatedScore": 111.4,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 46.4,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1266,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Matemática": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1233,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1220,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Química": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1275,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Física",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1188,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 34,
+      "strategy_name": "so_portugues",
+      "strategy_description": "95% em Português, 10% no resto",
+      "strategy_category": "subject_bias",
+      "strategy_param": "português_only",
+      "using_fallback": true,
+      "totalCorrect": 6,
+      "totalQuestions": 30,
+      "pctCorrect": 20,
+      "estimatedScore": 102.4,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 37.4,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1266,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Matemática": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "História": {
+          "elo": 1142,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Geografia": {
+          "elo": 1128,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Biologia": {
+          "elo": 1128,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1128,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Química": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Filosofia": {
+          "elo": 1189,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Geografia",
+          "elo": 1128,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1128,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1128,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1142,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1189,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 35,
+      "strategy_name": "so_matematica",
+      "strategy_description": "95% em Matemática, 10% no resto",
+      "strategy_category": "subject_bias",
+      "strategy_param": "matemática_only",
+      "using_fallback": true,
+      "totalCorrect": 7,
+      "totalQuestions": 30,
+      "pctCorrect": 23,
+      "estimatedScore": 102.9,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 37.9,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Matemática": {
+          "elo": 1266,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "História": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1177,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1128,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1177,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Filosofia": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1128,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1177,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1177,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 36,
+      "strategy_name": "inverse_difficulty",
+      "strategy_description": "Acerta difíceis (>1300), erra fáceis (<1100)",
+      "strategy_category": "anomaly",
+      "strategy_param": "inverse",
+      "using_fallback": true,
+      "totalCorrect": 17,
+      "totalQuestions": 30,
+      "pctCorrect": 57,
+      "estimatedScore": 108.8,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 43.8,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1175,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1207,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1234,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1222,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1236,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1236,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1182,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Geografia",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1175,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1182,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 37,
+      "strategy_name": "fatigue_effect",
+      "strategy_description": "Começa 90%, termina 20% (fadiga)",
+      "strategy_category": "temporal",
+      "strategy_param": "fatigue",
+      "using_fallback": true,
+      "totalCorrect": 12,
+      "totalQuestions": 30,
+      "pctCorrect": 40,
+      "estimatedScore": 104.4,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 39.4,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Biologia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1217,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1227,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1275,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Geografia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1185,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 38,
+      "strategy_name": "warmup_effect",
+      "strategy_description": "Começa 20%, termina 90% (aquecimento)",
+      "strategy_category": "temporal",
+      "strategy_param": "warmup",
+      "using_fallback": true,
+      "totalCorrect": 12,
+      "totalQuestions": 30,
+      "pctCorrect": 40,
+      "estimatedScore": 105.2,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 40.2,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1236,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "História": {
+          "elo": 1204,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1176,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1126,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1175,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1236,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1126,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1175,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1176,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 39,
+      "strategy_name": "alternating",
+      "strategy_description": "Acerta/erra intercalado (50% exato)",
+      "strategy_category": "pattern",
+      "strategy_param": "alternate",
+      "using_fallback": true,
+      "totalCorrect": 15,
+      "totalQuestions": 30,
+      "pctCorrect": 50,
+      "estimatedScore": 108.4,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 43.4,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1204,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1205,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1217,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1175,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Geografia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1175,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1188,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 40,
+      "strategy_name": "pure_guess_t1",
+      "strategy_description": "Chute puro ~20% (trial 1)",
+      "strategy_category": "baseline",
+      "strategy_param": "guess",
+      "using_fallback": true,
+      "totalCorrect": 7,
+      "totalQuestions": 30,
+      "pctCorrect": 23,
+      "estimatedScore": 100.8,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 35.8,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1204,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "História": {
+          "elo": 1175,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1170,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1126,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Filosofia": {
+          "elo": 1187,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1126,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1170,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1173,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1175,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1187,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1188,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 41,
+      "strategy_name": "pure_guess_t2",
+      "strategy_description": "Chute puro ~20% (trial 2)",
+      "strategy_category": "baseline",
+      "strategy_param": "guess",
+      "using_fallback": true,
+      "totalCorrect": 10,
+      "totalQuestions": 30,
+      "pctCorrect": 33,
+      "estimatedScore": 104.2,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 39.2,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Matemática": {
+          "elo": 1205,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "História": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Geografia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1220,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1189,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        }
+      },
+      "priorities": [
+        {
+          "subject": "História",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1173,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1189,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 42,
+      "strategy_name": "pure_guess_t3",
+      "strategy_description": "Chute puro ~20% (trial 3)",
+      "strategy_category": "baseline",
+      "strategy_param": "guess",
+      "using_fallback": true,
+      "totalCorrect": 1,
+      "totalQuestions": 30,
+      "pctCorrect": 3,
+      "estimatedScore": 94.4,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 29.4,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Matemática": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "História": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 25
+        },
+        "Geografia": {
+          "elo": 1126,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Biologia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1126,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Química": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Inglês": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Filosofia": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Geografia",
+          "elo": 1126,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1126,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1172,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 43,
+      "strategy_name": "near_perfect_95",
+      "strategy_description": "95% de acerto geral",
+      "strategy_category": "high_performer",
+      "strategy_param": 95,
+      "using_fallback": true,
+      "totalCorrect": 28,
+      "totalQuestions": 30,
+      "pctCorrect": 93,
+      "estimatedScore": 119.3,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 54.3,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1232,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1265,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "História": {
+          "elo": 1264,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Geografia": {
+          "elo": 1223,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Biologia": {
+          "elo": 1266,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Química": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Inglês": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Filosofia": {
+          "elo": 1278,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 44,
+      "strategy_name": "near_perfect_85",
+      "strategy_description": "85% de acerto geral",
+      "strategy_category": "high_performer",
+      "strategy_param": 85,
+      "using_fallback": true,
+      "totalCorrect": 26,
+      "totalQuestions": 30,
+      "pctCorrect": 87,
+      "estimatedScore": 117,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 52,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1236,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1232,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1234,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1263,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1220,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1278,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Inglês": {
+          "elo": 1275,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Filosofia": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 45,
+      "strategy_name": "elo_realistic_800",
+      "strategy_description": "Aluno com Elo real 800 (probabilístico)",
+      "strategy_category": "elo_realistic",
+      "strategy_param": 800,
+      "using_fallback": true,
+      "totalCorrect": 4,
+      "totalQuestions": 30,
+      "pctCorrect": 13,
+      "estimatedScore": 96.7,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 31.7,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Matemática": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "História": {
+          "elo": 1142,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Geografia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Física": {
+          "elo": 1129,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Química": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1141,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Biologia",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1129,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Português",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Filosofia",
+          "elo": 1141,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1142,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1185,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 46,
+      "strategy_name": "elo_realistic_1000",
+      "strategy_description": "Aluno com Elo real 1000 (probabilístico)",
+      "strategy_category": "elo_realistic",
+      "strategy_param": 1000,
+      "using_fallback": true,
+      "totalCorrect": 7,
+      "totalQuestions": 30,
+      "pctCorrect": 23,
+      "estimatedScore": 100.6,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 35.6,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1204,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "História": {
+          "elo": 1143,
+          "correct": 0,
+          "total": 4,
+          "level": "Baixo",
+          "pct": 0
+        },
+        "Geografia": {
+          "elo": 1174,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Biologia": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1188,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1140,
+          "correct": 0,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 0
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Filosofia",
+          "elo": 1140,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Matemática",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "História",
+          "elo": 1143,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Física",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Geografia",
+          "elo": 1174,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1188,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 47,
+      "strategy_name": "elo_realistic_1200",
+      "strategy_description": "Aluno com Elo real 1200 (probabilístico)",
+      "strategy_category": "elo_realistic",
+      "strategy_param": 1200,
+      "using_fallback": true,
+      "totalCorrect": 15,
+      "totalQuestions": 30,
+      "pctCorrect": 50,
+      "estimatedScore": 109,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 44,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1235,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1203,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1217,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Biologia": {
+          "elo": 1173,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Física": {
+          "elo": 1172,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Química": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1187,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Física",
+          "elo": 1172,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Biologia",
+          "elo": 1173,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Química",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1187,
+          "level": "Baixo"
+        }
+      ]
+    },
+    {
+      "simulation_id": 48,
+      "strategy_name": "elo_realistic_1400",
+      "strategy_description": "Aluno com Elo real 1400 (probabilístico)",
+      "strategy_category": "elo_realistic",
+      "strategy_param": 1400,
+      "using_fallback": true,
+      "totalCorrect": 20,
+      "totalQuestions": 30,
+      "pctCorrect": 67,
+      "estimatedScore": 112.6,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 47.6,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1204,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Matemática": {
+          "elo": 1234,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "História": {
+          "elo": 1204,
+          "correct": 2,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 50
+        },
+        "Geografia": {
+          "elo": 1218,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Biologia": {
+          "elo": 1220,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Física": {
+          "elo": 1221,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1233,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Inglês": {
+          "elo": 1232,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Filosofia": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": []
+    },
+    {
+      "simulation_id": 49,
+      "strategy_name": "elo_realistic_1600",
+      "strategy_description": "Aluno com Elo real 1600 (probabilístico)",
+      "strategy_category": "elo_realistic",
+      "strategy_param": 1600,
+      "using_fallback": true,
+      "totalCorrect": 23,
+      "totalQuestions": 30,
+      "pctCorrect": 77,
+      "estimatedScore": 116.6,
+      "cutoffMean": 65,
+      "cutoffSd": 8,
+      "gap": 51.6,
+      "probability": 98,
+      "probabilityBand": "> 70%",
+      "probabilityLabel": "Excelente posição",
+      "subjectsCovered": 9,
+      "proficiencies": {
+        "Português": {
+          "elo": 1234,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Matemática": {
+          "elo": 1265,
+          "correct": 4,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "História": {
+          "elo": 1235,
+          "correct": 3,
+          "total": 4,
+          "level": "Intermediário",
+          "pct": 75
+        },
+        "Geografia": {
+          "elo": 1265,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Biologia": {
+          "elo": 1265,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        },
+        "Física": {
+          "elo": 1220,
+          "correct": 2,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 67
+        },
+        "Química": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Inglês": {
+          "elo": 1185,
+          "correct": 1,
+          "total": 3,
+          "level": "Baixo",
+          "pct": 33
+        },
+        "Filosofia": {
+          "elo": 1280,
+          "correct": 3,
+          "total": 3,
+          "level": "Intermediário",
+          "pct": 100
+        }
+      },
+      "priorities": [
+        {
+          "subject": "Química",
+          "elo": 1185,
+          "level": "Baixo"
+        },
+        {
+          "subject": "Inglês",
+          "elo": 1185,
+          "level": "Baixo"
+        }
+      ]
+    }
+  ],
+  "raw_answers_sample": [
+    {
+      "strategy": "fixed_0pct",
+      "answers": [
+        {
+          "question_id": "fallback-0",
+          "subject": "Português",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1173,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-19",
+          "subject": "Matemática",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1192,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-2",
+          "subject": "História",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1173,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-3",
+          "subject": "Geografia",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1159,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-4",
+          "subject": "Biologia",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1159,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-23",
+          "subject": "Física",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1188,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-15",
+          "subject": "Química",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1176,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-25",
+          "subject": "Inglês",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1196,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-26",
+          "subject": "Filosofia",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1196,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-9",
+          "subject": "Português",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1151,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-28",
+          "subject": "Matemática",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1190,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-11",
+          "subject": "História",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1151,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-12",
+          "subject": "Geografia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1138,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-13",
+          "subject": "Biologia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1138,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-14",
+          "subject": "Física",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1165,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-24",
+          "subject": "Química",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-16",
+          "subject": "Inglês",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-17",
+          "subject": "Filosofia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-27",
+          "subject": "Português",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1149,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-1",
+          "subject": "Matemática",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1163,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-20",
+          "subject": "História",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1145,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-21",
+          "subject": "Geografia",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1129,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-22",
+          "subject": "Biologia",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1129,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-5",
+          "subject": "Física",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1126,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-6",
+          "subject": "Química",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1140,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-7",
+          "subject": "Inglês",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1140,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-8",
+          "subject": "Filosofia",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1140,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-18",
+          "subject": "Português",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1143,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-10",
+          "subject": "Matemática",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1142,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-29",
+          "subject": "História",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1143,
+          "k_used": 32
+        }
+      ]
+    },
+    {
+      "strategy": "fixed_10pct",
+      "answers": [
+        {
+          "question_id": "fallback-0",
+          "subject": "Português",
+          "difficulty_elo": 900,
+          "is_correct": true,
+          "elo_after": 1205,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-1",
+          "subject": "Matemática",
+          "difficulty_elo": 900,
+          "is_correct": true,
+          "elo_after": 1205,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-20",
+          "subject": "História",
+          "difficulty_elo": 1400,
+          "is_correct": true,
+          "elo_after": 1224,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-3",
+          "subject": "Geografia",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1159,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-4",
+          "subject": "Biologia",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1159,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-23",
+          "subject": "Física",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1188,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-6",
+          "subject": "Química",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1166,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-7",
+          "subject": "Inglês",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1166,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-26",
+          "subject": "Filosofia",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1196,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-9",
+          "subject": "Português",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1182,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-10",
+          "subject": "Matemática",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1182,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-29",
+          "subject": "História",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1221,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-12",
+          "subject": "Geografia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1138,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-13",
+          "subject": "Biologia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1138,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-14",
+          "subject": "Física",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1165,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-24",
+          "subject": "Química",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1163,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-16",
+          "subject": "Inglês",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1145,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-17",
+          "subject": "Filosofia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-18",
+          "subject": "Português",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1175,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-19",
+          "subject": "Matemática",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1175,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-2",
+          "subject": "História",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1193,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-21",
+          "subject": "Geografia",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1129,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-22",
+          "subject": "Biologia",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1129,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-5",
+          "subject": "Física",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1126,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-15",
+          "subject": "Química",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1141,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-25",
+          "subject": "Inglês",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1141,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-8",
+          "subject": "Filosofia",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1140,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-27",
+          "subject": "Português",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-28",
+          "subject": "Matemática",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-11",
+          "subject": "História",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1171,
+          "k_used": 32
+        }
+      ]
+    },
+    {
+      "strategy": "fixed_20pct",
+      "answers": [
+        {
+          "question_id": "fallback-9",
+          "subject": "Português",
+          "difficulty_elo": 1050,
+          "is_correct": true,
+          "elo_after": 1209,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-28",
+          "subject": "Matemática",
+          "difficulty_elo": 1600,
+          "is_correct": true,
+          "elo_after": 1229,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-20",
+          "subject": "História",
+          "difficulty_elo": 1400,
+          "is_correct": true,
+          "elo_after": 1224,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-3",
+          "subject": "Geografia",
+          "difficulty_elo": 900,
+          "is_correct": true,
+          "elo_after": 1207,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-4",
+          "subject": "Biologia",
+          "difficulty_elo": 900,
+          "is_correct": true,
+          "elo_after": 1207,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-14",
+          "subject": "Física",
+          "difficulty_elo": 1200,
+          "is_correct": true,
+          "elo_after": 1224,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-15",
+          "subject": "Química",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1176,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-25",
+          "subject": "Inglês",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1196,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-26",
+          "subject": "Filosofia",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1196,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-27",
+          "subject": "Português",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1206,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-1",
+          "subject": "Matemática",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1201,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-29",
+          "subject": "História",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1221,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-12",
+          "subject": "Geografia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1183,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-13",
+          "subject": "Biologia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1183,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-5",
+          "subject": "Física",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1182,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-6",
+          "subject": "Química",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1144,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-7",
+          "subject": "Inglês",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1162,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-17",
+          "subject": "Filosofia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-18",
+          "subject": "Português",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1199,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-10",
+          "subject": "Matemática",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1179,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-11",
+          "subject": "História",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1198,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-21",
+          "subject": "Geografia",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-22",
+          "subject": "Biologia",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-23",
+          "subject": "Física",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-24",
+          "subject": "Química",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1140,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-16",
+          "subject": "Inglês",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1141,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-8",
+          "subject": "Filosofia",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1140,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-0",
+          "subject": "Português",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1171,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-19",
+          "subject": "Matemática",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-2",
+          "subject": "História",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1171,
+          "k_used": 32
+        }
+      ]
+    },
+    {
+      "strategy": "fixed_30pct",
+      "answers": [
+        {
+          "question_id": "fallback-27",
+          "subject": "Português",
+          "difficulty_elo": 1600,
+          "is_correct": true,
+          "elo_after": 1229,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-28",
+          "subject": "Matemática",
+          "difficulty_elo": 1600,
+          "is_correct": true,
+          "elo_after": 1229,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-11",
+          "subject": "História",
+          "difficulty_elo": 1050,
+          "is_correct": true,
+          "elo_after": 1209,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-12",
+          "subject": "Geografia",
+          "difficulty_elo": 1200,
+          "is_correct": true,
+          "elo_after": 1224,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-4",
+          "subject": "Biologia",
+          "difficulty_elo": 900,
+          "is_correct": true,
+          "elo_after": 1207,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-23",
+          "subject": "Física",
+          "difficulty_elo": 1400,
+          "is_correct": true,
+          "elo_after": 1236,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-15",
+          "subject": "Química",
+          "difficulty_elo": 1200,
+          "is_correct": true,
+          "elo_after": 1224,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-25",
+          "subject": "Inglês",
+          "difficulty_elo": 1600,
+          "is_correct": true,
+          "elo_after": 1244,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-17",
+          "subject": "Filosofia",
+          "difficulty_elo": 1200,
+          "is_correct": true,
+          "elo_after": 1224,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-0",
+          "subject": "Português",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1201,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-1",
+          "subject": "Matemática",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1201,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-20",
+          "subject": "História",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1201,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-3",
+          "subject": "Geografia",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1182,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-13",
+          "subject": "Biologia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1183,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-14",
+          "subject": "Física",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1210,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-6",
+          "subject": "Química",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1189,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-16",
+          "subject": "Inglês",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1217,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-8",
+          "subject": "Filosofia",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1189,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-18",
+          "subject": "Português",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1194,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-10",
+          "subject": "Matemática",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1179,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-29",
+          "subject": "História",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1199,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-21",
+          "subject": "Geografia",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-22",
+          "subject": "Biologia",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-5",
+          "subject": "Física",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1169,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-24",
+          "subject": "Química",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1185,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-7",
+          "subject": "Inglês",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1182,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-26",
+          "subject": "Filosofia",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1185,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-9",
+          "subject": "Português",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1171,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-19",
+          "subject": "Matemática",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-2",
+          "subject": "História",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1171,
+          "k_used": 32
+        }
+      ]
+    },
+    {
+      "strategy": "fixed_40pct",
+      "answers": [
+        {
+          "question_id": "fallback-27",
+          "subject": "Português",
+          "difficulty_elo": 1600,
+          "is_correct": true,
+          "elo_after": 1229,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-1",
+          "subject": "Matemática",
+          "difficulty_elo": 900,
+          "is_correct": true,
+          "elo_after": 1205,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-2",
+          "subject": "História",
+          "difficulty_elo": 900,
+          "is_correct": true,
+          "elo_after": 1205,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-3",
+          "subject": "Geografia",
+          "difficulty_elo": 900,
+          "is_correct": true,
+          "elo_after": 1207,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-4",
+          "subject": "Biologia",
+          "difficulty_elo": 900,
+          "is_correct": true,
+          "elo_after": 1207,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-14",
+          "subject": "Física",
+          "difficulty_elo": 1200,
+          "is_correct": true,
+          "elo_after": 1224,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-6",
+          "subject": "Química",
+          "difficulty_elo": 1050,
+          "is_correct": true,
+          "elo_after": 1214,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-25",
+          "subject": "Inglês",
+          "difficulty_elo": 1600,
+          "is_correct": true,
+          "elo_after": 1244,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-26",
+          "subject": "Filosofia",
+          "difficulty_elo": 1600,
+          "is_correct": true,
+          "elo_after": 1244,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-18",
+          "subject": "Português",
+          "difficulty_elo": 1400,
+          "is_correct": true,
+          "elo_after": 1252,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-10",
+          "subject": "Matemática",
+          "difficulty_elo": 1050,
+          "is_correct": true,
+          "elo_after": 1214,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-11",
+          "subject": "História",
+          "difficulty_elo": 1050,
+          "is_correct": true,
+          "elo_after": 1214,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-12",
+          "subject": "Geografia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1183,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-13",
+          "subject": "Biologia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1183,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-23",
+          "subject": "Física",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1211,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-15",
+          "subject": "Química",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1189,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-16",
+          "subject": "Inglês",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1217,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-17",
+          "subject": "Filosofia",
+          "difficulty_elo": 1200,
+          "is_correct": false,
+          "elo_after": 1217,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-9",
+          "subject": "Português",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1228,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-28",
+          "subject": "Matemática",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1211,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-20",
+          "subject": "História",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1206,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-21",
+          "subject": "Geografia",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-22",
+          "subject": "Biologia",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1172,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-5",
+          "subject": "Física",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1170,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-24",
+          "subject": "Química",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1185,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-7",
+          "subject": "Inglês",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1182,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-8",
+          "subject": "Filosofia",
+          "difficulty_elo": 1050,
+          "is_correct": false,
+          "elo_after": 1182,
+          "k_used": 48
+        },
+        {
+          "question_id": "fallback-0",
+          "subject": "Português",
+          "difficulty_elo": 900,
+          "is_correct": false,
+          "elo_after": 1200,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-19",
+          "subject": "Matemática",
+          "difficulty_elo": 1400,
+          "is_correct": false,
+          "elo_after": 1203,
+          "k_used": 32
+        },
+        {
+          "question_id": "fallback-29",
+          "subject": "História",
+          "difficulty_elo": 1600,
+          "is_correct": false,
+          "elo_after": 1203,
+          "k_used": 32
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "by_category": [
+      {
+        "category": "fixed_accuracy",
+        "count": 11,
+        "avg_correct_pct": 50,
+        "avg_probability": 98,
+        "min_probability": 98,
+        "max_probability": 98,
+        "avg_score": 107.7,
+        "avg_gap": 42.7
+      },
+      {
+        "category": "random_accuracy",
+        "count": 15,
+        "avg_correct_pct": 54,
+        "avg_probability": 98,
+        "min_probability": 98,
+        "max_probability": 98,
+        "avg_score": 108.6,
+        "avg_gap": 43.6
+      },
+      {
+        "category": "difficulty_threshold",
+        "count": 5,
+        "avg_correct_pct": 48,
+        "avg_probability": 98,
+        "min_probability": 98,
+        "max_probability": 98,
+        "avg_score": 107.7,
+        "avg_gap": 42.7
+      },
+      {
+        "category": "subject_bias",
+        "count": 4,
+        "avg_correct_pct": 38,
+        "avg_probability": 98,
+        "min_probability": 98,
+        "max_probability": 98,
+        "avg_score": 106,
+        "avg_gap": 41
+      },
+      {
+        "category": "anomaly",
+        "count": 1,
+        "avg_correct_pct": 57,
+        "avg_probability": 98,
+        "min_probability": 98,
+        "max_probability": 98,
+        "avg_score": 108.8,
+        "avg_gap": 43.8
+      },
+      {
+        "category": "temporal",
+        "count": 2,
+        "avg_correct_pct": 40,
+        "avg_probability": 98,
+        "min_probability": 98,
+        "max_probability": 98,
+        "avg_score": 104.8,
+        "avg_gap": 39.8
+      },
+      {
+        "category": "pattern",
+        "count": 1,
+        "avg_correct_pct": 50,
+        "avg_probability": 98,
+        "min_probability": 98,
+        "max_probability": 98,
+        "avg_score": 108.4,
+        "avg_gap": 43.4
+      },
+      {
+        "category": "baseline",
+        "count": 3,
+        "avg_correct_pct": 20,
+        "avg_probability": 98,
+        "min_probability": 98,
+        "max_probability": 98,
+        "avg_score": 99.8,
+        "avg_gap": 34.8
+      },
+      {
+        "category": "high_performer",
+        "count": 2,
+        "avg_correct_pct": 90,
+        "avg_probability": 98,
+        "min_probability": 98,
+        "max_probability": 98,
+        "avg_score": 118.2,
+        "avg_gap": 53.2
+      },
+      {
+        "category": "elo_realistic",
+        "count": 5,
+        "avg_correct_pct": 46,
+        "avg_probability": 98,
+        "min_probability": 98,
+        "max_probability": 98,
+        "avg_score": 107.1,
+        "avg_gap": 42.1
+      }
+    ],
+    "correlations": {
+      "note": "Compare pct_correct vs probability to check monotonicity",
+      "data": [
+        {
+          "strategy": "fixed_0pct",
+          "pct_correct": 0,
+          "probability": 98,
+          "score": 93.8,
+          "gap": 28.8
+        },
+        {
+          "strategy": "pure_guess_t3",
+          "pct_correct": 3,
+          "probability": 98,
+          "score": 94.4,
+          "gap": 29.4
+        },
+        {
+          "strategy": "fixed_10pct",
+          "pct_correct": 10,
+          "probability": 98,
+          "score": 97.5,
+          "gap": 32.5
+        },
+        {
+          "strategy": "elo_realistic_800",
+          "pct_correct": 13,
+          "probability": 98,
+          "score": 96.7,
+          "gap": 31.7
+        },
+        {
+          "strategy": "fixed_20pct",
+          "pct_correct": 20,
+          "probability": 98,
+          "score": 99.9,
+          "gap": 34.9
+        },
+        {
+          "strategy": "diff_below_950",
+          "pct_correct": 20,
+          "probability": 98,
+          "score": 100.1,
+          "gap": 35.1
+        },
+        {
+          "strategy": "so_portugues",
+          "pct_correct": 20,
+          "probability": 98,
+          "score": 102.4,
+          "gap": 37.4
+        },
+        {
+          "strategy": "so_matematica",
+          "pct_correct": 23,
+          "probability": 98,
+          "score": 102.9,
+          "gap": 37.9
+        },
+        {
+          "strategy": "pure_guess_t1",
+          "pct_correct": 23,
+          "probability": 98,
+          "score": 100.8,
+          "gap": 35.8
+        },
+        {
+          "strategy": "elo_realistic_1000",
+          "pct_correct": 23,
+          "probability": 98,
+          "score": 100.6,
+          "gap": 35.6
+        },
+        {
+          "strategy": "random_20pct_t2",
+          "pct_correct": 27,
+          "probability": 98,
+          "score": 102.8,
+          "gap": 37.8
+        },
+        {
+          "strategy": "random_20pct_t3",
+          "pct_correct": 27,
+          "probability": 98,
+          "score": 100,
+          "gap": 35
+        },
+        {
+          "strategy": "fixed_30pct",
+          "pct_correct": 30,
+          "probability": 98,
+          "score": 101.7,
+          "gap": 36.7
+        },
+        {
+          "strategy": "random_20pct_t1",
+          "pct_correct": 33,
+          "probability": 98,
+          "score": 102.7,
+          "gap": 37.7
+        },
+        {
+          "strategy": "pure_guess_t2",
+          "pct_correct": 33,
+          "probability": 98,
+          "score": 104.2,
+          "gap": 39.2
+        },
+        {
+          "strategy": "random_35pct_t3",
+          "pct_correct": 37,
+          "probability": 98,
+          "score": 101.1,
+          "gap": 36.1
+        },
+        {
+          "strategy": "fixed_40pct",
+          "pct_correct": 40,
+          "probability": 98,
+          "score": 105.4,
+          "gap": 40.4
+        },
+        {
+          "strategy": "random_50pct_t2",
+          "pct_correct": 40,
+          "probability": 98,
+          "score": 104,
+          "gap": 39
+        },
+        {
+          "strategy": "diff_below_1100",
+          "pct_correct": 40,
+          "probability": 98,
+          "score": 105.9,
+          "gap": 40.9
+        },
+        {
+          "strategy": "diff_below_1200",
+          "pct_correct": 40,
+          "probability": 98,
+          "score": 105.9,
+          "gap": 40.9
+        },
+        {
+          "strategy": "fatigue_effect",
+          "pct_correct": 40,
+          "probability": 98,
+          "score": 104.4,
+          "gap": 39.4
+        },
+        {
+          "strategy": "warmup_effect",
+          "pct_correct": 40,
+          "probability": 98,
+          "score": 105.2,
+          "gap": 40.2
+        },
+        {
+          "strategy": "random_35pct_t1",
+          "pct_correct": 43,
+          "probability": 98,
+          "score": 106.8,
+          "gap": 41.8
+        },
+        {
+          "strategy": "random_35pct_t2",
+          "pct_correct": 47,
+          "probability": 98,
+          "score": 109.2,
+          "gap": 44.2
+        },
+        {
+          "strategy": "fixed_50pct",
+          "pct_correct": 50,
+          "probability": 98,
+          "score": 107.7,
+          "gap": 42.7
+        },
+        {
+          "strategy": "random_50pct_t3",
+          "pct_correct": 50,
+          "probability": 98,
+          "score": 107.1,
+          "gap": 42.1
+        },
+        {
+          "strategy": "forte_exatas_fraco_humanas",
+          "pct_correct": 50,
+          "probability": 98,
+          "score": 107.2,
+          "gap": 42.2
+        },
+        {
+          "strategy": "alternating",
+          "pct_correct": 50,
+          "probability": 98,
+          "score": 108.4,
+          "gap": 43.4
+        },
+        {
+          "strategy": "elo_realistic_1200",
+          "pct_correct": 50,
+          "probability": 98,
+          "score": 109,
+          "gap": 44
+        },
+        {
+          "strategy": "random_50pct_t1",
+          "pct_correct": 57,
+          "probability": 98,
+          "score": 109.3,
+          "gap": 44.3
+        },
+        {
+          "strategy": "random_65pct_t3",
+          "pct_correct": 57,
+          "probability": 98,
+          "score": 108.9,
+          "gap": 43.9
+        },
+        {
+          "strategy": "inverse_difficulty",
+          "pct_correct": 57,
+          "probability": 98,
+          "score": 108.8,
+          "gap": 43.8
+        },
+        {
+          "strategy": "fixed_60pct",
+          "pct_correct": 60,
+          "probability": 98,
+          "score": 109.7,
+          "gap": 44.7
+        },
+        {
+          "strategy": "random_80pct_t1",
+          "pct_correct": 60,
+          "probability": 98,
+          "score": 109.4,
+          "gap": 44.4
+        },
+        {
+          "strategy": "diff_below_1350",
+          "pct_correct": 60,
+          "probability": 98,
+          "score": 110.1,
+          "gap": 45.1
+        },
+        {
+          "strategy": "forte_humanas_fraco_exatas",
+          "pct_correct": 60,
+          "probability": 98,
+          "score": 111.4,
+          "gap": 46.4
+        },
+        {
+          "strategy": "elo_realistic_1400",
+          "pct_correct": 67,
+          "probability": 98,
+          "score": 112.6,
+          "gap": 47.6
+        },
+        {
+          "strategy": "fixed_70pct",
+          "pct_correct": 70,
+          "probability": 98,
+          "score": 113.3,
+          "gap": 48.3
+        },
+        {
+          "strategy": "random_65pct_t2",
+          "pct_correct": 73,
+          "probability": 98,
+          "score": 114.3,
+          "gap": 49.3
+        },
+        {
+          "strategy": "elo_realistic_1600",
+          "pct_correct": 77,
+          "probability": 98,
+          "score": 116.6,
+          "gap": 51.6
+        },
+        {
+          "strategy": "fixed_80pct",
+          "pct_correct": 80,
+          "probability": 98,
+          "score": 116.1,
+          "gap": 51.1
+        },
+        {
+          "strategy": "diff_below_1500",
+          "pct_correct": 80,
+          "probability": 98,
+          "score": 116.4,
+          "gap": 51.4
+        },
+        {
+          "strategy": "random_65pct_t1",
+          "pct_correct": 83,
+          "probability": 98,
+          "score": 118.3,
+          "gap": 53.3
+        },
+        {
+          "strategy": "random_80pct_t2",
+          "pct_correct": 83,
+          "probability": 98,
+          "score": 116.4,
+          "gap": 51.4
+        },
+        {
+          "strategy": "near_perfect_85",
+          "pct_correct": 87,
+          "probability": 98,
+          "score": 117,
+          "gap": 52
+        },
+        {
+          "strategy": "fixed_90pct",
+          "pct_correct": 90,
+          "probability": 98,
+          "score": 117.9,
+          "gap": 52.9
+        },
+        {
+          "strategy": "random_80pct_t3",
+          "pct_correct": 90,
+          "probability": 98,
+          "score": 119.1,
+          "gap": 54.1
+        },
+        {
+          "strategy": "near_perfect_95",
+          "pct_correct": 93,
+          "probability": 98,
+          "score": 119.3,
+          "gap": 54.3
+        },
+        {
+          "strategy": "fixed_100pct",
+          "pct_correct": 100,
+          "probability": 98,
+          "score": 121.6,
+          "gap": 56.6
+        }
+      ]
+    },
+    "anomalies": [
+      {
+        "strategy": "fixed_0pct",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 0,
+        "probability": 98,
+        "score": 93.8
+      },
+      {
+        "strategy": "pure_guess_t3",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 3,
+        "probability": 98,
+        "score": 94.4
+      },
+      {
+        "strategy": "fixed_10pct",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 10,
+        "probability": 98,
+        "score": 97.5
+      },
+      {
+        "strategy": "elo_realistic_800",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 13,
+        "probability": 98,
+        "score": 96.7
+      },
+      {
+        "strategy": "fixed_20pct",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 20,
+        "probability": 98,
+        "score": 99.9
+      },
+      {
+        "strategy": "diff_below_950",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 20,
+        "probability": 98,
+        "score": 100.1
+      },
+      {
+        "strategy": "so_portugues",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 20,
+        "probability": 98,
+        "score": 102.4
+      },
+      {
+        "strategy": "so_matematica",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 23,
+        "probability": 98,
+        "score": 102.9
+      },
+      {
+        "strategy": "pure_guess_t1",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 23,
+        "probability": 98,
+        "score": 100.8
+      },
+      {
+        "strategy": "elo_realistic_1000",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 23,
+        "probability": 98,
+        "score": 100.6
+      },
+      {
+        "strategy": "random_20pct_t2",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 27,
+        "probability": 98,
+        "score": 102.8
+      },
+      {
+        "strategy": "random_20pct_t3",
+        "flag": "LOW_ACC_HIGH_PROB",
+        "pct_correct": 27,
+        "probability": 98,
+        "score": 100
+      }
+    ]
+  }
+}

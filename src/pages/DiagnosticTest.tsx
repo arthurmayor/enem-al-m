@@ -168,7 +168,7 @@ function calculatePassProbability(
   }
 
   const infoScore = (questionsAnswered / 100) + (simulados * 3) + (subjectsCovered * 0.5);
-  const sigmaStudent = Math.max(3, 8 / Math.sqrt(Math.max(0.1, infoScore)));
+  const sigmaStudent = Math.max(4, 12 / Math.sqrt(Math.max(0.1, infoScore)));
   const muDiff = score - cutoffMean;
   const sigmaDiff = Math.sqrt(sigmaStudent ** 2 + safeCutoffSd ** 2);
   const raw = normalCDF(muDiff / sigmaDiff);
@@ -191,6 +191,55 @@ function getLevel(elo: number) {
   if (elo >= 1200) return { label: "Intermediário", color: "#d97706" };
   if (elo >= 1050) return { label: "Baixo", color: "#dc2626" };
   return { label: "Muito baixo", color: "#991b1b" };
+}
+
+// ─── Adaptive question selection ─────────────────────────────────────────────
+
+interface QuestionPool {
+  [subject: string]: {
+    [difficultyBucket: string]: Question[]; // "easy" (900-1050), "medium" (1200), "hard" (1400-1600)
+  };
+}
+
+function buildQuestionPool(questions: Question[]): QuestionPool {
+  const pool: QuestionPool = {};
+  for (const q of questions) {
+    if (!pool[q.subject]) pool[q.subject] = { easy: [], medium: [], hard: [] };
+    let bucket: string;
+    if (q.difficulty_elo <= 1050) bucket = "easy";
+    else if (q.difficulty_elo <= 1300) bucket = "medium";
+    else bucket = "hard";
+    pool[q.subject][bucket].push(q);
+  }
+  return pool;
+}
+
+function selectNextQuestion(
+  pool: QuestionPool,
+  subject: string,
+  currentElo: number,
+  answeredIds: Set<string>
+): Question | null {
+  // Determine target bucket based on current Elo
+  let targetBucket: string;
+  if (currentElo < 1100) targetBucket = "easy";
+  else if (currentElo < 1350) targetBucket = "medium";
+  else targetBucket = "hard";
+
+  // Find unanswered question in target bucket
+  const candidates = pool[subject]?.[targetBucket]?.filter(q => !answeredIds.has(q.id)) || [];
+
+  if (candidates.length > 0) {
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  // Fallback: search any bucket
+  for (const bucket of ["medium", "easy", "hard"]) {
+    const fallback = pool[subject]?.[bucket]?.filter(q => !answeredIds.has(q.id)) || [];
+    if (fallback.length > 0) return fallback[Math.floor(Math.random() * fallback.length)];
+  }
+
+  return null;
 }
 
 // ─── Interleave subjects (breadth-first) ─────────────────────────────────────
@@ -316,6 +365,11 @@ const DiagnosticTest = () => {
   const totalCorrectRef = useRef(0);
   const rawAnswersRef = useRef<Array<{ question_id: string; subject: string; selected: string; is_correct: boolean; response_time: number; difficulty_elo: number }>>([]);
 
+  // Adaptive mode
+  const questionPoolRef = useRef<QuestionPool>({});
+  const isAdaptiveRef = useRef(false);
+  const answeredIdsRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
     const interval = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000);
     return () => clearInterval(interval);
@@ -363,23 +417,37 @@ const DiagnosticTest = () => {
 
       let finalQuestions: Question[];
       if (dbQuestions && dbQuestions.length >= 20) {
-        finalQuestions = interleaveQuestions(
-          dbQuestions.map((q) => ({
-            id: q.id,
-            subject: q.subject,
-            subtopic: q.subtopic,
-            difficulty: q.difficulty,
-            difficulty_elo: q.difficulty_elo || 1200,
-            question_text: q.question_text,
-            options: q.options as QuestionOption[],
-            explanation: q.explanation,
-          })),
-          TOTAL_QUESTIONS
-        );
+        const mappedQuestions = dbQuestions.map((q) => ({
+          id: q.id,
+          subject: q.subject,
+          subtopic: q.subtopic,
+          difficulty: q.difficulty,
+          difficulty_elo: q.difficulty_elo || 1200,
+          question_text: q.question_text,
+          options: q.options as QuestionOption[],
+          explanation: q.explanation,
+        }));
+
+        const isAdaptive = mappedQuestions.length >= 90; // Only adapt with 3x the needed questions
+        console.log(`Diagnóstico: modo ${isAdaptive ? 'ADAPTATIVO' : 'FIXO'} (${mappedQuestions.length} questões no pool)`);
+
+        if (isAdaptive) {
+          // Build pool for adaptive selection — questions will be selected dynamically during the test
+          const pool = buildQuestionPool(mappedQuestions);
+          // Pre-select initial interleaved set as starting order; adaptive selection happens in handleAnswer
+          finalQuestions = interleaveQuestions(mappedQuestions, TOTAL_QUESTIONS);
+          // Store pool for adaptive use
+          questionPoolRef.current = pool;
+          isAdaptiveRef.current = true;
+        } else {
+          finalQuestions = interleaveQuestions(mappedQuestions, TOTAL_QUESTIONS);
+          isAdaptiveRef.current = false;
+        }
         setUsingFallback(false);
       } else {
         finalQuestions = generateFallbackQuestions(examConf.exam_slug);
         setUsingFallback(true);
+        isAdaptiveRef.current = false;
       }
 
       setQuestions(finalQuestions);
@@ -422,6 +490,9 @@ const DiagnosticTest = () => {
         totalCorrectRef.current += 1;
       }
 
+      // Track answered question for adaptive mode
+      answeredIdsRef.current.add(q.id);
+
       // Track raw answer for history
       rawAnswersRef.current.push({
         question_id: q.id,
@@ -447,6 +518,25 @@ const DiagnosticTest = () => {
       // Next question after delay
       setTimeout(() => {
         if (currentIndex < TOTAL_QUESTIONS - 1) {
+          // In adaptive mode, replace the next question based on current Elo
+          if (isAdaptiveRef.current) {
+            const nextIdx = currentIndex + 1;
+            const nextSubject = SUBJECT_ORDER[nextIdx % SUBJECT_ORDER.length];
+            const currentElo = proficienciesRef.current[nextSubject]?.elo || 1200;
+            const adaptiveNext = selectNextQuestion(
+              questionPoolRef.current,
+              nextSubject,
+              currentElo,
+              answeredIdsRef.current
+            );
+            if (adaptiveNext) {
+              setQuestions((prev) => {
+                const updated = [...prev];
+                updated[nextIdx] = adaptiveNext;
+                return updated;
+              });
+            }
+          }
           setCurrentIndex((i) => i + 1);
           setSelectedOption(null);
           setQuestionStartTime(Date.now());
@@ -456,7 +546,7 @@ const DiagnosticTest = () => {
         }
       }, 1200);
     },
-    [selectedOption, currentQuestion, currentIndex, questionStartTime, user]
+    [selectedOption, currentQuestion, currentIndex, questionStartTime, user, questions]
   );
 
   const finishDiagnostic = async () => {
@@ -506,15 +596,22 @@ const DiagnosticTest = () => {
       ),
     });
 
-    // Priority areas: subjects with Elo < 1200, sorted by impact
+    // Priority areas: all subjects, sorted by adjusted Elo (phase2 subjects get -100 penalty)
+    const phase2Subjects = examConfig.phase2_subjects || [];
     const priorities = Object.entries(prof)
-      .filter(([, p]) => p.elo < 1200)
-      .sort((a, b) => a[1].elo - b[1].elo)
-      .map(([subject, p]) => ({
-        subject,
-        elo: Math.round(p.elo),
-        level: getLevel(p.elo),
-      }));
+      .map(([subject, p]) => {
+        const isPhase2 = phase2Subjects.includes(subject);
+        const adjustedElo = isPhase2 ? p.elo - 100 : p.elo;
+        return {
+          subject,
+          elo: Math.round(p.elo),
+          adjustedElo,
+          isPhase2,
+          priority: isPhase2 ? "Essencial (2ª fase)" : "Importante (1ª fase)",
+          level: getLevel(p.elo),
+        };
+      })
+      .sort((a, b) => a.adjustedElo - b.adjustedElo);
 
     // Save diagnostic_results history
     try {

@@ -38,6 +38,9 @@ interface ProficiencyEntry {
 interface PriorityEntry {
   subject: string;
   elo: number;
+  adjustedElo?: number;
+  isPhase2?: boolean;
+  priority?: string;
   level: { label: string; color: string };
 }
 
@@ -196,7 +199,8 @@ const DiagnosticResults = () => {
   }
 
   const { proficiencies, estimatedScore, cutoff, gap, probBand, priorities, totalCorrect, totalQuestions, examConfig, blendInfo } = data;
-  const phase2Set = new Set(examConfig.phase2_subjects || []);
+  const phase2Subjects = examConfig.phase2_subjects || [];
+  const phase2Set = new Set(phase2Subjects);
   const subjectDist = examConfig.subject_distribution || {};
 
   // Sort subjects: phase2 first, then by elo ascending
@@ -355,22 +359,84 @@ const DiagnosticResults = () => {
           </div>
         </div>
 
+        {/* Foco para 2ª fase */}
+        {phase2Subjects.length > 0 && (
+          <div className="animate-fade-in" style={{ animationDelay: "0.23s" }}>
+            <h2 className="text-base font-semibold text-foreground mb-4">Foco para 2ª Fase</h2>
+            <div className="space-y-2">
+              {phase2Subjects.map((subject) => {
+                const prof = proficiencies[subject];
+                if (!prof) return null;
+                const isLow = prof.elo < 1200;
+                return (
+                  <div key={subject} className={`flex items-center gap-3 p-3 rounded-lg border ${
+                    isLow ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"
+                  }`}>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">{subject}</span>
+                        <span className="text-xs font-mono text-muted-foreground">Elo {prof.elo}</span>
+                      </div>
+                      <p className={`text-xs font-medium mt-0.5 ${isLow ? "text-red-700" : "text-green-700"}`}>
+                        {isLow ? "URGENTE — essencial para 2ª fase" : "Manter — essencial para 2ª fase"}
+                      </p>
+                    </div>
+                    <span
+                      className="text-xs font-bold px-2 py-0.5 rounded-full"
+                      style={{ color: prof.level.color, backgroundColor: `${prof.level.color}15` }}
+                    >
+                      {prof.level.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Priority areas */}
         {priorities.length > 0 && (
           <div className="animate-fade-in" style={{ animationDelay: "0.25s" }}>
             <h2 className="text-base font-semibold text-foreground mb-4">Áreas Prioritárias</h2>
             <div className="space-y-2">
-              {priorities.map((area, i) => (
-                <div key={area.subject} className="flex items-center gap-3 p-3 bg-destructive/5 rounded-lg border border-destructive/10">
-                  <span className="text-sm font-bold text-destructive">{i + 1}.</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-foreground">{area.subject}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Elo {area.elo} — {area.level.label}
-                    </p>
+              {priorities.map((area, i) => {
+                const isPhase2 = area.isPhase2;
+                const isLow = area.elo < 1200;
+                const urgencyLabel = isPhase2 && isLow
+                  ? "URGENTE — essencial para 2ª fase"
+                  : isPhase2
+                    ? "Manter — essencial para 2ª fase"
+                    : isLow
+                      ? "Prioritário — impacta 1ª fase"
+                      : "";
+                return (
+                  <div key={area.subject} className={`flex items-center gap-3 p-3 rounded-lg border ${
+                    isPhase2 ? "bg-primary/5 border-primary/15" : "bg-destructive/5 border-destructive/10"
+                  }`}>
+                    <span className={`text-sm font-bold ${isPhase2 ? "text-primary" : "text-destructive"}`}>{i + 1}.</span>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-foreground">{area.subject}</p>
+                        {isPhase2 && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                            2ª fase
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Elo {area.elo} — {area.level.label}
+                      </p>
+                      {urgencyLabel && (
+                        <p className={`text-[10px] font-semibold mt-0.5 ${
+                          isPhase2 && isLow ? "text-red-600" : isPhase2 ? "text-green-600" : "text-orange-600"
+                        }`}>
+                          {urgencyLabel}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

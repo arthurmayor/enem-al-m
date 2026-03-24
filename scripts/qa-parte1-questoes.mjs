@@ -10,20 +10,50 @@ const VALID_SUBJECTS = ["Português","Matemática","História","Geografia","Biol
 const VALID_ELOS = [900, 1050, 1200, 1400, 1600];
 
 async function main() {
-  // Fetch all questions from both tables
-  const [{ data: diagQ, error: e1 }, { data: questQ, error: e2 }] = await Promise.all([
-    supabase.from("diagnostic_questions").select("*"),
-    supabase.from("questions").select("*"),
-  ]);
-  if (e1) { console.error("Erro diagnostic_questions:", e1.message || e1); }
-  if (e2) { console.error("Erro questions:", e2.message || e2); }
-  if ((e1 && String(e1.message).includes("fetch failed")) || (e2 && String(e2.message).includes("fetch failed"))) {
+  // Debug: test connectivity and table access
+  console.log("Testando acesso às tabelas...");
+  const { data: debugDiag, error: debugE1 } = await supabase.from("diagnostic_questions").select("id").limit(5);
+  const { data: debugQuest, error: debugE2 } = await supabase.from("questions").select("id").limit(5);
+  console.log(`  diagnostic_questions: ${debugE1 ? "ERRO: " + debugE1.message : (debugDiag || []).length + " amostra(s)"}`);
+  console.log(`  questions: ${debugE2 ? "ERRO: " + debugE2.message : (debugQuest || []).length + " amostra(s)"}`);
+
+  if ((debugE1 && String(debugE1.message).includes("fetch failed")) || (debugE2 && String(debugE2.message).includes("fetch failed"))) {
     console.error("\n⚠️  Sem acesso à rede. Rode localmente com:\n  node scripts/qa-parte1-questoes.mjs\n");
     process.exit(1);
   }
 
-  const diagCount = (diagQ || []).length;
-  const questCount = (questQ || []).length;
+  // Fetch all questions from both tables (paginate to avoid 1000-row default limit)
+  let diagQ = [];
+  let questQ = [];
+  let e1 = null, e2 = null;
+
+  // Paginate diagnostic_questions
+  let offset = 0;
+  while (true) {
+    const { data, error } = await supabase.from("diagnostic_questions").select("*").range(offset, offset + 999);
+    if (error) { e1 = error; break; }
+    if (!data || data.length === 0) break;
+    diagQ.push(...data);
+    if (data.length < 1000) break;
+    offset += 1000;
+  }
+
+  // Paginate questions
+  offset = 0;
+  while (true) {
+    const { data, error } = await supabase.from("questions").select("*").range(offset, offset + 999);
+    if (error) { e2 = error; break; }
+    if (!data || data.length === 0) break;
+    questQ.push(...data);
+    if (data.length < 1000) break;
+    offset += 1000;
+  }
+
+  if (e1) { console.error("Erro diagnostic_questions:", e1.message || e1); }
+  if (e2) { console.error("Erro questions:", e2.message || e2); }
+
+  const diagCount = diagQ.length;
+  const questCount = questQ.length;
 
   // Deduplicate by id
   const seen = new Set();

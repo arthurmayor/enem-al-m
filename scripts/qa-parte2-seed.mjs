@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  "https://nbfgqrjcrzgrprzqedtl.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iZmdxcmpjcnpncnByenFlZHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NDY2NTksImV4cCI6MjA4OTEyMjY1OX0.Q4jeuVOyZr3DheO7nLg4ISgD7SBnTUoBXA6VAgB4_0E"
-);
+const SUPABASE_URL = "https://nbfgqrjcrzgrprzqedtl.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iZmdxcmpjcnpncnByenFlZHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NDY2NTksImV4cCI6MjA4OTEyMjY1OX0.Q4jeuVOyZr3DheO7nLg4ISgD7SBnTUoBXA6VAgB4_0E";
+
+// Shared anon client for public reads (exam_configs, diagnostic_questions)
+const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const USERS = [
   { email: "teste-base@catedra.test", name: "Lucas Base", course: "Direito", hours: 0.5, days: 3, stage: "3º ano EM", skill: 0.35 },
@@ -23,21 +24,29 @@ function randInt(min, max) { return Math.floor(rand(min, max + 1)); }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function shuffle(a) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
 
-async function getOrCreateUser(email) {
-  const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email, password: "testeteste" });
-  if (signUpErr) {
-    if (signUpErr.message?.includes("already registered") || signUpErr.message?.includes("already been registered")) {
-      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password: "testeteste" });
-      if (signInErr) throw new Error(`SignIn failed for ${email}: ${signInErr.message}`);
-      return signInData.user;
-    }
+/**
+ * Creates an authenticated Supabase client for a specific user.
+ * Signs up if needed, then signs in to get a valid session.
+ */
+async function getAuthenticatedClient(email) {
+  // Create a fresh client for this user's session
+  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // Try signup first
+  const { error: signUpErr } = await client.auth.signUp({ email, password: "testeteste" });
+  if (signUpErr && !signUpErr.message?.includes("already") && !signUpErr.message?.includes("Already")) {
     throw new Error(`SignUp failed for ${email}: ${signUpErr.message}`);
   }
-  return signUpData.user;
+
+  // Sign in to get authenticated session
+  const { data: signInData, error: signInErr } = await client.auth.signInWithPassword({ email, password: "testeteste" });
+  if (signInErr) throw new Error(`SignIn failed for ${email}: ${signInErr.message}`);
+
+  return { client, user: signInData.user, session: signInData.session };
 }
 
 async function getExamConfig(courseName) {
-  const { data } = await supabase
+  const { data } = await anonClient
     .from("exam_configs")
     .select("id, cutoff_mean, phase2_subjects")
     .ilike("course_name", `%${courseName}%`)
@@ -48,16 +57,16 @@ async function getExamConfig(courseName) {
 async function seedUser(u) {
   process.stdout.write(`Criando ${u.name}... `);
 
-  // a) Auth
-  const user = await getOrCreateUser(u.email);
+  // a) Auth — get an authenticated client for this user
+  const { client, user } = await getAuthenticatedClient(u.email);
   const userId = user.id;
 
-  // b) Exam config
+  // b) Exam config (public read, anon is fine)
   const config = await getExamConfig(u.course);
   const configId = config?.id || null;
 
-  // c) Profile
-  await supabase.from("profiles").update({
+  // c) Profile — use authenticated client so RLS allows the update
+  const { error: profileErr } = await client.from("profiles").update({
     name: u.name,
     education_goal: "fuvest",
     desired_course: u.course,
@@ -68,9 +77,10 @@ async function seedUser(u) {
     onboarding_complete: true,
     exam_date: "2027-11-15",
   }).eq("id", userId);
+  if (profileErr) console.error(`  Profile error: ${profileErr.message}`);
 
   // d) Diagnostic simulation
-  const { data: diagQuestions } = await supabase
+  const { data: diagQuestions } = await client
     .from("diagnostic_questions")
     .select("id, subject, difficulty, options")
     .eq("is_active", true)
@@ -106,7 +116,8 @@ async function seedUser(u) {
   }
 
   if (answerRows.length > 0) {
-    await supabase.from("answer_history").insert(answerRows);
+    const { error: ahErr } = await client.from("answer_history").insert(answerRows);
+    if (ahErr) console.error(`  answer_history error: ${ahErr.message}`);
   }
 
   // Proficiency scores
@@ -119,7 +130,8 @@ async function seedUser(u) {
     measured_at: new Date().toISOString(),
   }));
   if (profRows.length > 0) {
-    await supabase.from("proficiency_scores").insert(profRows);
+    const { error: psErr } = await client.from("proficiency_scores").insert(profRows);
+    if (psErr) console.error(`  proficiency_scores error: ${psErr.message}`);
   }
 
   // Diagnostic estimates
@@ -134,7 +146,7 @@ async function seedUser(u) {
     proficiencies[subj] = { elo: Math.round(elo), score: clamp((elo - 600) / 1200, 0, 1) };
   }
 
-  await supabase.from("diagnostic_estimates").insert({
+  const { error: deErr } = await client.from("diagnostic_estimates").insert({
     user_id: userId,
     estimate_scope: "router",
     estimated_score: clamp(u.skill * 100, 0, 100),
@@ -147,10 +159,11 @@ async function seedUser(u) {
     initial_priority_json: weakest.map((s, i) => ({ subject: s, priority: i + 1 })),
     explanation_json: { summary: `Diagnóstico simulado para ${u.name}` },
   });
+  if (deErr) console.error(`  diagnostic_estimates error: ${deErr.message}`);
 
   // e) Study plan + 15 daily missions
   const today = new Date();
-  const { data: planData } = await supabase.from("study_plans").insert({
+  const { data: planData, error: spErr } = await client.from("study_plans").insert({
     user_id: userId,
     week_number: 1,
     is_current: true,
@@ -160,6 +173,7 @@ async function seedUser(u) {
     plan_json: { generated: true, focus_subjects: weakest },
     summary: { total_missions: 15, focus: weakest },
   }).select("id").single();
+  if (spErr) console.error(`  study_plans error: ${spErr.message}`);
 
   const planId = planData?.id;
   const missionRows = [];
@@ -185,7 +199,8 @@ async function seedUser(u) {
     }
   }
 
-  const { data: insertedMissions } = await supabase.from("daily_missions").insert(missionRows).select("id, subject, mission_type");
+  const { data: insertedMissions, error: dmErr } = await client.from("daily_missions").insert(missionRows).select("id, subject, mission_type");
+  if (dmErr) console.error(`  daily_missions error: ${dmErr.message}`);
   const missions = insertedMissions || [];
 
   // f) Complete some missions based on skill
@@ -194,7 +209,7 @@ async function seedUser(u) {
 
   for (const mission of completedMissions) {
     const score = clamp(Math.round(u.skill * 100 + rand(-15, 15)), 20, 100);
-    await supabase.from("daily_missions").update({
+    await client.from("daily_missions").update({
       status: "completed",
       score,
       completed_at: new Date().toISOString(),
@@ -213,7 +228,8 @@ async function seedUser(u) {
     events.push({ user_id: userId, event_name: "mission_opened", properties: { mission_id: mission.id, type: mission.mission_type } });
     events.push({ user_id: userId, event_name: "mission_completed", properties: { mission_id: mission.id, type: mission.mission_type } });
   }
-  await supabase.from("analytics_events").insert(events);
+  const { error: aeErr } = await client.from("analytics_events").insert(events);
+  if (aeErr) console.error(`  analytics_events error: ${aeErr.message}`);
 
   // h) Spaced review queue
   const reviewSubjects = weakest.slice(0, randInt(2, 3));
@@ -228,8 +244,12 @@ async function seedUser(u) {
     last_performance: clamp(u.skill - 0.1, 0, 1),
   }));
   if (reviewRows.length > 0) {
-    await supabase.from("spaced_review_queue").insert(reviewRows);
+    const { error: srErr } = await client.from("spaced_review_queue").insert(reviewRows);
+    if (srErr) console.error(`  spaced_review_queue error: ${srErr.message}`);
   }
+
+  // Sign out this user's session
+  await client.auth.signOut();
 
   console.log("✅");
 }
@@ -245,9 +265,6 @@ async function main() {
     }
   }
   console.log(`\n${success}/${USERS.length} usuários seed criados com sucesso`);
-
-  // Sign out after seeding
-  await supabase.auth.signOut();
 }
 
 main().catch(err => { console.error("Erro fatal:", err); process.exit(1); });

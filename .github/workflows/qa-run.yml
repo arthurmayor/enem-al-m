@@ -1,0 +1,39 @@
+name: QA Run
+
+on:
+  workflow_dispatch:
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install @supabase/supabase-js
+
+      - name: Fix letter bias
+        run: node scripts/fix-letter-bias.mjs
+
+      - name: QA Parte 1 - Validação de questões
+        run: node scripts/qa-parte1-questoes.mjs
+
+      - name: QA Parte 2 - Seed users
+        run: |
+          if [ -f scripts/qa-parte2-seed.mjs ]; then
+            node scripts/qa-parte2-seed.mjs
+          else
+            echo "qa-parte2-seed.mjs not found, skipping"
+          fi
+
+      - name: QA Parte 3 - Smoke tests
+        run: |
+          if [ -f scripts/qa-parte3-tests.mjs ]; then
+            node scripts/qa-parte3-tests.mjs
+          else
+            echo "qa-parte3-tests.mjs not found, skipping"
+          fi

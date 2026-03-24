@@ -21,7 +21,7 @@ async function main() {
   // Fetch all questions
   const { data: questions, error } = await supabase
     .from("questions")
-    .select("id, options, correct_answer");
+    .select("id, options");
 
   if (error) {
     console.error("Erro ao buscar questões:", error.message || error);
@@ -60,12 +60,9 @@ async function main() {
       is_correct: o.is_correct,
     }));
 
-    // Find new correct answer label
-    const newCorrect = newOptions.find(o => o.is_correct)?.label;
-
     const { error: updateErr } = await supabase
       .from("questions")
-      .update({ options: newOptions, correct_answer: newCorrect })
+      .update({ options: newOptions })
       .eq("id", q.id);
 
     if (updateErr) {

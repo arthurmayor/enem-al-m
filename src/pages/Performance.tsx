@@ -34,7 +34,9 @@ const FALLBACK_SUBJECT_DIST: Record<string, SubjectDistEntry> = {
 
 const ALL_SUBJECTS = ["Português", "Matemática", "História", "Geografia", "Biologia", "Física", "Química", "Inglês", "Filosofia"];
 const RECENT_WINDOW = 25; // last N answers per subject for accuracy
-const LOW_CONFIDENCE_THRESHOLD = 5;
+const MIN_FOR_PERCENT = 5; // below this: "leitura inicial", no bar/percent
+const MIN_FOR_CONFIDENT = 10; // below this: "poucas respostas" qualifier
+const MIN_FOR_TREND = 12; // need enough data for trend to be meaningful
 
 function barColor(pct: number): string {
   if (pct >= 70) return "bg-green-500";
@@ -48,11 +50,13 @@ function barTrackColor(pct: number): string {
   return "bg-red-100";
 }
 
+type ConfidenceTier = "none" | "initial" | "low" | "solid";
+
 interface SubjectScore {
   subject: string;
-  pct: number;
+  pct: number; // -1 = no data at all
   total: number;
-  lowConfidence: boolean;
+  confidence: ConfidenceTier;
   trend: "up" | "down" | "stable" | null;
 }
 
@@ -258,22 +262,28 @@ const Performance = () => {
     { done: daysStudied >= 7, text: `${daysStudied}/7 dias estudados` },
   ], [totalAnswered, subjectsCovered, planUpdates, daysStudied]);
 
-  // Subject scores based on recent answer accuracy (last RECENT_WINDOW per subject)
+  // ─── RECENT: Subject scores from last RECENT_WINDOW answers per subject ───
   const subjectScores: SubjectScore[] = useMemo(() => {
     return ALL_SUBJECTS.map((s) => {
       const subjectAnswers = recentAnswers.filter(a => a.subject === s);
       const recent = subjectAnswers.slice(0, RECENT_WINDOW);
-      if (recent.length === 0) return { subject: s, pct: -1, total: 0, lowConfidence: true, trend: null };
+
+      // No answers at all
+      if (recent.length === 0) return { subject: s, pct: -1, total: 0, confidence: "none" as ConfidenceTier, trend: null };
 
       const pct = Math.round((recent.filter(a => a.is_correct).length / recent.length) * 100);
-      const lowConfidence = recent.length < LOW_CONFIDENCE_THRESHOLD;
 
-      // Trend: compare first half vs second half of recent answers
+      // Confidence tier based on sample size
+      const confidence: ConfidenceTier =
+        recent.length < MIN_FOR_PERCENT ? "initial" :
+        recent.length < MIN_FOR_CONFIDENT ? "low" : "solid";
+
+      // Trend only when sample is large enough for signal to be meaningful
       let trend: "up" | "down" | "stable" | null = null;
-      if (recent.length >= 10) {
+      if (recent.length >= MIN_FOR_TREND) {
         const half = Math.floor(recent.length / 2);
-        const olderHalf = recent.slice(half); // older (answers are desc)
-        const newerHalf = recent.slice(0, half); // newer
+        const olderHalf = recent.slice(half);
+        const newerHalf = recent.slice(0, half);
         const olderAcc = olderHalf.filter(a => a.is_correct).length / olderHalf.length;
         const newerAcc = newerHalf.filter(a => a.is_correct).length / newerHalf.length;
         const diff = newerAcc - olderAcc;
@@ -282,8 +292,12 @@ const Performance = () => {
         else trend = "stable";
       }
 
-      return { subject: s, pct, total: recent.length, lowConfidence, trend };
+      return { subject: s, pct, total: recent.length, confidence, trend };
     }).sort((a, b) => {
+      // Sort: solid/low subjects by pct asc, then initial, then none
+      const tierOrder = { solid: 0, low: 0, initial: 1, none: 2 };
+      const ta = tierOrder[a.confidence], tb = tierOrder[b.confidence];
+      if (ta !== tb) return ta - tb;
       if (a.pct === -1 && b.pct === -1) return 0;
       if (a.pct === -1) return 1;
       if (b.pct === -1) return -1;
@@ -291,16 +305,17 @@ const Performance = () => {
     });
   }, [recentAnswers]);
 
-  const scoredSubjects = subjectScores.filter(s => s.pct >= 0);
-  const worstSubjectName = scoredSubjects.length > 0 ? scoredSubjects[0].subject : null;
-  const bestSubjectName = scoredSubjects.length > 0 ? scoredSubjects[scoredSubjects.length - 1].subject : null;
+  // Only subjects with enough data to show a meaningful percentage
+  const reliableSubjects = subjectScores.filter(s => s.confidence === "solid" || s.confidence === "low");
+  const worstSubjectName = reliableSubjects.length > 0 ? reliableSubjects[0].subject : null;
+  const bestSubjectName = reliableSubjects.length > 0 ? reliableSubjects[reliableSubjects.length - 1].subject : null;
 
-  // Worst area for gargalo
+  // Worst area for gargalo — only from subjects with enough data
   const worstArea = useMemo(() => {
-    if (scoredSubjects.length === 0) return null;
-    const w = scoredSubjects[0];
+    if (reliableSubjects.length === 0) return null;
+    const w = reliableSubjects[0];
     return { label: w.subject, pct: w.pct, total: w.total };
-  }, [scoredSubjects]);
+  }, [reliableSubjects]);
 
   // ─── CALIBRATED: Evolution chart from proficiency_scores over time ───
   const chartDataMap: Record<string, Record<string, number[]>> = {};
@@ -361,9 +376,9 @@ const Performance = () => {
   const attackPlan = useMemo(() => {
     const items: { text: string; to: string }[] = [];
 
-    // 1. Improve worst subject
-    if (scoredSubjects.length > 0 && scoredSubjects[0].pct < 50) {
-      const w = scoredSubjects[0];
+    // 1. Improve worst subject (only if data is reliable)
+    if (reliableSubjects.length > 0 && reliableSubjects[0].pct < 50) {
+      const w = reliableSubjects[0];
       const target = Math.min(w.pct + 10, 50);
       items.push({ text: `Levar ${w.subject} de ${w.pct}% para ${target}%`, to: "/study" });
     }
@@ -391,7 +406,7 @@ const Performance = () => {
     }
 
     return items.slice(0, 3);
-  }, [scoredSubjects, canShowProbability, totalAnswered, planUpdates, currentStreak]);
+  }, [reliableSubjects, canShowProbability, totalAnswered, planUpdates, currentStreak]);
 
   const hintVals = { weekCompleted: weekCompletedMissions, weekTotal: weekTotalMissions, accuracy: weekAccuracy, totalAnswered, streak: currentStreak };
 
@@ -494,7 +509,7 @@ const Performance = () => {
                       <div className="text-right shrink-0">
                         <p className="text-2xl font-bold text-red-600">{worstArea.pct}%</p>
                         <p className="text-[10px] text-muted-foreground">
-                          {worstArea.total < LOW_CONFIDENCE_THRESHOLD ? "poucos dados" : `últimas ${worstArea.total} questões`}
+                          {worstArea.total < MIN_FOR_CONFIDENT ? "poucas respostas" : `últimas ${worstArea.total} questões`}
                         </p>
                         <Link to="/study" className="mt-1.5 inline-flex items-center gap-1 px-3 py-1.5 bg-foreground text-white rounded-full text-[11px] font-medium hover:opacity-90 transition-opacity">
                           Praticar {worstArea.label}
@@ -504,46 +519,72 @@ const Performance = () => {
                   </div>
                 )}
 
-                {/* ─── RECENT: Desempenho por matéria (answer_history last N questions) ─── */}
-                {scoredSubjects.length > 0 && (
+                {/* ─── RECENT: Desempenho recente por matéria (answer_history last N questions) ─── */}
+                {subjectScores.some(s => s.confidence !== "none") && (
                   <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.15s" }}>
-                    <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Desempenho por matéria</h2>
+                    <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Desempenho recente por matéria</h2>
                     <div className="space-y-0.5">
                       {subjectScores.map((s) => {
-                        const isWorst = s.subject === worstSubjectName && s.pct >= 0;
-                        const isBest = s.subject === bestSubjectName && s.pct >= 0 && bestSubjectName !== worstSubjectName;
+                        // Only highlight best/worst among subjects with enough data
+                        const isWorst = s.subject === worstSubjectName && s.confidence !== "initial" && s.confidence !== "none";
+                        const isBest = s.subject === bestSubjectName && s.confidence !== "initial" && s.confidence !== "none" && bestSubjectName !== worstSubjectName;
+
+                        // State A: no data at all
+                        if (s.confidence === "none") {
+                          return (
+                            <div key={s.subject} className="px-3 py-2.5 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <span className="text-[13px] font-medium text-muted-foreground w-24 shrink-0 truncate">{s.subject}</span>
+                                <div className="flex-1 h-2 bg-gray-100 rounded-full" />
+                                <span className="text-[11px] text-muted-foreground shrink-0">—</span>
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        // State B: initial reading (<5 answers) — no bar, no percent
+                        if (s.confidence === "initial") {
+                          return (
+                            <div key={s.subject} className="px-3 py-2.5 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <span className="text-[13px] font-medium text-foreground w-24 shrink-0 truncate">{s.subject}</span>
+                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                  <div className="h-2 rounded-full bg-gray-300 transition-all duration-700" style={{ width: "8%" }} />
+                                </div>
+                                <span className="text-[11px] text-muted-foreground shrink-0 w-20 text-right">Leitura inicial</span>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground mt-0.5 ml-[calc(6rem+0.75rem)]">
+                                {s.total} {s.total === 1 ? "resposta" : "respostas"} — continue praticando
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        // State C/D: low or solid confidence — show bar + percent
                         return (
                           <div key={s.subject} className={`px-3 py-2.5 rounded-lg transition-colors ${isWorst ? "bg-red-50/60" : isBest ? "bg-green-50/60" : ""}`}>
                             <div className="flex items-center gap-3">
                               <span className={`text-[13px] w-24 shrink-0 truncate ${isWorst ? "font-bold text-red-700" : isBest ? "font-bold text-green-700" : "font-medium text-foreground"}`}>
                                 {s.subject}
                               </span>
-                              <div className={`flex-1 h-2 rounded-full overflow-hidden ${s.pct >= 0 ? barTrackColor(s.pct) : "bg-gray-100"}`}>
-                                {s.pct >= 0 && (
-                                  <div className={`h-2 rounded-full transition-all duration-700 ${barColor(s.pct)}`} style={{ width: `${s.pct}%` }} />
-                                )}
+                              <div className={`flex-1 h-2 rounded-full overflow-hidden ${barTrackColor(s.pct)}`}>
+                                <div className={`h-2 rounded-full transition-all duration-700 ${barColor(s.pct)}`} style={{ width: `${s.pct}%` }} />
                               </div>
-                              {s.pct >= 0 ? (
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className={`text-[13px] font-semibold w-9 text-right tabular-nums ${isWorst ? "text-red-700" : isBest ? "text-green-700" : "text-foreground"}`}>
-                                    {s.pct}%
-                                  </span>
-                                  {s.trend === "up" && <TrendingUp className="h-3 w-3 text-green-500" />}
-                                  {s.trend === "down" && <TrendingDown className="h-3 w-3 text-red-500" />}
-                                  {s.trend === "stable" && <Minus className="h-3 w-3 text-muted-foreground" />}
-                                </div>
-                              ) : (
-                                <span className="text-[11px] text-muted-foreground shrink-0">—</span>
-                              )}
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className={`text-[13px] font-semibold w-9 text-right tabular-nums ${isWorst ? "text-red-700" : isBest ? "text-green-700" : "text-foreground"}`}>
+                                  {s.pct}%
+                                </span>
+                                {/* Trend only shown for solid confidence */}
+                                {s.confidence === "solid" && s.trend === "up" && <TrendingUp className="h-3 w-3 text-green-500" />}
+                                {s.confidence === "solid" && s.trend === "down" && <TrendingDown className="h-3 w-3 text-muted-foreground" />}
+                                {s.confidence === "solid" && s.trend === "stable" && <Minus className="h-3 w-3 text-muted-foreground" />}
+                              </div>
                             </div>
-                            {/* Context line */}
-                            {s.pct >= 0 && (
-                              <p className="text-[10px] text-muted-foreground mt-0.5 ml-[calc(6rem+0.75rem)]">
-                                {s.lowConfidence
-                                  ? "Poucos dados ainda — continue praticando"
-                                  : `Baseado nas últimas ${s.total} questões`}
-                              </p>
-                            )}
+                            <p className="text-[10px] text-muted-foreground mt-0.5 ml-[calc(6rem+0.75rem)]">
+                              {s.confidence === "low"
+                                ? `Baseado em ${s.total} respostas — leitura parcial`
+                                : `Baseado nas últimas ${s.total} questões`}
+                            </p>
                           </div>
                         );
                       })}

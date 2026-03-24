@@ -63,12 +63,37 @@ async function getOrCreateUserId(email) {
 }
 
 async function getExamConfig(courseName) {
-  const { data } = await adminClient
+  console.log(`  [exam_config] Buscando: "${courseName}"`);
+
+  // Try exact ilike match first
+  const { data: d1 } = await adminClient
     .from("exam_configs")
-    .select("id, cutoff_mean, phase2_subjects")
+    .select("id, course_name, cutoff_mean, phase2_subjects")
     .ilike("course_name", `%${courseName}%`)
     .limit(1);
-  return data?.[0] || null;
+  if (d1?.[0]) {
+    console.log(`  [exam_config] Encontrado: "${d1[0].course_name}" (id: ${d1[0].id})`);
+    return d1[0];
+  }
+
+  // Fallback: try individual words (e.g. "Eng. Computação" → try "Computa", "Engenharia")
+  const words = courseName.split(/[\s.]+/).filter(w => w.length >= 4);
+  for (const word of words) {
+    const { data: d2 } = await adminClient
+      .from("exam_configs")
+      .select("id, course_name, cutoff_mean, phase2_subjects")
+      .ilike("course_name", `%${word}%`)
+      .limit(1);
+    if (d2?.[0]) {
+      console.log(`  [exam_config] Encontrado via fallback "${word}": "${d2[0].course_name}" (id: ${d2[0].id})`);
+      return d2[0];
+    }
+  }
+
+  // Last resort: list all configs for debug
+  const { data: all } = await adminClient.from("exam_configs").select("id, course_name").limit(20);
+  console.log(`  [exam_config] NÃO encontrado para "${courseName}". Configs disponíveis: ${(all || []).map(c => c.course_name).join(", ") || "nenhuma"}`);
+  return null;
 }
 
 async function seedUser(u) {
@@ -143,20 +168,32 @@ async function seedUser(u) {
     if (ahErr) console.error(`  answer_history error: ${ahErr.message}`);
   }
 
-  // Proficiency scores
-  const profRows = Object.entries(eloBySubject).map(([subject, { elo }]) => ({
-    user_id: userId,
-    subject,
-    subtopic: "geral",
-    score: clamp((elo - 600) / 1200, 0, 1),
-    source: "diagnostic",
-    measured_at: new Date().toISOString(),
-  }));
-  if (profRows.length > 0) {
-    console.log(`  Inserindo proficiency_scores para userId: ${userId} (${profRows.length} rows)`);
-    const { error: psErr } = await adminClient.from("proficiency_scores").insert(profRows);
-    if (psErr) console.error(`  proficiency_scores error: ${psErr.message}`);
-  }
+  // Proficiency scores — insert for ALL 9 subjects, not just those in the diagnostic
+  const profRows = SUBJECTS.map(subject => {
+    const eloData = eloBySubject[subject];
+    if (eloData) {
+      return {
+        user_id: userId,
+        subject,
+        subtopic: "geral",
+        score: clamp((eloData.elo - 600) / 1200, 0, 1),
+        source: "diagnostic",
+        measured_at: new Date().toISOString(),
+      };
+    }
+    // Subject not in diagnostic — estimate based on user skill
+    return {
+      user_id: userId,
+      subject,
+      subtopic: "geral",
+      score: clamp(u.skill * 0.8, 0, 1),
+      source: "diagnostic",
+      measured_at: new Date().toISOString(),
+    };
+  });
+  console.log(`  Inserindo proficiency_scores para userId: ${userId} (${profRows.length} rows, ${Object.keys(eloBySubject).length} do diagnóstico, ${profRows.length - Object.keys(eloBySubject).length} estimadas)`);
+  const { error: psErr } = await adminClient.from("proficiency_scores").insert(profRows);
+  if (psErr) console.error(`  proficiency_scores error: ${psErr.message}`);
 
   // Diagnostic estimates
   const sortedSubjects = Object.entries(eloBySubject).sort((a, b) => a[1].elo - b[1].elo);

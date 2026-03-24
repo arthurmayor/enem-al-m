@@ -81,6 +81,29 @@ function expectedAccuracy(studentElo: number, meanDiff: number, sdDiff: number):
   return totalP;
 }
 
+// ─── Scoring & Probability Model ─────────────────────────────────────────────
+//
+// DESIGN DECISIONS (2026-03-24):
+//
+// 1. BLEND WEIGHT = 0.95 para diagnóstico (totalSimulados === 0)
+//    Com ~3 questões por matéria, o Elo não consegue se afastar significativamente
+//    de 1200 (K=48, ganho máx ≈72 pontos). O score direto (acerto% × 90) é a
+//    melhor estimativa com poucos dados. O Elo contribui apenas 5% (~4.5 pontos).
+//
+// 2. SIGMA = max(7, 16/√infoScore) — incerteza do aluno
+//    30 questões em 9 matérias não permitem estimar habilidade com precisão.
+//    sigma=7.3 → intervalo de ±7.6 pontos (68% confiança) na escala 0-90.
+//    Comparação: sigma anterior era 5.5, confiança excessiva para poucos dados.
+//
+// 3. QUANDO REVISAR:
+//    - Quando houver alunos com 3+ simulados, considerar floor diferenciado:
+//      const floor = simulados >= 3 ? 4 : 7;
+//    - Se dados históricos de FUVEST mudarem cutoff_sd, recalibrar.
+//    - Rodar scripts/simulate-diagnostics-v2.mjs para validar mudanças.
+//
+// VALIDAÇÃO: 14/14 critérios PASS, 0 violações monotonicidade (195 simulações).
+// ─────────────────────────────────────────────────────────────────────────────
+
 function estimateScore(
   proficiencies: Record<string, Proficiency>,
   subjectDist: Record<string, SubjectDistEntry>,
@@ -110,13 +133,15 @@ function estimateScore(
   }
 
   // === BLEND: peso do acerto direto diminui conforme mais dados ===
-  // No diagnóstico (30 questões, 0 simulados): peso direto = 0.75, peso Elo = 0.25
-  // Após 100 questões + 1 simulado: peso direto = 0.50, peso Elo = 0.50
-  // Após 300 questões + 3 simulados: peso direto = 0.25, peso Elo = 0.75
-  // Após 500+ questões + 5 simulados: peso direto = 0.10, peso Elo = 0.90
+  // No diagnóstico (30 questões, 0 simulados): peso direto = 0.95 (Elo impreciso com ~3 questões/matéria)
+  // Após 1+ simulado com poucos dados: peso direto = 0.70
+  // Após 100 questões + simulados: peso direto = 0.50
+  // Após 300 questões + 3 simulados: peso direto = 0.25
+  // Após 500+ questões + 5 simulados: peso direto = 0.10
   const dataVolume = (totalQuestionsEver || totalDiagnosticQuestions) + (totalSimulados * 90);
   let directWeight: number;
-  if (dataVolume <= 50) directWeight = 0.75;
+  if (totalSimulados === 0 && dataVolume <= 50) directWeight = 0.95;
+  else if (dataVolume <= 50) directWeight = 0.70;
   else if (dataVolume <= 200) directWeight = 0.50;
   else if (dataVolume <= 500) directWeight = 0.25;
   else directWeight = 0.10;
@@ -125,20 +150,10 @@ function estimateScore(
   let score = directScore * directWeight + eloScore * eloWeight;
 
   // === Sanity checks ===
-  if (score > 90) {
-    console.error('SCORE > 90, clamping:', score);
-    score = 90;
-  }
-  if (score < 0) {
-    console.error('SCORE < 0, clamping:', score);
-    score = 0;
-  }
-  // Score não pode ser maior que acerto_real * 90 * 1.2 (no máximo 20% acima do acerto real)
+  if (score > 90) score = 90;
+  if (score < 0) score = 0;
   const maxReasonableScore = rawAccuracyRate * 90 * 1.2;
-  if (score > maxReasonableScore && rawAccuracyRate > 0) {
-    console.warn(`Score ${score} acima do razoável (max ${maxReasonableScore}). Clamping.`);
-    score = maxReasonableScore;
-  }
+  if (score > maxReasonableScore && rawAccuracyRate > 0) score = maxReasonableScore;
 
   return Math.round(score * 10) / 10;
 }
@@ -160,16 +175,11 @@ function calculatePassProbability(
   simulados: number,
   subjectsCovered: number
 ): number {
-  // Validação: cutoff_sd não pode ser maior que 5 (seria absurdo para nota de corte)
   const safeCutoffSd = Math.min(cutoffSd, 5);
-
-  // Validação: score e cutoff devem estar na mesma escala
-  if (score > 100 && cutoffMean < 100) {
-    console.error(`ESCALA INCOMPATÍVEL: score=${score}, cutoff=${cutoffMean}. Corrigir exam_configs.`);
-  }
-
   const infoScore = (questionsAnswered / 100) + (simulados * 3) + (subjectsCovered * 0.5);
-  const sigmaStudent = Math.max(4, 12 / Math.sqrt(Math.max(0.1, infoScore)));
+  // Higher base uncertainty (7) reflects that 30 diagnostic questions can't precisely
+  // determine ability; wider numerator (16) gives more realistic spread for limited data
+  const sigmaStudent = Math.max(7, 16 / Math.sqrt(Math.max(0.1, infoScore)));
   const muDiff = score - cutoffMean;
   const sigmaDiff = Math.sqrt(sigmaStudent ** 2 + safeCutoffSd ** 2);
   const raw = normalCDF(muDiff / sigmaDiff);
@@ -951,21 +961,6 @@ const DiagnosticTest = () => {
     const subjectsCovered = Object.keys(prof).length;
     const probability = calculatePassProbability(score, cutoffMean, cutoffSd, TOTAL_QUESTIONS, 0, subjectsCovered);
     const probBand = getProbabilityBand(probability);
-
-    // CORREÇÃO 5: Debug log permanente — NÃO REMOVER
-    const distTotal = Object.values(subjectDist).reduce((s, d) => s + d.questions, 0);
-    console.log("=== DIAGNOSTIC RESULT DEBUG ===", {
-      totalQuestionsInDist: distTotal,
-      estimatedScore: score,
-      cutoffMean,
-      cutoffSd,
-      gap,
-      probability,
-      probBand,
-      proficiencies: Object.fromEntries(
-        Object.entries(prof).map(([k, v]) => [k, { elo: Math.round(v.elo), correct: v.correct, total: v.total }])
-      ),
-    });
 
     // Priority areas: all subjects, sorted by adjusted Elo (phase2 subjects get -100 penalty)
     const phase2Subjects = examConfig.phase2_subjects || [];

@@ -8,8 +8,8 @@ import BottomNav from "@/components/BottomNav";
 interface ExamResult { id: string; exam_name: string; score_percent: number; correct_answers: number; total_questions: number; created_at: string; }
 
 const examOptions = [
+  { id: "fuvest-mini", name: "Mini Simulado Fuvest", desc: "25 questões em ~75 min — distribuição proporcional", questions: 25, duration: "1h15", highlight: true },
   { id: "enem-rapido", name: "ENEM Rápido", desc: "30 questões em 1h30", questions: 30, duration: "1h30" },
-  { id: "enem-completo", name: "ENEM Completo", desc: "90 questões em 5h", questions: 90, duration: "5h" },
   { id: "fuvest", name: "Fuvest 1ª Fase", desc: "45 questões em 2h30", questions: 45, duration: "2h30" },
   { id: "unicamp", name: "Unicamp", desc: "36 questões em 2h", questions: 36, duration: "2h" },
 ];
@@ -56,12 +56,16 @@ const Exams = () => {
         <div className="space-y-3">
           {examOptions.map((exam, i) => {
             const canTake = questionCount >= exam.questions;
+            const isHighlight = "highlight" in exam && exam.highlight;
             return canTake ? (
               <Link key={exam.id} to={`/exam/${exam.id}`}
-                className="group flex items-center justify-between p-5 bg-white rounded-2xl border border-gray-100 transition-all duration-300 animate-fade-in hover:shadow-md hover:-translate-y-0.5"
+                className={`group flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 animate-fade-in hover:shadow-md hover:-translate-y-0.5 ${isHighlight ? "bg-foreground/[0.03] border-foreground/20" : "bg-white border-gray-100"}`}
                 style={{ animationDelay: `${i * 0.05}s` }}>
                 <div>
-                  <h3 className="font-semibold text-foreground">{exam.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-foreground">{exam.name}</h3>
+                    {isHighlight && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-foreground text-white">Recomendado</span>}
+                  </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{exam.desc}</p>
                   <div className="mt-2 flex items-center gap-3">
                     <span className="flex items-center text-xs text-muted-foreground"><FileText className="h-3 w-3 mr-1" />{exam.questions}q</span>

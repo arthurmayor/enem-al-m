@@ -47,7 +47,7 @@ const AiTutor = () => {
       if (inserted?.id) userMsg.id = inserted.id;
       const { data: profile } = await supabase.from("profiles").select("name, age, school_year, education_goal").eq("id", user.id).single();
       const { data: recentErrors } = await supabase.from("answer_history").select("question_id, selected_option, is_correct, response_time_seconds").eq("user_id", user.id).eq("is_correct", false).order("created_at", { ascending: false }).limit(10);
-      const userContext = { name: profile?.name ?? "Estudante", age: profile?.age ?? null, school_year: profile?.school_year ?? "Não informada", education_goal: profile?.education_goal ?? "ENEM", current_subject: "Geral", recent_errors: recentErrors ?? [] };
+      const userContext = { userId: user.id, name: profile?.name ?? "Estudante", age: profile?.age ?? null, school_year: profile?.school_year ?? "Não informada", education_goal: profile?.education_goal ?? "ENEM", current_subject: "Geral", recent_errors: recentErrors ?? [] };
       const chatHistory = messages.map((m) => ({ role: m.role, message: m.content }));
       const { data: result, error: invokeError } = await supabase.functions.invoke("ai-tutor", { body: { message: text, chatHistory, userContext } });
       if (invokeError) throw new Error(invokeError.message);

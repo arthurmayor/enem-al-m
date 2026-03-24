@@ -258,7 +258,7 @@ const Performance = () => {
   const unlockReqs = useMemo(() => [
     { done: totalAnswered >= 60, text: `${totalAnswered}/60 questões respondidas` },
     { done: subjectsCovered >= 4, text: `${subjectsCovered}/4 matérias cobertas` },
-    { done: planUpdates >= 1, text: `${planUpdates}/1 atualização do plano` },
+    { done: planUpdates >= 1, text: `${planUpdates}/1 plano de estudos gerado` },
     { done: daysStudied >= 7, text: `${daysStudied}/7 dias estudados` },
   ], [totalAnswered, subjectsCovered, planUpdates, daysStudied]);
 
@@ -307,9 +307,6 @@ const Performance = () => {
 
   // Only subjects with enough data to show a meaningful percentage
   const reliableSubjects = subjectScores.filter(s => s.confidence === "solid" || s.confidence === "low");
-  const worstSubjectName = reliableSubjects.length > 0 ? reliableSubjects[0].subject : null;
-  const bestSubjectName = reliableSubjects.length > 0 ? reliableSubjects[reliableSubjects.length - 1].subject : null;
-
   // Worst area for gargalo — only from subjects with enough data
   const worstArea = useMemo(() => {
     if (reliableSubjects.length === 0) return null;
@@ -372,33 +369,34 @@ const Performance = () => {
   const hasData = proficiencyData.length > 0 || recentAnswers.length > 0;
   const hasEnoughData = totalAnswered >= 10;
 
-  // Attack plan — specific, actionable, clickable
+  // Attack plan — priority: gargalo → destrave da estimativa → consistência/hábito
   const attackPlan = useMemo(() => {
     const items: { text: string; to: string }[] = [];
 
-    // 1. Improve worst subject (only if data is reliable)
+    // Priority 1: Gargalo — focus on worst subject (details in gargalo card)
     if (reliableSubjects.length > 0 && reliableSubjects[0].pct < 50) {
       const w = reliableSubjects[0];
-      const target = Math.min(w.pct + 10, 50);
-      items.push({ text: `Levar ${w.subject} de ${w.pct}% para ${target}%`, to: "/study" });
+      items.push({ text: `Focar em ${w.subject} — seu maior gargalo`, to: "/study" });
     }
 
-    // 2. Unlock requirement or daily routine
+    // Priority 2: Destrave — unlock estimate requirements
     if (!canShowProbability) {
-      const remaining = Math.max(0, 60 - totalAnswered);
-      if (remaining > 0) {
-        items.push({ text: `Resolver ${Math.min(remaining, 15)} questões hoje`, to: "/study" });
-      }
       if (planUpdates < 1) {
-        items.push({ text: "Atualizar seu plano de estudos", to: "/study" });
+        items.push({ text: "Gerar seu plano de estudos personalizado", to: "/study" });
+      }
+      const remaining = Math.max(0, 60 - totalAnswered);
+      if (remaining > 0 && items.length < 3) {
+        items.push({ text: `Resolver mais ${Math.min(remaining, 15)} questões para destravar estimativa`, to: "/study" });
       }
     }
 
-    // 3. Retention item
-    if (currentStreak < 2) {
-      items.push({ text: "Estudar 2 dias seguidos para criar ritmo", to: "/study" });
-    } else if (items.length < 3) {
-      items.push({ text: "Completar a missão de hoje", to: "/study" });
+    // Priority 3: Consistência/hábito
+    if (items.length < 3) {
+      if (currentStreak < 2) {
+        items.push({ text: "Estudar 2 dias seguidos para criar ritmo", to: "/study" });
+      } else {
+        items.push({ text: "Completar a missão de hoje", to: "/study" });
+      }
     }
 
     if (items.length === 0) {
@@ -459,14 +457,27 @@ const Performance = () => {
                   )}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-                    {unlockReqs.map((r, i) => (
-                      <span key={i} className="inline-flex items-center gap-1">
-                        {r.done ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <Circle className="h-3 w-3 text-muted-foreground" />}
-                        <span className={r.done ? "text-foreground" : "text-muted-foreground"}>{r.text}</span>
-                      </span>
-                    ))}
-                  </div>
+                  {(() => {
+                    const doneCount = unlockReqs.filter(r => r.done).length;
+                    return (
+                      <>
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <div className="flex-1 max-w-[140px] h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-1.5 bg-green-500 rounded-full transition-all duration-500" style={{ width: `${(doneCount / unlockReqs.length) * 100}%` }} />
+                          </div>
+                          <span className="text-[11px] font-medium text-muted-foreground">{doneCount}/{unlockReqs.length} completos</span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                          {unlockReqs.map((r, i) => (
+                            <span key={i} className="inline-flex items-center gap-1">
+                              {r.done ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <Circle className="h-3 w-3 text-muted-foreground" />}
+                              <span className={r.done ? "text-foreground" : "text-muted-foreground"}>{r.text}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
                   {!canShowProbability && (
                     <Link to="/study" className="self-start inline-flex items-center gap-1.5 px-4 py-1.5 bg-foreground text-white rounded-full text-xs font-medium hover:opacity-90 transition-opacity">
                       Continuar estudando <ArrowRight className="h-3 w-3" />
@@ -525,10 +536,6 @@ const Performance = () => {
                     <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Desempenho recente por matéria</h2>
                     <div className="space-y-0.5">
                       {subjectScores.map((s) => {
-                        // Only highlight best/worst among subjects with enough data
-                        const isWorst = s.subject === worstSubjectName && s.confidence !== "initial" && s.confidence !== "none";
-                        const isBest = s.subject === bestSubjectName && s.confidence !== "initial" && s.confidence !== "none" && bestSubjectName !== worstSubjectName;
-
                         // State A: no data at all
                         if (s.confidence === "none") {
                           return (
@@ -542,36 +549,42 @@ const Performance = () => {
                           );
                         }
 
-                        // State B: initial reading (<5 answers) — no bar, no percent
+                        // State B: initial reading (<5 answers) — progress dots toward MIN_FOR_PERCENT
                         if (s.confidence === "initial") {
+                          const remaining = MIN_FOR_PERCENT - s.total;
                           return (
                             <div key={s.subject} className="px-3 py-2.5 rounded-lg">
                               <div className="flex items-center gap-3">
                                 <span className="text-[13px] font-medium text-foreground w-24 shrink-0 truncate">{s.subject}</span>
-                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                  <div className="h-2 rounded-full bg-gray-300 transition-all duration-700" style={{ width: "8%" }} />
+                                <div className="flex-1 flex items-center gap-1">
+                                  {Array.from({ length: MIN_FOR_PERCENT }).map((_, i) => (
+                                    <div key={i} className={`h-2 w-2 rounded-full transition-colors ${i < s.total ? "bg-foreground/40" : "bg-gray-200"}`} />
+                                  ))}
                                 </div>
-                                <span className="text-[11px] text-muted-foreground shrink-0 w-20 text-right">Leitura inicial</span>
+                                <span className="text-[11px] text-muted-foreground shrink-0 w-28 text-right">
+                                  {s.total}/{MIN_FOR_PERCENT} respostas
+                                </span>
                               </div>
                               <p className="text-[10px] text-muted-foreground mt-0.5 ml-[calc(6rem+0.75rem)]">
-                                {s.total} {s.total === 1 ? "resposta" : "respostas"} — continue praticando
+                                Mais {remaining} {remaining === 1 ? "resposta" : "respostas"} para ver seu desempenho
                               </p>
                             </div>
                           );
                         }
 
                         // State C/D: low or solid confidence — show bar + percent
+                        // No bg highlights here — gargalo card already calls out worst subject
                         return (
-                          <div key={s.subject} className={`px-3 py-2.5 rounded-lg transition-colors ${isWorst ? "bg-red-50/60" : isBest ? "bg-green-50/60" : ""}`}>
+                          <div key={s.subject} className="px-3 py-2.5 rounded-lg">
                             <div className="flex items-center gap-3">
-                              <span className={`text-[13px] w-24 shrink-0 truncate ${isWorst ? "font-bold text-red-700" : isBest ? "font-bold text-green-700" : "font-medium text-foreground"}`}>
+                              <span className="text-[13px] font-medium text-foreground w-24 shrink-0 truncate">
                                 {s.subject}
                               </span>
                               <div className={`flex-1 h-2 rounded-full overflow-hidden ${barTrackColor(s.pct)}`}>
                                 <div className={`h-2 rounded-full transition-all duration-700 ${barColor(s.pct)}`} style={{ width: `${s.pct}%` }} />
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <span className={`text-[13px] font-semibold w-9 text-right tabular-nums ${isWorst ? "text-red-700" : isBest ? "text-green-700" : "text-foreground"}`}>
+                                <span className="text-[13px] font-semibold w-9 text-right tabular-nums text-foreground">
                                   {s.pct}%
                                 </span>
                                 {/* Trend only shown for solid confidence */}

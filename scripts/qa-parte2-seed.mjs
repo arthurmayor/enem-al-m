@@ -3,9 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = "https://nbfgqrjcrzgrprzqedtl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5iZmdxcmpjcnpncnByenFlZHRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM1NDY2NTksImV4cCI6MjA4OTEyMjY1OX0.Q4jeuVOyZr3DheO7nLg4ISgD7SBnTUoBXA6VAgB4_0E";
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY;
 
-// Shared anon client for public reads (exam_configs, diagnostic_questions)
-const anonClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Service-role client for admin operations (user creation, bypassing RLS)
+const adminClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const USERS = [
   { email: "teste-base@catedra.test", name: "Lucas Base", course: "Direito", hours: 0.5, days: 3, stage: "3º ano EM", skill: 0.35 },
@@ -25,20 +26,26 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function shuffle(a) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
 
 /**
- * Creates an authenticated Supabase client for a specific user.
- * Signs up if needed, then signs in to get a valid session.
+ * Creates a user via admin API (service_role) with email_confirm: true,
+ * then signs in to get an authenticated client for RLS-protected operations.
  */
 async function getAuthenticatedClient(email) {
-  // Create a fresh client for this user's session
-  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Use admin API to create user with confirmed email (avoids email confirmation issues)
+  const { data: adminData, error: adminErr } = await adminClient.auth.admin.createUser({
+    email,
+    password: "testeteste",
+    email_confirm: true,
+  });
 
-  // Try signup first
-  const { error: signUpErr } = await client.auth.signUp({ email, password: "testeteste" });
-  if (signUpErr && !signUpErr.message?.includes("already") && !signUpErr.message?.includes("Already")) {
-    throw new Error(`SignUp failed for ${email}: ${signUpErr.message}`);
+  if (adminErr) {
+    // User already exists — that's fine, proceed to sign in
+    if (!adminErr.message?.includes("already") && !adminErr.message?.includes("Already") && !adminErr.message?.includes("duplicate")) {
+      throw new Error(`Admin createUser failed for ${email}: ${adminErr.message}`);
+    }
   }
 
-  // Sign in to get authenticated session
+  // Sign in to get authenticated session for this user
+  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data: signInData, error: signInErr } = await client.auth.signInWithPassword({ email, password: "testeteste" });
   if (signInErr) throw new Error(`SignIn failed for ${email}: ${signInErr.message}`);
 
@@ -46,7 +53,7 @@ async function getAuthenticatedClient(email) {
 }
 
 async function getExamConfig(courseName) {
-  const { data } = await anonClient
+  const { data } = await adminClient
     .from("exam_configs")
     .select("id, cutoff_mean, phase2_subjects")
     .ilike("course_name", `%${courseName}%`)

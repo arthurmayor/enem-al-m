@@ -540,6 +540,9 @@ serve(async (req) => {
       userProfile,
       diagnosticResult,
       examConfig,
+      weekNumber,
+      completionRate,
+      spacedReviews,
     } = body;
 
     // ─── Parse inputs with safe defaults ───────────────────────
@@ -593,9 +596,15 @@ serve(async (req) => {
       competitionRatio,
     );
 
-    // ─── §4 Time budget ────────────────────────────────────────
+    // ─── §4 Time budget (single adherence application) ─────────
+    const wk: number = weekNumber || 1;
+    const cr: number = completionRate ?? -1;
+    let adherence = wk === 1 ? 0.80 : 0.85;
+    if (cr >= 0 && cr < 50) adherence = 0.70;
+    else if (cr > 90) adherence = 0.90;
+
     const declaredMinutes = hpd * numDays * 60;
-    const plannedMinutes = Math.round(declaredMinutes * 0.8); // §4.1 week 1
+    const plannedMinutes = Math.round(declaredMinutes * adherence);
 
     // ─── §5 Maintenance / attack split ─────────────────────────
     let maintPct = 0.25;
@@ -620,6 +629,33 @@ serve(async (req) => {
       bottlenecks,
     );
 
+    // ─── §6c Inject spaced reviews (due items) ────────────────
+    const dueReviews: { subject: string; subtopic: string }[] = spacedReviews || [];
+    if (dueReviews.length > 0) {
+      const reviewsToPlace = dueReviews.slice(0, 5); // max 5 per plan
+      const usedSubtopics = new Set<string>();
+      let dayIdx = 0;
+      for (const rev of reviewsToPlace) {
+        // Find a day with room, preferring earlier days
+        for (let attempt = 0; attempt < dayPlans.length; attempt++) {
+          const tryDay = (dayIdx + attempt) % dayPlans.length;
+          const dayMinutes = dayPlans[tryDay].missions.reduce((s, m) => s + m.estimated_minutes, 0);
+          const maxMin = targetMinutes(hpd);
+          if (dayMinutes + 8 <= maxMin * 1.3) {
+            dayPlans[tryDay].missions.unshift({
+              subject: rev.subject,
+              subtopic: rev.subtopic,
+              type: "spaced_review",
+              estimated_minutes: 8,
+              description: `Revisão espaçada: ${rev.subtopic}`,
+            });
+            dayIdx = (tryDay + 1) % dayPlans.length;
+            break;
+          }
+        }
+      }
+    }
+
     const focusAreas = distributed
       .filter((p) => p.weeklyMinutes > 0 && p.bucket === "attack")
       .sort((a, b) => b.finalPriority - a.finalPriority)
@@ -630,18 +666,23 @@ serve(async (req) => {
     const plan = {
       weeks: [
         {
-          week: 1,
+          week: wk,
           focus_areas: focusAreas,
-          message:
-            "Este é seu plano inicial. Vamos calibrar nas próximas sessões.",
+          message: wk === 1
+            ? "Este é seu plano inicial. Vamos calibrar nas próximas sessões."
+            : `Semana ${wk}: plano ajustado com base no seu desempenho.`,
           days: dayPlans,
         },
       ],
       metadata: {
-        generation_mode: "deterministic_v2.1",
+        generation_mode: "deterministic_v2.2",
         planned_weekly_minutes: plannedMinutes,
+        declared_weekly_minutes: declaredMinutes,
+        adherence_factor: adherence,
         maintenance_pct: maintPct,
         placement_band: band,
+        week_number: wk,
+        spaced_reviews_injected: Math.min(dueReviews.length, 5),
       },
     };
 

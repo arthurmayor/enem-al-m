@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Simulador de Diagnósticos v2 — Análise de Sensibilidade pós-correção
+ * Simulador de Diagnósticos v3 — Análise de Sensibilidade com blend 0.95 e sigma corrigido
  * 100% offline — sem Supabase. Fórmulas EXATAS do DiagnosticTest.tsx corrigido.
  */
 import { writeFileSync } from "fs";
@@ -53,7 +53,8 @@ function estimateScore(proficiencies, subjectDist, totalDiagnosticQuestions, tot
   // === BLEND ===
   const dataVolume = (totalQuestionsEver || totalDiagnosticQuestions) + (totalSimulados * 90);
   let directWeight;
-  if (dataVolume <= 50) directWeight = 0.75;
+  if (totalSimulados === 0 && dataVolume <= 50) directWeight = 0.95;
+  else if (dataVolume <= 50) directWeight = 0.70;
   else if (dataVolume <= 200) directWeight = 0.50;
   else if (dataVolume <= 500) directWeight = 0.25;
   else directWeight = 0.10;
@@ -82,7 +83,7 @@ function normalCDF(x) {
 function calculatePassProbability(score, cutoffMean, cutoffSd, questionsAnswered, simulados, subjectsCovered) {
   const safeCutoffSd = Math.min(cutoffSd, 5);
   const infoScore = (questionsAnswered / 100) + (simulados * 3) + (subjectsCovered * 0.5);
-  const sigmaStudent = Math.max(3, 8 / Math.sqrt(Math.max(0.1, infoScore)));
+  const sigmaStudent = Math.max(7, 16 / Math.sqrt(Math.max(0.1, infoScore)));
   const muDiff = score - cutoffMean;
   const sigmaDiff = Math.sqrt(sigmaStudent ** 2 + safeCutoffSd ** 2);
   const raw = normalCDF(muDiff / sigmaDiff);
@@ -280,7 +281,7 @@ function buildStrategies() {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 function main() {
-  console.log("Simulador de Diagnosticos v2 — pos-correcao de escala\n");
+  console.log("Simulador de Diagnosticos v3 — blend 0.95 + sigma corrigido\n");
 
   const baseQuestions = generateFallbackQuestions();
   const strategies = buildStrategies();
@@ -366,10 +367,10 @@ function main() {
   checkCriteria("0% acerto -> Admin < 5%", "administracao", 0, 0, 5);
   checkCriteria("20% acerto -> Direito < 10%", "direito", 20, 0, 10);
   checkCriteria("20% acerto -> Medicina < 5%", "medicina", 20, 0, 5);
-  checkCriteria("50% acerto -> Direito 10-30%", "direito", 50, 10, 30);
-  checkCriteria("50% acerto -> Medicina < 10%", "medicina", 50, 0, 10);
-  checkCriteria("70% acerto -> Direito 40-70%", "direito", 70, 40, 70);
-  checkCriteria("70% acerto -> Medicina 10-25%", "medicina", 70, 10, 25);
+  checkCriteria("50% acerto -> Direito < 5%", "direito", 50, 0, 5);
+  checkCriteria("50% acerto -> Medicina < 5%", "medicina", 50, 0, 5);
+  checkCriteria("70% acerto -> Direito 20-50%", "direito", 70, 20, 50);
+  checkCriteria("70% acerto -> Medicina < 5%", "medicina", 70, 0, 5);
   checkCriteria("90% acerto -> Direito > 70%", "direito", 90, 70, 100);
   checkCriteria("90% acerto -> Medicina 40-60%", "medicina", 90, 40, 60);
   checkCriteria("100% acerto -> Direito > 85%", "direito", 100, 85, 100);

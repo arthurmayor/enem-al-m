@@ -33,28 +33,26 @@ const FALLBACK_SUBJECT_DIST: Record<string, SubjectDistEntry> = {
 };
 
 const ALL_SUBJECTS = ["Português", "Matemática", "História", "Geografia", "Biologia", "Física", "Química", "Inglês", "Filosofia"];
-const RECENT_WINDOW = 25; // last N answers per subject for accuracy
-const MIN_FOR_PERCENT = 5; // below this: "leitura inicial", no bar/percent
-const MIN_FOR_CONFIDENT = 10; // below this: "poucas respostas" qualifier
-const MIN_FOR_TREND = 12; // need enough data for trend to be meaningful
+const RECENT_WINDOW = 25;
+const MIN_FOR_PERCENT = 5;
+const MIN_FOR_CONFIDENT = 10;
+const MIN_FOR_TREND = 12;
 
 function barColor(pct: number): string {
-  if (pct >= 70) return "bg-green-500";
-  if (pct >= 40) return "bg-amber-400";
-  return "bg-amber-500";
+  if (pct >= 70) return "bg-emerald-400";
+  if (pct >= 40) return "bg-amber-300";
+  return "bg-orange-300";
 }
 
-function barTrackColor(pct: number): string {
-  if (pct >= 70) return "bg-green-100";
-  if (pct >= 40) return "bg-amber-100";
-  return "bg-amber-100";
+function barTrackColor(_pct: number): string {
+  return "bg-muted";
 }
 
 type ConfidenceTier = "none" | "initial" | "low" | "solid";
 
 interface SubjectScore {
   subject: string;
-  pct: number; // -1 = no data at all
+  pct: number;
   total: number;
   confidence: ConfidenceTier;
   trend: "up" | "down" | "stable" | null;
@@ -64,21 +62,21 @@ function metricHint(key: "missions" | "accuracy" | "questions" | "streak", v: { 
   switch (key) {
     case "missions":
       if (v.weekTotal === 0) return "nenhuma ainda";
-      if (v.weekCompleted >= v.weekTotal) return "semana completa";
+      if (v.weekCompleted >= v.weekTotal) return "semana completa 🎯";
       if (v.weekCompleted / v.weekTotal >= 0.6) return "bom ritmo";
-      return "abaixo do ritmo";
+      return "acelere o passo";
     case "accuracy":
       if (v.accuracy >= 75) return "acima da média";
       if (v.accuracy >= 50) return "na média";
       if (v.accuracy > 0) return "precisa melhorar";
-      return "sem dados";
+      return "pratique para medir";
     case "questions": {
       const r = Math.max(0, 60 - v.totalAnswered);
-      if (r > 0) return `faltam ${r} p/ estimativa`;
+      if (r > 0) return `mais ${r} p/ estimativa`;
       return "estimativa liberada";
     }
     case "streak":
-      if (v.streak >= 7) return "consistência forte";
+      if (v.streak >= 7) return "consistência forte 🔥";
       if (v.streak >= 3) return "mantendo ritmo";
       if (v.streak >= 1) return "não pare agora";
       return "comece hoje";
@@ -96,13 +94,11 @@ const Performance = () => {
   const [examHistory, setExamHistory] = useState<{ exam_name: string; score_percent: number; created_at: string }[]>([]);
   const [profileStats, setProfileStats] = useState<{ total_xp: number; current_streak: number; longest_streak: number; missions_completed: number; exam_config_id?: string } | null>(null);
 
-  // Gate data
   const [totalAnswered, setTotalAnswered] = useState(0);
   const [subjectsCovered, setSubjectsCovered] = useState(0);
   const [planUpdates, setPlanUpdates] = useState(0);
   const [daysStudied, setDaysStudied] = useState(0);
 
-  // ─── Calibrated estimate data (from scoring engine) ───
   const [eloProficiencies, setEloProficiencies] = useState<Record<string, Proficiency> | null>(null);
   const [examConfig, setExamConfig] = useState<{
     cutoff_mean: number;
@@ -122,7 +118,6 @@ const Performance = () => {
       const { data: missionData } = await supabase.from("daily_missions").select("status, score, date").eq("user_id", user.id).gte("date", weekAgo.toISOString().split("T")[0]);
       if (missionData) setMissions(missionData);
 
-      // Fetch recent answers with question subject via join
       const { data: answerData } = await supabase
         .from("answer_history")
         .select("is_correct, created_at, questions!inner(subject)")
@@ -145,7 +140,6 @@ const Performance = () => {
       const { data: profileStatsData } = await supabase.from("profiles").select("total_xp, current_streak, longest_streak, missions_completed, exam_config_id").eq("id", user.id).single();
       if (profileStatsData) setProfileStats(profileStatsData);
 
-      // Gate data
       const { count: totalCount } = await supabase.from("answer_history").select("id", { count: "exact", head: true }).eq("user_id", user.id);
       setTotalAnswered(totalCount || 0);
 
@@ -161,11 +155,6 @@ const Performance = () => {
         setDaysStudied(uniqueDays.size);
       }
 
-      // ─── Calibrated estimate: ELO proficiencies + exam config ───
-      // These feed the real scoring engine (estimateScore / calculatePassProbability)
-      // instead of the simplified average that was here before.
-
-      // 1. Latest ELO proficiencies from diagnostic or recalibration
       const { data: latestEstimate } = await supabase
         .from("diagnostic_estimates")
         .select("proficiencies")
@@ -175,7 +164,6 @@ const Performance = () => {
         .single();
 
       if (latestEstimate?.proficiencies) {
-        // Convert stored format { subject: { elo?, score? } } → Proficiency { elo, correct, total }
         const raw = latestEstimate.proficiencies as Record<string, { elo?: number; score?: number; correct?: number; total?: number }>;
         const prof: Record<string, Proficiency> = {};
         for (const [subj, v] of Object.entries(raw)) {
@@ -188,7 +176,6 @@ const Performance = () => {
         setEloProficiencies(prof);
       }
 
-      // 2. Exam config for the student's target course
       const examConfigId = (profileStatsData as any)?.exam_config_id;
       if (examConfigId) {
         const { data: ec } = await supabase
@@ -199,14 +186,13 @@ const Performance = () => {
         if (ec) {
           setExamConfig({
             cutoff_mean: ec.cutoff_mean ?? 55,
-            cutoff_sd: 5, // Standard default; exam_configs may not store this
+            cutoff_sd: 5,
             total_questions: ec.total_questions ?? 90,
             subject_distribution: ec.subject_distribution as Record<string, SubjectDistEntry> | null,
           });
         }
       }
 
-      // 3. Count simulados for scoring weight
       const { count: simCount } = await supabase
         .from("exam_results")
         .select("id", { count: "exact", head: true })
@@ -254,7 +240,6 @@ const Performance = () => {
 
   const canShowProbability = totalAnswered >= 60 && subjectsCovered >= 4 && planUpdates >= 1;
 
-  // Unified unlock requirements
   const unlockReqs = useMemo(() => [
     { done: totalAnswered >= 60, text: `${totalAnswered}/60 questões respondidas` },
     { done: subjectsCovered >= 4, text: `${subjectsCovered}/4 matérias cobertas` },
@@ -262,23 +247,19 @@ const Performance = () => {
     { done: daysStudied >= 7, text: `${daysStudied}/7 dias estudados` },
   ], [totalAnswered, subjectsCovered, planUpdates, daysStudied]);
 
-  // ─── RECENT: Subject scores from last RECENT_WINDOW answers per subject ───
   const subjectScores: SubjectScore[] = useMemo(() => {
     return ALL_SUBJECTS.map((s) => {
       const subjectAnswers = recentAnswers.filter(a => a.subject === s);
       const recent = subjectAnswers.slice(0, RECENT_WINDOW);
 
-      // No answers at all
       if (recent.length === 0) return { subject: s, pct: -1, total: 0, confidence: "none" as ConfidenceTier, trend: null };
 
       const pct = Math.round((recent.filter(a => a.is_correct).length / recent.length) * 100);
 
-      // Confidence tier based on sample size
       const confidence: ConfidenceTier =
         recent.length < MIN_FOR_PERCENT ? "initial" :
         recent.length < MIN_FOR_CONFIDENT ? "low" : "solid";
 
-      // Trend only when sample is large enough for signal to be meaningful
       let trend: "up" | "down" | "stable" | null = null;
       if (recent.length >= MIN_FOR_TREND) {
         const half = Math.floor(recent.length / 2);
@@ -294,7 +275,6 @@ const Performance = () => {
 
       return { subject: s, pct, total: recent.length, confidence, trend };
     }).sort((a, b) => {
-      // Sort: solid/low subjects by pct asc, then initial, then none
       const tierOrder = { solid: 0, low: 0, initial: 1, none: 2 };
       const ta = tierOrder[a.confidence], tb = tierOrder[b.confidence];
       if (ta !== tb) return ta - tb;
@@ -305,16 +285,13 @@ const Performance = () => {
     });
   }, [recentAnswers]);
 
-  // Only subjects with enough data to show a meaningful percentage
   const reliableSubjects = subjectScores.filter(s => s.confidence === "solid" || s.confidence === "low");
-  // Worst area for gargalo — only from subjects with enough data
   const worstArea = useMemo(() => {
     if (reliableSubjects.length === 0) return null;
     const w = reliableSubjects[0];
     return { label: w.subject, pct: w.pct, total: w.total };
   }, [reliableSubjects]);
 
-  // ─── CALIBRATED: Evolution chart from proficiency_scores over time ───
   const chartDataMap: Record<string, Record<string, number[]>> = {};
   proficiencyData.forEach((p) => {
     const dateKey = new Date(p.measured_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
@@ -328,10 +305,6 @@ const Performance = () => {
     return entry;
   });
 
-  // ─── CALIBRATED: Pass probability via real scoring engine ───
-  // Uses estimateScore() + calculatePassProbability() + getProbabilityBand()
-  // from src/lib/scoring.ts — the same calibrated model used by DiagnosticTest.
-  // Requires: ELO proficiencies, exam_config (cutoff, subject_distribution), simulados count.
   const calibratedEstimate = useMemo(() => {
     if (!eloProficiencies || !examConfig) return null;
 
@@ -339,7 +312,6 @@ const Performance = () => {
       ? examConfig.subject_distribution
       : FALLBACK_SUBJECT_DIST;
 
-    // Total correct/questions from ELO proficiencies (accumulated from diagnostic + calibration)
     const totalCorrect = Object.values(eloProficiencies).reduce((s, p) => s + p.correct, 0);
     const totalQuestions = Object.values(eloProficiencies).reduce((s, p) => s + p.total, 0);
 
@@ -369,17 +341,14 @@ const Performance = () => {
   const hasData = proficiencyData.length > 0 || recentAnswers.length > 0;
   const hasEnoughData = totalAnswered >= 10;
 
-  // Attack plan — priority: gargalo → destrave da estimativa → consistência/hábito
   const attackPlan = useMemo(() => {
     const items: { text: string; to: string }[] = [];
 
-    // Priority 1: Gargalo — focus on worst subject (details in gargalo card)
     if (reliableSubjects.length > 0 && reliableSubjects[0].pct < 50) {
       const w = reliableSubjects[0];
-      items.push({ text: `Focar em ${w.subject} — seu maior gargalo`, to: "/study" });
+      items.push({ text: `Reforçar ${w.subject} — onde você mais pode crescer`, to: "/study" });
     }
 
-    // Priority 2: Destrave — unlock estimate requirements
     if (!canShowProbability) {
       if (planUpdates < 1) {
         items.push({ text: "Gerar seu plano de estudos personalizado", to: "/study" });
@@ -390,7 +359,6 @@ const Performance = () => {
       }
     }
 
-    // Priority 3: Consistência/hábito
     if (items.length < 3) {
       if (currentStreak < 2) {
         items.push({ text: "Estudar 2 dias seguidos para criar ritmo", to: "/study" });
@@ -410,53 +378,53 @@ const Performance = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50/60 pb-20">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-        <div className="max-w-6xl mx-auto flex h-14 items-center gap-3 px-4 lg:px-8">
-          <Link to="/dashboard" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
-          <span className="text-base font-semibold text-foreground">Desempenho</span>
+    <div className="min-h-screen bg-background pb-20">
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border">
+        <div className="max-w-5xl mx-auto flex h-13 items-center gap-3 px-4 lg:px-6">
+          <Link to="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors"><ArrowLeft className="h-5 w-5" /></Link>
+          <span className="text-sm font-semibold text-foreground tracking-tight">Desempenho</span>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-4 lg:px-8 py-5">
+      <main className="max-w-5xl mx-auto px-4 lg:px-6 py-4">
         {!hasData ? (
           <div className="text-center py-16 animate-fade-in">
-            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-semibold text-foreground">Resolva algumas questões primeiro</h2>
-            <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto">
-              Faça o diagnóstico ou missões para ver seus dados aqui.
+            <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+            <h2 className="text-base font-semibold text-foreground">Comece respondendo questões</h2>
+            <p className="text-sm text-muted-foreground mt-1.5 max-w-xs mx-auto">
+              Faça o diagnóstico ou missões diárias — seus dados aparecerão aqui.
             </p>
-            <Link to="/study" className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-white rounded-full text-sm font-medium hover:opacity-90 transition-opacity">
+            <Link to="/study" className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background rounded-full text-sm font-medium hover:opacity-90 transition-opacity">
               Começar agora <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         ) : (
-          <>
+          <div className="space-y-2.5">
             {/* ─── HERO ─── */}
-            <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 lg:px-7 lg:py-5 animate-fade-in">
+            <div className="bg-card rounded-2xl border border-border px-5 py-4 lg:px-6 animate-fade-in">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                 <div className="lg:max-w-md">
-                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">Seu posicionamento hoje</p>
+                  <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-widest">Seu posicionamento</p>
                   {canShowProbability ? (
                     <>
-                      <p className="text-lg font-bold text-foreground mt-0.5">Ranking disponível em breve</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Coletando dados para calcular sua posição real.</p>
+                      <p className="text-base font-bold text-foreground mt-0.5">Ranking disponível em breve</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Coletando dados para calcular sua posição.</p>
                     </>
                   ) : (
                     <>
-                      <p className="text-lg font-bold text-foreground mt-0.5">Ainda em construção</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Complete os requisitos para comparar com outros alunos.</p>
+                      <p className="text-base font-bold text-foreground mt-0.5">Ainda construindo seu perfil</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Complete os requisitos para liberar comparações.</p>
                     </>
                   )}
                 </div>
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-2">
                   {(() => {
                     const doneCount = unlockReqs.filter(r => r.done).length;
                     const pending = unlockReqs.filter(r => !r.done);
@@ -464,18 +432,17 @@ const Performance = () => {
                       <>
                         <div>
                           <div className="flex items-center justify-between mb-1">
-                            <span className="text-[12px] font-semibold text-foreground">{doneCount} de {unlockReqs.length} requisitos completos</span>
+                            <span className="text-[11px] font-medium text-foreground">{doneCount} de {unlockReqs.length} completos</span>
                           </div>
-                          <div className="w-full max-w-[220px] h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-2.5 bg-green-500 rounded-full transition-all duration-500" style={{ width: `${(doneCount / unlockReqs.length) * 100}%` }} />
+                          <div className="w-full max-w-[240px] h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="h-2 bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${(doneCount / unlockReqs.length) * 100}%` }} />
                           </div>
                         </div>
                         {pending.length > 0 && (
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-                            <span className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide">Falta:</span>
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px]">
                             {pending.map((r, i) => (
-                              <span key={i} className="inline-flex items-center gap-1">
-                                <Circle className="h-3 w-3 text-muted-foreground" />
+                              <span key={i} className="inline-flex items-center gap-1.5">
+                                <Circle className="h-2.5 w-2.5 text-muted-foreground/50" />
                                 <span className="text-muted-foreground">{r.text}</span>
                               </span>
                             ))}
@@ -485,8 +452,8 @@ const Performance = () => {
                     );
                   })()}
                   {!canShowProbability && (
-                    <Link to="/study" className="self-start inline-flex items-center gap-1.5 px-4 py-1.5 bg-foreground text-white rounded-full text-xs font-medium hover:opacity-90 transition-opacity">
-                      Avançar no seu plano <ArrowRight className="h-3 w-3" />
+                    <Link to="/study" className="self-start inline-flex items-center gap-1.5 px-4 py-1.5 bg-foreground text-background rounded-full text-xs font-medium hover:opacity-90 transition-opacity">
+                      Continuar estudando <ArrowRight className="h-3 w-3" />
                     </Link>
                   )}
                 </div>
@@ -495,117 +462,109 @@ const Performance = () => {
 
             {/* ─── Metrics ─── */}
             {hasEnoughData && (
-              <div className="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-2 animate-fade-in" style={{ animationDelay: "0.05s" }}>
-                <MetricCard value={`${weekCompletedMissions}/${weekTotalMissions}`} label="Missões (7d)" hint={metricHint("missions", hintVals)} />
-                <MetricCard value={`${weekAccuracy}%`} label="Acerto (7d)" hint={metricHint("accuracy", hintVals)} />
-                <MetricCard value={String(totalAnswered)} label="Total de questões" hint={metricHint("questions", hintVals)} />
-                <MetricCard value={String(currentStreak)} label="Dias seguidos" hint={metricHint("streak", hintVals)} icon={<Flame className="h-3.5 w-3.5 text-orange-500" />} />
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 animate-fade-in" style={{ animationDelay: "0.05s" }}>
+                <MetricCard value={`${weekCompletedMissions}/${weekTotalMissions}`} label="Missões esta semana" hint={metricHint("missions", hintVals)} />
+                <MetricCard value={`${weekAccuracy}%`} label="Acerto nos últimos 7 dias" hint={metricHint("accuracy", hintVals)} />
+                <MetricCard value={String(totalAnswered)} label="Questões respondidas" hint={metricHint("questions", hintVals)} />
+                <MetricCard value={String(currentStreak)} label="Dias consecutivos" hint={metricHint("streak", hintVals)} icon={<Flame className="h-3.5 w-3.5 text-orange-400" />} />
               </div>
             )}
 
             {/* ─── Main 2-col Grid ─── */}
-            <div className="mt-3 grid grid-cols-1 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-2.5">
               {/* LEFT — 3/5 */}
-              <div className="lg:col-span-3 space-y-3">
-                {/* ─── RECENT: Maior gargalo (from answer_history accuracy) ─── */}
+              <div className="lg:col-span-3 space-y-2.5">
+                {/* ─── Maior oportunidade ─── */}
                 {worstArea && worstArea.pct < 60 && (
-                  <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.1s" }}>
+                  <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.1s" }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1.5">
-                          <div className="h-6 w-6 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
-                            <Target className="h-3.5 w-3.5 text-amber-500" />
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className="h-5 w-5 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
+                            <Target className="h-3 w-3 text-amber-500" />
                           </div>
-                          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Sua maior oportunidade</h2>
+                          <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Onde focar agora</h2>
                         </div>
-                        <p className="text-base font-bold text-foreground">{worstArea.label} tem mais espaço para crescer</p>
+                        <p className="text-sm font-semibold text-foreground mt-1">{worstArea.label} é sua maior alavanca de crescimento</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          Melhorar aqui traz o maior impacto na sua estimativa.
+                          Subir aqui traz o maior impacto na sua estimativa geral.
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-2xl font-bold text-amber-600">{worstArea.pct}%</p>
+                        <p className="text-xl font-bold text-amber-500">{worstArea.pct}%</p>
                         <p className="text-[10px] text-muted-foreground">
-                          {worstArea.total < MIN_FOR_CONFIDENT ? "poucas respostas" : `últimas ${worstArea.total} questões`}
+                          {worstArea.total < MIN_FOR_CONFIDENT ? `${worstArea.total} respostas` : `últimas ${worstArea.total}`}
                         </p>
-                        <Link to="/study" className="mt-1.5 inline-flex items-center gap-1 px-3 py-1.5 bg-foreground text-white rounded-full text-[11px] font-medium hover:opacity-90 transition-opacity">
-                          Praticar {worstArea.label}
+                        <Link to="/study" className="mt-1.5 inline-flex items-center gap-1 px-3 py-1.5 bg-foreground text-background rounded-full text-[11px] font-medium hover:opacity-90 transition-opacity">
+                          Praticar
                         </Link>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {/* ─── RECENT: Desempenho recente por matéria (answer_history last N questions) ─── */}
+                {/* ─── Desempenho recente por matéria ─── */}
                 {subjectScores.some(s => s.confidence !== "none") && (
-                  <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.15s" }}>
-                    <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Desempenho recente por matéria</h2>
-                    <div className="space-y-0.5">
+                  <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.15s" }}>
+                    <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">Desempenho por matéria</h2>
+                    <div className="divide-y divide-border">
                       {subjectScores.map((s) => {
-                        // State A: sem dados (0 answers)
                         if (s.confidence === "none") {
                           return (
-                            <div key={s.subject} className="px-3 py-2.5 rounded-lg">
+                            <div key={s.subject} className="px-2 py-2.5 hover:bg-muted/40 transition-colors rounded-lg">
                               <div className="flex items-center gap-3">
-                                <span className="text-[13px] font-medium text-muted-foreground w-24 shrink-0 truncate">{s.subject}</span>
-                                <div className="flex-1 flex items-center gap-1">
+                                <span className="text-[13px] font-medium text-muted-foreground/60 w-24 shrink-0 truncate">{s.subject}</span>
+                                <div className="flex-1 flex items-center gap-1.5">
                                   {Array.from({ length: MIN_FOR_PERCENT }).map((_, i) => (
-                                    <div key={i} className="h-2 w-2 rounded-full bg-gray-200" />
+                                    <div key={i} className="h-1.5 w-1.5 rounded-full bg-border" />
                                   ))}
                                 </div>
-                                <span className="text-[11px] text-muted-foreground shrink-0 w-28 text-right">Sem dados ainda</span>
+                                <span className="text-[11px] text-muted-foreground/50 shrink-0 text-right">Responda questões para medir</span>
                               </div>
                             </div>
                           );
                         }
 
-                        // State B: poucos dados (1-4 answers) — progress dots toward MIN_FOR_PERCENT
                         if (s.confidence === "initial") {
                           const remaining = MIN_FOR_PERCENT - s.total;
                           return (
-                            <div key={s.subject} className="px-3 py-2.5 rounded-lg">
+                            <div key={s.subject} className="px-2 py-2.5 hover:bg-muted/40 transition-colors rounded-lg">
                               <div className="flex items-center gap-3">
                                 <span className="text-[13px] font-medium text-muted-foreground w-24 shrink-0 truncate">{s.subject}</span>
-                                <div className="flex-1 flex items-center gap-1">
+                                <div className="flex-1 flex items-center gap-1.5">
                                   {Array.from({ length: MIN_FOR_PERCENT }).map((_, i) => (
-                                    <div key={i} className={`h-2 w-2 rounded-full transition-colors ${i < s.total ? "bg-foreground/40" : "bg-gray-200"}`} />
+                                    <div key={i} className={`h-1.5 w-1.5 rounded-full transition-colors ${i < s.total ? "bg-foreground/30" : "bg-border"}`} />
                                   ))}
                                 </div>
-                                <span className="text-[11px] text-muted-foreground shrink-0 w-28 text-right">
-                                  {s.total}/{MIN_FOR_PERCENT} respostas
+                                <span className="text-[11px] text-muted-foreground shrink-0 text-right">
+                                  mais {remaining} para medir
                                 </span>
                               </div>
-                              <p className="text-[10px] text-muted-foreground mt-0.5 ml-[calc(6rem+0.75rem)]">
-                                Mais {remaining} {remaining === 1 ? "resposta" : "respostas"} para ver seu desempenho
-                              </p>
                             </div>
                           );
                         }
 
-                        // State C/D: low or solid confidence — show bar + percent
-                        // No bg highlights here — gargalo card already calls out worst subject
                         return (
-                          <div key={s.subject} className="px-3 py-2.5 rounded-lg">
+                          <div key={s.subject} className="px-2 py-2.5 hover:bg-muted/40 transition-colors rounded-lg">
                             <div className="flex items-center gap-3">
                               <span className="text-[13px] font-medium text-foreground w-24 shrink-0 truncate">
                                 {s.subject}
                               </span>
-                              <div className={`flex-1 h-2 rounded-full overflow-hidden ${barTrackColor(s.pct)}`}>
-                                <div className={`h-2 rounded-full transition-all duration-700 ${barColor(s.pct)}`} style={{ width: `${s.pct}%` }} />
+                              <div className={`flex-1 h-1.5 rounded-full overflow-hidden ${barTrackColor(s.pct)}`}>
+                                <div className={`h-1.5 rounded-full transition-all duration-700 ${barColor(s.pct)}`} style={{ width: `${s.pct}%` }} />
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
                                 <span className="text-[13px] font-semibold w-9 text-right tabular-nums text-foreground">
                                   {s.pct}%
                                 </span>
-                                {/* Only positive or stable trend shown */}
-                                {s.confidence === "solid" && s.trend === "up" && <TrendingUp className="h-3 w-3 text-green-500" />}
-                                {s.confidence === "solid" && s.trend === "stable" && <Minus className="h-3 w-3 text-muted-foreground" />}
+                                {s.confidence === "solid" && s.trend === "up" && <TrendingUp className="h-3 w-3 text-emerald-400" />}
+                                {s.confidence === "solid" && s.trend === "stable" && <Minus className="h-3 w-3 text-muted-foreground/50" />}
                               </div>
                             </div>
-                            <p className="text-[10px] text-muted-foreground mt-0.5 ml-[calc(6rem+0.75rem)]">
+                            <p className="text-[10px] text-muted-foreground/60 mt-0.5 ml-[calc(6rem+0.75rem)]">
                               {s.confidence === "low"
-                                ? `Baseado em ${s.total} respostas — leitura parcial`
-                                : `Baseado nas últimas ${s.total} questões`}
+                                ? `${s.total} respostas — leitura parcial`
+                                : `Últimas ${s.total} questões`}
                             </p>
                           </div>
                         );
@@ -616,17 +575,15 @@ const Performance = () => {
               </div>
 
               {/* RIGHT — 2/5 */}
-              <div className="lg:col-span-2 space-y-3">
-                {/* ─── CALIBRATED: Estimativa de Aprovação ───
-                     Uses the real scoring engine (estimateScore + calculatePassProbability)
-                     with ELO proficiencies and exam_config data. */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.2s" }}>
+              <div className="lg:col-span-2 space-y-2.5">
+                {/* ─── Estimativa de Aprovação ─── */}
+                <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.2s" }}>
                   {canShowProbability && calibratedEstimate ? (
                     <>
-                      <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Estimativa de Aprovação</h2>
+                      <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">Chance de aprovação · 1ª fase</h2>
                       <div className="text-center py-2">
                         <div
-                          className="inline-flex items-center justify-center h-[68px] w-[68px] rounded-full text-2xl font-bold"
+                          className="inline-flex items-center justify-center h-16 w-16 rounded-full text-xl font-bold"
                           style={{ backgroundColor: calibratedEstimate.band.bgColor, color: calibratedEstimate.band.color }}
                         >
                           {calibratedEstimate.probPercent}%
@@ -635,25 +592,25 @@ const Performance = () => {
                           {calibratedEstimate.band.label}
                         </p>
                         <p className="text-[10px] text-muted-foreground mt-1">
-                          Score estimado: {calibratedEstimate.score}/90 — evolui com a prática
+                          Score: {calibratedEstimate.score}/90 — evolui com a prática
                         </p>
                       </div>
                     </>
                   ) : (
                     <>
                       <div className="flex items-center gap-2 mb-1.5">
-                        <div className="h-6 w-6 rounded-md bg-gray-100 flex items-center justify-center shrink-0">
-                          <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                        <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
+                          <Lock className="h-3 w-3 text-muted-foreground" />
                         </div>
-                        <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Estimativa de aprovação</h2>
+                        <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Chance de aprovação · 1ª fase</h2>
                       </div>
                       <p className="text-xs text-muted-foreground mb-3">
-                        Complete os requisitos abaixo para ver sua chance de aprovação no seu objetivo.
+                        Complete os passos abaixo para ver sua estimativa de aprovação.
                       </p>
-                      <div className="space-y-1.5 bg-gray-50 rounded-xl p-3">
+                      <div className="space-y-1.5 bg-muted/50 rounded-xl p-3">
                         {unlockReqs.map((r, i) => (
                           <div key={i} className="flex items-center gap-2">
-                            {r.done ? <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" /> : <Circle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                            {r.done ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" /> : <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />}
                             <span className={`text-[11px] ${r.done ? "text-foreground" : "text-muted-foreground"}`}>{r.text}</span>
                           </div>
                         ))}
@@ -662,25 +619,25 @@ const Performance = () => {
                   )}
                 </div>
 
-                {/* Plano de Ataque */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.25s" }}>
-                  <div className="mb-3">
+                {/* Próximos passos */}
+                <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.25s" }}>
+                  <div className="mb-2.5">
                     <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
-                        <Zap className="h-3.5 w-3.5 text-amber-500" />
+                      <div className="h-5 w-5 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
+                        <Zap className="h-3 w-3 text-amber-500" />
                       </div>
-                      <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Plano de ataque</h2>
+                      <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Próximos passos</h2>
                     </div>
-                    <p className="text-[11px] text-muted-foreground mt-1 ml-8">Siga estes passos para evoluir mais rápido</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 ml-7">O que vai te fazer evoluir mais rápido</p>
                   </div>
                   <div className="space-y-1.5">
                     {attackPlan.map((item, i) => (
                       <button
                         key={i}
                         onClick={() => navigate(item.to)}
-                        className="w-full flex items-center gap-2.5 p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl transition-colors text-left group"
+                        className="w-full flex items-center gap-2.5 p-2.5 bg-muted/50 hover:bg-muted rounded-xl transition-colors text-left group active:scale-[0.99]"
                       >
-                        <span className="h-5 w-5 rounded-full bg-foreground text-white flex items-center justify-center text-[10px] font-bold shrink-0">
+                        <span className="h-5 w-5 rounded-full bg-foreground text-background flex items-center justify-center text-[10px] font-bold shrink-0">
                           {i + 1}
                         </span>
                         <p className="text-[13px] text-foreground leading-snug flex-1">{item.text}</p>
@@ -694,36 +651,35 @@ const Performance = () => {
 
             {/* ─── Below-grid ─── */}
 
-            {/* Locked evolution chart — shown when estimate is not yet unlocked */}
             {!canShowProbability && (
-              <div className="mt-3 bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+              <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.3s" }}>
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="h-6 w-6 rounded-md bg-gray-100 flex items-center justify-center shrink-0">
-                    <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <div className="h-5 w-5 rounded-md bg-muted flex items-center justify-center shrink-0">
+                    <BarChart3 className="h-3 w-3 text-muted-foreground" />
                   </div>
-                  <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Evolução da sua estimativa</h2>
+                  <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Evolução da estimativa</h2>
                 </div>
-                <div className="relative rounded-xl bg-gray-50 h-32 flex items-center justify-center overflow-hidden">
-                  <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_15px,rgba(0,0,0,0.03)_15px,rgba(0,0,0,0.03)_16px)] pointer-events-none" />
+                <div className="relative rounded-xl bg-muted/50 h-28 flex items-center justify-center overflow-hidden">
+                  <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_15px,rgba(0,0,0,0.02)_15px,rgba(0,0,0,0.02)_16px)] pointer-events-none" />
                   <div className="text-center z-10">
-                    <Lock className="h-5 w-5 text-muted-foreground mx-auto mb-1.5" />
+                    <Lock className="h-4 w-4 text-muted-foreground mx-auto mb-1.5" />
                     <p className="text-xs font-medium text-muted-foreground">Disponível após destravar a estimativa</p>
-                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">Acompanhe como sua chance de aprovação evolui ao longo do tempo</p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">Acompanhe sua evolução ao longo do tempo</p>
                   </div>
                 </div>
               </div>
             )}
 
             {examHistory.length > 0 && (
-              <div className="mt-3 bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.3s" }}>
-                <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Últimos Simulados</h2>
+              <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+                <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">Últimos simulados</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   {examHistory.map((e, i) => {
-                    const c = e.score_percent >= 70 ? "text-green-700 bg-green-50" : e.score_percent >= 40 ? "text-yellow-700 bg-yellow-50" : "text-red-700 bg-red-50";
+                    const c = e.score_percent >= 70 ? "text-emerald-600 bg-emerald-50" : e.score_percent >= 40 ? "text-amber-600 bg-amber-50" : "text-orange-600 bg-orange-50";
                     return (
-                      <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                      <div key={i} className="flex items-center justify-between p-3 bg-muted/40 rounded-xl hover:bg-muted/60 transition-colors">
                         <div>
-                          <p className="text-sm font-semibold text-foreground">{e.exam_name}</p>
+                          <p className="text-sm font-medium text-foreground">{e.exam_name}</p>
                           <p className="text-[11px] text-muted-foreground">{new Date(e.created_at).toLocaleDateString("pt-BR")}</p>
                         </div>
                         <span className={`text-sm font-semibold px-2.5 py-0.5 rounded-full ${c}`}>{Math.round(e.score_percent)}%</span>
@@ -735,19 +691,19 @@ const Performance = () => {
             )}
 
             {chartData.length > 1 && totalAnswered >= 50 && (
-              <div className="mt-3 bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.35s" }}>
-                <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Evolução por matéria</h2>
+              <div className="bg-card rounded-2xl border border-border p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.35s" }}>
+                <h2 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest mb-3">Evolução por matéria</h2>
                 <div className="flex gap-1.5 mb-3 overflow-x-auto">
                   {subjectFilters.map((s) => (
                     <button key={s} onClick={() => setSelectedSubject(s)}
                       className={`px-2.5 py-1 rounded-full text-[11px] font-medium transition-all shrink-0 ${
-                        selectedSubject === s ? "bg-foreground text-white" : "bg-gray-50 border border-gray-200 text-foreground"
+                        selectedSubject === s ? "bg-foreground text-background" : "bg-muted border border-border text-foreground"
                       }`}>
                       {s === "all" ? "Todas" : s}
                     </button>
                   ))}
                 </div>
-                <div className="bg-gray-50 rounded-xl p-3 h-44">
+                <div className="bg-muted/40 rounded-xl p-3 h-44">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
                       <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
@@ -761,7 +717,7 @@ const Performance = () => {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </main>
       <BottomNav />
@@ -773,13 +729,13 @@ const Performance = () => {
 
 function MetricCard({ value, label, hint, icon }: { value: string; label: string; hint: string; icon?: React.ReactNode }) {
   return (
-    <div className="px-3 py-2.5 bg-white rounded-xl border border-gray-100">
+    <div className="px-3 py-2.5 bg-card rounded-xl border border-border hover:shadow-rest transition-shadow">
       <div className="flex items-center gap-1">
         {icon}
         <p className="text-base font-bold text-foreground tabular-nums">{value}</p>
       </div>
       <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
-      <p className="text-[10px] font-medium text-muted-foreground/70 mt-0.5">{hint}</p>
+      <p className="text-[10px] font-medium text-muted-foreground/60 mt-0.5">{hint}</p>
     </div>
   );
 }

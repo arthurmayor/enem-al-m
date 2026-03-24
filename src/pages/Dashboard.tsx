@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Clock, Brain, BarChart3, FileText, ChevronRight, Trophy, Flame, Target, Zap } from "lucide-react";
+import { BookOpen, Clock, ChevronRight, ArrowRight, Target } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -27,7 +27,7 @@ const missionTypeLabels: Record<string, string> = {
   questions: "Questões",
   summary: "Resumo",
   flashcards: "Flashcards",
-  review: "Revisão",
+  review: "Revisão de erros",
 };
 
 const Dashboard = () => {
@@ -62,199 +62,250 @@ const Dashboard = () => {
     ? Math.max(0, Math.ceil((new Date(profile.exam_date).getTime() - Date.now()) / 86400000))
     : null;
 
-  const examLabel = profile?.education_goal?.toUpperCase() || "EXAME";
-  const completedMissions = missions.filter((m) => m.status === "completed").length;
   const firstName = profile?.name?.split(" ")[0] || "Estudante";
+  const completedMissions = missions.filter((m) => m.status === "completed").length;
+  const pendingMissions = missions.filter((m) => m.status !== "completed");
   const hasMissions = missions.length > 0;
   const needsDiagnostic = !profile?.onboarding_complete;
 
+  // Estimate total study time for today
+  const totalMinutesToday = missions.length * 15;
+  const completedMinutesToday = completedMissions * 15;
+
+  // Mock weekly data (from missions data)
+  const weeklySessionsTarget = 5;
+  const weeklySessionsDone = Math.min(completedMissions, weeklySessionsTarget);
+  const weeklyPct = Math.round((weeklySessionsDone / weeklySessionsTarget) * 100);
+
+  // Focus subjects: top 3 from pending missions
+  const focusSubjects = [...new Set(pendingMissions.map((m) => m.subject))].slice(0, 3);
+
+  // Last incomplete mission for "continue where you left off"
+  const lastMission = pendingMissions[0] || null;
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
         <div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-        <div className="container mx-auto flex h-14 items-center justify-between px-4 max-w-3xl">
+    <div className="min-h-screen bg-[#FAFAF9] pb-24">
+      {/* ─── Header ─────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-40 bg-[#FAFAF9]/80 backdrop-blur-xl border-b border-gray-100/60">
+        <div className="container mx-auto flex h-14 items-center justify-between px-5 max-w-lg">
           <div className="flex items-center gap-2.5">
             <div className="h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
               <BookOpen className="h-3.5 w-3.5 text-white" />
             </div>
-            <span className="text-base font-semibold text-foreground tracking-tight">Cátedra</span>
+            <span className="text-[15px] font-semibold text-foreground tracking-tight">Cátedra</span>
           </div>
-          <div className="flex items-center gap-2">
-            {profile?.current_streak ? (
-              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-foreground text-xs font-medium">
-                <Flame className="h-3.5 w-3.5" />
-                {profile.current_streak} dias
-              </div>
-            ) : null}
-            {profile?.total_xp ? (
-              <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-gray-100 text-foreground text-xs font-medium">
-                <Zap className="h-3.5 w-3.5" />
-                {profile.total_xp} XP
-              </div>
-            ) : null}
-          </div>
+          {daysUntilExam !== null && (
+            <span className="text-xs font-medium text-muted-foreground">
+              {daysUntilExam} dias para a prova
+            </span>
+          )}
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 max-w-3xl">
-        {/* Greeting */}
-        <div className="animate-fade-in">
+      <main className="container mx-auto px-5 max-w-lg">
+        {/* ─── Greeting ─────────────────────────────────────────────── */}
+        <div className="pt-8 animate-fade-in">
           <h1 className="text-2xl font-semibold text-foreground">Olá, {firstName}</h1>
-          <p className="text-sm text-muted-foreground mt-1">Vamos continuar de onde você parou.</p>
+          <p className="text-[14px] text-muted-foreground mt-1">
+            {needsDiagnostic
+              ? "Faça o diagnóstico para começar seu plano."
+              : hasMissions
+                ? "Seu estudo de hoje está montado."
+                : "Sem sessões pendentes. Bom descanso."}
+          </p>
         </div>
 
-        {/* Countdown */}
-        {daysUntilExam !== null && (
-          <div className="mt-6 bg-foreground rounded-2xl p-6 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-            <p className="text-white/60 text-xs font-semibold uppercase tracking-wider">
-              {examLabel} 2026
-            </p>
-            <div className="mt-2 flex items-baseline gap-2">
-              <span className="text-5xl font-semibold text-white tabular-nums">{daysUntilExam}</span>
-              <span className="text-white/50 text-lg">dias restantes</span>
+        {/* ─── Needs diagnostic CTA ─────────────────────────────────── */}
+        {needsDiagnostic && (
+          <Link
+            to="/diagnostic/intro"
+            className="block mt-6 bg-white rounded-2xl p-6 shadow-rest animate-fade-in hover:shadow-interactive transition-shadow"
+            style={{ animationDelay: "0.06s" }}
+          >
+            <div className="flex items-start gap-4">
+              <div className="h-10 w-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                <Target className="h-5 w-5 text-foreground" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-[15px] font-semibold text-foreground">Comece pelo diagnóstico</h3>
+                <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">
+                  8 questões rápidas para montar seu plano personalizado
+                </p>
+              </div>
+              <ArrowRight className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+            </div>
+          </Link>
+        )}
+
+        {/* ─── 1. Hoje ──────────────────────────────────────────────── */}
+        {hasMissions && (
+          <div className="mt-6 animate-fade-in" style={{ animationDelay: "0.06s" }}>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-[15px] font-semibold text-foreground">Hoje</h2>
+              <span className="text-xs text-muted-foreground">
+                Meta: {totalMinutesToday} min
+              </span>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-rest overflow-hidden">
+              {missions.map((mission, i) => {
+                const isDone = mission.status === "completed";
+                return (
+                  <Link
+                    key={mission.id}
+                    to={`/mission/${mission.mission_type}/${mission.id}`}
+                    className={`flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50 ${
+                      i > 0 ? "border-t border-gray-50" : ""
+                    } ${isDone ? "opacity-50" : ""}`}
+                  >
+                    <div className={`h-2 w-2 rounded-full shrink-0 ${isDone ? "bg-green-400" : "bg-foreground"}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[14px] font-medium text-foreground truncate ${isDone ? "line-through" : ""}`}>
+                        {mission.subject} — {missionTypeLabels[mission.mission_type] || mission.mission_type}
+                      </p>
+                      <p className="text-[12px] text-muted-foreground mt-0.5 truncate">{mission.subtopic}</p>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                      <Clock className="h-3 w-3" />
+                      15 min
+                    </div>
+                  </Link>
+                );
+              })}
+
+              {/* CTA at bottom of card */}
+              {pendingMissions.length > 0 && (
+                <Link
+                  to={`/mission/${pendingMissions[0].mission_type}/${pendingMissions[0].id}`}
+                  className="flex items-center justify-center gap-2 px-5 py-3.5 border-t border-gray-100 bg-foreground text-white text-[14px] font-semibold hover:bg-foreground/90 transition-colors"
+                >
+                  Continuar estudo
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+
+            {completedMissions > 0 && (
+              <p className="text-[12px] text-muted-foreground mt-2">
+                {completedMinutesToday} de {totalMinutesToday} min concluídos
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* ─── 2. Sua semana ────────────────────────────────────────── */}
+        {!needsDiagnostic && (
+          <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.12s" }}>
+            <h2 className="text-[15px] font-semibold text-foreground mb-3">Sua semana</h2>
+            <div className="bg-white rounded-2xl p-5 shadow-rest">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[14px] text-foreground">
+                  <span className="font-semibold">{weeklySessionsDone}</span> de {weeklySessionsTarget} sessões
+                </p>
+                <span className="text-xs text-muted-foreground">{weeklyPct}% do plano</span>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-2 rounded-full bg-foreground transition-all duration-700"
+                  style={{ width: `${weeklyPct}%` }}
+                />
+              </div>
+              <p className="text-[12px] text-muted-foreground mt-3">
+                Vamos ajustar o plano com seu uso
+              </p>
             </div>
           </div>
         )}
 
-        {/* Pass Probability */}
-        <div className="mt-4 bg-white rounded-2xl border border-gray-100 p-5 flex items-center justify-between animate-fade-in" style={{ animationDelay: "0.15s" }}>
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gray-100 flex items-center justify-center">
-              <Trophy className="h-5 w-5 text-foreground" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Probabilidade de aprovação</p>
-              <p className="text-lg font-semibold text-foreground">—</p>
+        {/* ─── 3. Matérias em foco ──────────────────────────────────── */}
+        {focusSubjects.length > 0 && (
+          <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.18s" }}>
+            <h2 className="text-[15px] font-semibold text-foreground mb-3">Matérias em foco</h2>
+            <div className="space-y-2.5">
+              {focusSubjects.map((subject) => {
+                const subjectMission = pendingMissions.find((m) => m.subject === subject);
+                const actionLabel = subjectMission
+                  ? missionTypeLabels[subjectMission.mission_type] === "Revisão de erros"
+                    ? "Rever erros"
+                    : missionTypeLabels[subjectMission.mission_type] === "Questões"
+                      ? "Resolver questões"
+                      : missionTypeLabels[subjectMission.mission_type] || "Estudar"
+                  : "Estudar";
+
+                return (
+                  <div
+                    key={subject}
+                    className="flex items-center justify-between bg-white rounded-xl px-4 py-3.5 shadow-rest"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-2 w-2 rounded-full bg-foreground" />
+                      <span className="text-[14px] font-medium text-foreground">{subject}</span>
+                    </div>
+                    {subjectMission ? (
+                      <Link
+                        to={`/mission/${subjectMission.mission_type}/${subjectMission.id}`}
+                        className="text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                      >
+                        {actionLabel}
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : (
+                      <span className="text-[13px] text-muted-foreground">{actionLabel}</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
-          <span className="text-xs text-muted-foreground">Complete o diagnóstico</span>
-        </div>
+        )}
 
-        {/* Today's Missions */}
-        <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-foreground">Missões de Hoje</h2>
-            {hasMissions && (
-              <span className="text-xs text-muted-foreground">{completedMissions} de {missions.length} concluídas</span>
-            )}
-          </div>
-
-          {needsDiagnostic ? (
+        {/* ─── 4. Continue de onde parou ─────────────────────────────── */}
+        {lastMission && completedMissions > 0 && (
+          <div className="mt-8 mb-4 animate-fade-in" style={{ animationDelay: "0.24s" }}>
+            <h2 className="text-[15px] font-semibold text-foreground mb-3">Continue de onde parou</h2>
             <Link
-              to="/diagnostic/intro"
-              className="block p-6 bg-gray-50 rounded-2xl text-center hover:shadow-md transition-all"
+              to={`/mission/${lastMission.mission_type}/${lastMission.id}`}
+              className="flex items-center gap-4 bg-white rounded-2xl px-5 py-4 shadow-rest hover:shadow-interactive transition-shadow"
             >
-              <Target className="h-10 w-10 text-foreground mx-auto mb-3" />
-              <h3 className="font-semibold text-foreground">Comece seu diagnóstico</h3>
-              <p className="text-sm text-muted-foreground mt-1">Responda 25 questões para a IA montar seu plano personalizado</p>
-              <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-foreground">
-                Iniciar <ChevronRight className="h-4 w-4" />
-              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-medium text-foreground truncate">
+                  {missionTypeLabels[lastMission.mission_type] || lastMission.mission_type} de {lastMission.subject}
+                </p>
+                <p className="text-[12px] text-muted-foreground mt-0.5 truncate">
+                  {lastMission.subtopic}
+                </p>
+              </div>
+              <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0" />
             </Link>
-          ) : !hasMissions ? (
-            <div className="p-6 bg-gray-50 rounded-2xl text-center">
-              <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
-              <h3 className="font-semibold text-foreground">Sem missões para hoje</h3>
-              <p className="text-sm text-muted-foreground mt-1">Que tal praticar com o tutor?</p>
-              <Link to="/tutor" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-foreground">
-                Abrir Tutor IA <ChevronRight className="h-4 w-4" />
+          </div>
+        )}
+
+        {/* ─── Empty state (no missions, not needing diagnostic) ───── */}
+        {!needsDiagnostic && !hasMissions && (
+          <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: "0.06s" }}>
+            <div className="bg-white rounded-2xl p-8 shadow-rest">
+              <p className="text-[15px] font-medium text-foreground">Nada pendente por hoje</p>
+              <p className="text-[13px] text-muted-foreground mt-2">
+                Descanse ou pratique por conta própria.
+              </p>
+              <Link
+                to="/study"
+                className="mt-5 inline-flex items-center gap-1.5 text-[14px] font-medium text-foreground hover:underline"
+              >
+                Explorar conteúdo
+                <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {missions.map((mission) => (
-                <Link
-                  key={mission.id}
-                  to={`/mission/${mission.mission_type}/${mission.id}`}
-                  className="group flex items-center justify-between p-5 bg-white rounded-2xl border border-gray-100 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="h-2 w-2 rounded-full mt-2 bg-foreground" />
-                    <div>
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                        {mission.subject}
-                      </span>
-                      <h3 className="mt-0.5 font-medium text-foreground text-sm">{mission.subtopic}</h3>
-                      <div className="mt-2 flex items-center gap-2">
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-foreground font-medium">
-                          {missionTypeLabels[mission.mission_type] || mission.mission_type}
-                        </span>
-                        <span className="flex items-center text-xs text-muted-foreground">
-                          <Clock className="w-3 h-3 mr-1" />
-                          15 min
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  {mission.status === "completed" ? (
-                    <div className="h-6 w-6 rounded-full bg-foreground flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
-                    </div>
-                  ) : (
-                    <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Weekly Progress */}
-        <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.3s" }}>
-          <h2 className="text-base font-semibold text-foreground mb-4">Progresso Semanal</h2>
-          <div className="bg-gray-50 rounded-2xl p-6">
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-semibold text-foreground">{completedMissions}</p>
-                <p className="text-xs text-muted-foreground mt-1">Missões</p>
-              </div>
-              <div>
-                <p className="text-2xl font-semibold text-foreground">—</p>
-                <p className="text-xs text-muted-foreground mt-1">Acerto</p>
-              </div>
-              <div>
-                <p className="text-2xl font-semibold text-foreground">—</p>
-                <p className="text-xs text-muted-foreground mt-1">Horas</p>
-              </div>
-            </div>
           </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="mt-8 mb-4 flex gap-3 overflow-x-auto pb-2 animate-fade-in" style={{ animationDelay: "0.4s" }}>
-          <Link to="/tutor" className="shrink-0 p-4 bg-gray-50 rounded-2xl hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col items-center gap-2 text-center min-w-[80px]">
-            <div className="h-10 w-10 rounded-xl bg-gray-100 flex items-center justify-center">
-              <Brain className="h-5 w-5 text-foreground" />
-            </div>
-            <span className="text-xs font-medium text-foreground">Tutor IA</span>
-          </Link>
-          <Link to="/desempenho" className="shrink-0 p-4 bg-gray-50 rounded-2xl hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col items-center gap-2 text-center min-w-[80px]">
-            <div className="h-10 w-10 rounded-xl bg-gray-100 flex items-center justify-center">
-              <BarChart3 className="h-5 w-5 text-foreground" />
-            </div>
-            <span className="text-xs font-medium text-foreground">Performance</span>
-          </Link>
-          <Link to="/exams" className="shrink-0 p-4 bg-gray-50 rounded-2xl hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col items-center gap-2 text-center min-w-[80px]">
-            <div className="h-10 w-10 rounded-xl bg-gray-100 flex items-center justify-center">
-              <FileText className="h-5 w-5 text-foreground" />
-            </div>
-            <span className="text-xs font-medium text-foreground">Simulados</span>
-          </Link>
-          <Link to="/ranking" className="shrink-0 p-4 bg-gray-50 rounded-2xl hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col items-center gap-2 text-center min-w-[80px]">
-            <div className="h-10 w-10 rounded-xl bg-gray-100 flex items-center justify-center">
-              <Trophy className="h-5 w-5 text-foreground" />
-            </div>
-            <span className="text-xs font-medium text-foreground">Ranking</span>
-          </Link>
-        </div>
+        )}
       </main>
 
       <BottomNav />

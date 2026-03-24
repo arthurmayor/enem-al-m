@@ -5,10 +5,32 @@ import BottomNav from "@/components/BottomNav";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  estimateScore,
+  calculatePassProbability,
+  getProbabilityBand,
+  type Proficiency,
+  type SubjectDistEntry,
+} from "@/lib/scoring";
 
 interface ProficiencyRow { subject: string; subtopic: string; score: number; measured_at: string; source: string; }
 interface MissionRow { status: string; score: number | null; date: string; }
 interface RecentAnswer { is_correct: boolean; subject: string; created_at: string; }
+
+// Fallback distribution when exam_config has no subject_distribution.
+// Matches DEFAULT_FUVEST_DISTRIBUTION in DiagnosticTest.tsx.
+const FALLBACK_SUBJECT_DIST: Record<string, SubjectDistEntry> = {
+  "Português": { questions: 15, meanDiff: 1150, sdDiff: 250 },
+  "Matemática": { questions: 12, meanDiff: 1300, sdDiff: 300 },
+  "História": { questions: 12, meanDiff: 1200, sdDiff: 250 },
+  "Geografia": { questions: 10, meanDiff: 1200, sdDiff: 250 },
+  "Biologia": { questions: 10, meanDiff: 1200, sdDiff: 280 },
+  "Física": { questions: 10, meanDiff: 1300, sdDiff: 300 },
+  "Química": { questions: 8, meanDiff: 1250, sdDiff: 280 },
+  "Inglês": { questions: 5, meanDiff: 1050, sdDiff: 200 },
+  "Filosofia": { questions: 5, meanDiff: 1200, sdDiff: 250 },
+  "Artes": { questions: 3, meanDiff: 1100, sdDiff: 200 },
+};
 
 const ALL_SUBJECTS = ["Português", "Matemática", "História", "Geografia", "Biologia", "Física", "Química", "Inglês", "Filosofia"];
 const RECENT_WINDOW = 25; // last N answers per subject for accuracy
@@ -68,13 +90,23 @@ const Performance = () => {
   const [missions, setMissions] = useState<MissionRow[]>([]);
   const [recentAnswers, setRecentAnswers] = useState<RecentAnswer[]>([]);
   const [examHistory, setExamHistory] = useState<{ exam_name: string; score_percent: number; created_at: string }[]>([]);
-  const [profileStats, setProfileStats] = useState<{ total_xp: number; current_streak: number; longest_streak: number; missions_completed: number } | null>(null);
+  const [profileStats, setProfileStats] = useState<{ total_xp: number; current_streak: number; longest_streak: number; missions_completed: number; exam_config_id?: string } | null>(null);
 
   // Gate data
   const [totalAnswered, setTotalAnswered] = useState(0);
   const [subjectsCovered, setSubjectsCovered] = useState(0);
   const [planUpdates, setPlanUpdates] = useState(0);
   const [daysStudied, setDaysStudied] = useState(0);
+
+  // ─── Calibrated estimate data (from scoring engine) ───
+  const [eloProficiencies, setEloProficiencies] = useState<Record<string, Proficiency> | null>(null);
+  const [examConfig, setExamConfig] = useState<{
+    cutoff_mean: number;
+    cutoff_sd: number;
+    total_questions: number;
+    subject_distribution: Record<string, SubjectDistEntry> | null;
+  } | null>(null);
+  const [simuladosCount, setSimuladosCount] = useState(0);
 
   useEffect(() => {
     if (!user) return;
@@ -106,7 +138,7 @@ const Performance = () => {
       const { data: examData } = await supabase.from("exam_results").select("exam_name, score_percent, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5);
       if (examData) setExamHistory(examData);
 
-      const { data: profileStatsData } = await supabase.from("profiles").select("total_xp, current_streak, longest_streak, missions_completed").eq("id", user.id).single();
+      const { data: profileStatsData } = await supabase.from("profiles").select("total_xp, current_streak, longest_streak, missions_completed, exam_config_id").eq("id", user.id).single();
       if (profileStatsData) setProfileStats(profileStatsData);
 
       // Gate data
@@ -125,12 +157,83 @@ const Performance = () => {
         setDaysStudied(uniqueDays.size);
       }
 
+      // ─── Calibrated estimate: ELO proficiencies + exam config ───
+      // These feed the real scoring engine (estimateScore / calculatePassProbability)
+      // instead of the simplified average that was here before.
+
+      // 1. Latest ELO proficiencies from diagnostic or recalibration
+      const { data: latestEstimate } = await supabase
+        .from("diagnostic_estimates")
+        .select("proficiencies")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (latestEstimate?.proficiencies) {
+        // Convert stored format { subject: { elo?, score? } } → Proficiency { elo, correct, total }
+        const raw = latestEstimate.proficiencies as Record<string, { elo?: number; score?: number; correct?: number; total?: number }>;
+        const prof: Record<string, Proficiency> = {};
+        for (const [subj, v] of Object.entries(raw)) {
+          prof[subj] = {
+            elo: v.elo ?? (v.score != null ? 600 + v.score * 1200 : 1200),
+            correct: v.correct ?? 0,
+            total: v.total ?? 0,
+          };
+        }
+        setEloProficiencies(prof);
+      }
+
+      // 2. Exam config for the student's target course
+      const examConfigId = (profileStatsData as any)?.exam_config_id;
+      if (examConfigId) {
+        const { data: ec } = await supabase
+          .from("exam_configs")
+          .select("cutoff_mean, total_questions, subject_distribution")
+          .eq("id", examConfigId)
+          .single();
+        if (ec) {
+          setExamConfig({
+            cutoff_mean: ec.cutoff_mean ?? 55,
+            cutoff_sd: 5, // Standard default; exam_configs may not store this
+            total_questions: ec.total_questions ?? 90,
+            subject_distribution: ec.subject_distribution as Record<string, SubjectDistEntry> | null,
+          });
+        }
+      }
+
+      // 3. Count simulados for scoring weight
+      const { count: simCount } = await supabase
+        .from("exam_results")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
+      setSimuladosCount(simCount || 0);
+
       setLoading(false);
     };
     fetchAll();
   }, [user]);
 
-  // ─── Computed ────────────────────────────────────────────
+  // ─── Computed values ─────────────────────────────────────────────────────
+  //
+  // ARCHITECTURE: This page separates two data layers:
+  //
+  // 1. RECENT — from answer_history (last N questions per subject)
+  //    Used by: subjectScores, worstArea, weekAccuracy, metrics cards,
+  //             "Desempenho por matéria", "Seu maior gargalo"
+  //    Source: raw answers joined with questions table
+  //    Meaning: "How are you doing lately?"
+  //
+  // 2. CALIBRATED — from scoring engine (src/lib/scoring.ts)
+  //    Used by: calibratedEstimate, "Estimativa de Aprovação"
+  //    Source: ELO proficiencies (diagnostic_estimates) + exam_configs
+  //    Meaning: "What's your estimated probability of passing?"
+  //    Functions: estimateScore() → calculatePassProbability() → getProbabilityBand()
+  //
+  // These are intentionally separate: recent accuracy shows day-to-day progress,
+  // while the calibrated estimate integrates ELO, difficulty distribution, and
+  // course cutoff for a statistically grounded probability.
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const weekCompletedMissions = missions.filter((m) => m.status === "completed").length;
   const weekTotalMissions = missions.length;
@@ -199,7 +302,7 @@ const Performance = () => {
     return { label: w.subject, pct: w.pct, total: w.total };
   }, [scoredSubjects]);
 
-  // Chart data (still from proficiency_scores for evolution tracking)
+  // ─── CALIBRATED: Evolution chart from proficiency_scores over time ───
   const chartDataMap: Record<string, Record<string, number[]>> = {};
   proficiencyData.forEach((p) => {
     const dateKey = new Date(p.measured_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
@@ -213,14 +316,43 @@ const Performance = () => {
     return entry;
   });
 
-  // Pass probability
-  const latestScores = subjects.map((s) => {
-    const subjectRows = proficiencyData.filter((p) => p.subject === s);
-    return subjectRows.length > 0 ? subjectRows.reduce((sum, r) => sum + r.score, 0) / subjectRows.length : 0;
-  });
-  const passProb = latestScores.length > 0 ? Math.round((latestScores.reduce((a, b) => a + b, 0) / latestScores.length) * 100) : 0;
-  const probColor = passProb >= 70 ? "text-green-600" : passProb >= 40 ? "text-yellow-600" : "text-red-600";
-  const probBg = passProb >= 70 ? "bg-green-50" : passProb >= 40 ? "bg-yellow-50" : "bg-red-50";
+  // ─── CALIBRATED: Pass probability via real scoring engine ───
+  // Uses estimateScore() + calculatePassProbability() + getProbabilityBand()
+  // from src/lib/scoring.ts — the same calibrated model used by DiagnosticTest.
+  // Requires: ELO proficiencies, exam_config (cutoff, subject_distribution), simulados count.
+  const calibratedEstimate = useMemo(() => {
+    if (!eloProficiencies || !examConfig) return null;
+
+    const subjectDist = examConfig.subject_distribution && Object.keys(examConfig.subject_distribution).length > 0
+      ? examConfig.subject_distribution
+      : FALLBACK_SUBJECT_DIST;
+
+    // Total correct/questions from ELO proficiencies (accumulated from diagnostic + calibration)
+    const totalCorrect = Object.values(eloProficiencies).reduce((s, p) => s + p.correct, 0);
+    const totalQuestions = Object.values(eloProficiencies).reduce((s, p) => s + p.total, 0);
+
+    const score = estimateScore(
+      eloProficiencies,
+      subjectDist,
+      totalQuestions || 30,
+      totalCorrect,
+      simuladosCount,
+      totalAnswered,
+    );
+
+    const probability = calculatePassProbability(
+      score,
+      examConfig.cutoff_mean,
+      examConfig.cutoff_sd,
+      totalAnswered,
+      simuladosCount,
+      subjectsCovered,
+    );
+
+    const band = getProbabilityBand(probability);
+
+    return { score, probability, band, probPercent: Math.round(probability * 100) };
+  }, [eloProficiencies, examConfig, simuladosCount, totalAnswered, subjectsCovered]);
 
   const hasData = proficiencyData.length > 0 || recentAnswers.length > 0;
   const hasEnoughData = totalAnswered >= 10;
@@ -343,7 +475,7 @@ const Performance = () => {
             <div className="mt-3 grid grid-cols-1 lg:grid-cols-5 gap-3">
               {/* LEFT — 3/5 */}
               <div className="lg:col-span-3 space-y-3">
-                {/* Maior Gargalo */}
+                {/* ─── RECENT: Maior gargalo (from answer_history accuracy) ─── */}
                 {worstArea && worstArea.pct < 60 && (
                   <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.1s" }}>
                     <div className="flex items-start justify-between gap-3">
@@ -372,7 +504,7 @@ const Performance = () => {
                   </div>
                 )}
 
-                {/* Desempenho por Matéria */}
+                {/* ─── RECENT: Desempenho por matéria (answer_history last N questions) ─── */}
                 {scoredSubjects.length > 0 && (
                   <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.15s" }}>
                     <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Desempenho por matéria</h2>
@@ -422,16 +554,26 @@ const Performance = () => {
 
               {/* RIGHT — 2/5 */}
               <div className="lg:col-span-2 space-y-3">
-                {/* Estimativa de Aprovação */}
+                {/* ─── CALIBRATED: Estimativa de Aprovação ───
+                     Uses the real scoring engine (estimateScore + calculatePassProbability)
+                     with ELO proficiencies and exam_config data. */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-                  {canShowProbability ? (
+                  {canShowProbability && calibratedEstimate ? (
                     <>
                       <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Estimativa de Aprovação</h2>
                       <div className="text-center py-2">
-                        <div className={`inline-flex items-center justify-center h-[68px] w-[68px] rounded-full ${probBg} ${probColor} text-2xl font-bold`}>
-                          {passProb}%
+                        <div
+                          className="inline-flex items-center justify-center h-[68px] w-[68px] rounded-full text-2xl font-bold"
+                          style={{ backgroundColor: calibratedEstimate.band.bgColor, color: calibratedEstimate.band.color }}
+                        >
+                          {calibratedEstimate.probPercent}%
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-2">Posição atual — evolui com a prática</p>
+                        <p className="text-xs font-medium mt-2" style={{ color: calibratedEstimate.band.color }}>
+                          {calibratedEstimate.band.label}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Score estimado: {calibratedEstimate.score}/90 — evolui com a prática
+                        </p>
                       </div>
                     </>
                   ) : (

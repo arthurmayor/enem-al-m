@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { ArrowLeft, Flame, CheckCircle2, Circle, BookOpen, TrendingUp, TrendingDown, Minus, Target, Zap, ArrowRight, Lock, ChevronRight } from "lucide-react";
+import { ArrowLeft, Flame, CheckCircle2, Circle, BookOpen, TrendingUp, Minus, Target, Zap, ArrowRight, Lock, ChevronRight, BarChart3 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -41,13 +41,13 @@ const MIN_FOR_TREND = 12; // need enough data for trend to be meaningful
 function barColor(pct: number): string {
   if (pct >= 70) return "bg-green-500";
   if (pct >= 40) return "bg-amber-400";
-  return "bg-red-500";
+  return "bg-amber-500";
 }
 
 function barTrackColor(pct: number): string {
   if (pct >= 70) return "bg-green-100";
   if (pct >= 40) return "bg-amber-100";
-  return "bg-red-100";
+  return "bg-amber-100";
 }
 
 type ConfidenceTier = "none" | "initial" | "low" | "solid";
@@ -456,31 +456,37 @@ const Performance = () => {
                     </>
                   )}
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2.5">
                   {(() => {
                     const doneCount = unlockReqs.filter(r => r.done).length;
+                    const pending = unlockReqs.filter(r => !r.done);
                     return (
                       <>
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <div className="flex-1 max-w-[140px] h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-1.5 bg-green-500 rounded-full transition-all duration-500" style={{ width: `${(doneCount / unlockReqs.length) * 100}%` }} />
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[12px] font-semibold text-foreground">{doneCount} de {unlockReqs.length} requisitos completos</span>
                           </div>
-                          <span className="text-[11px] font-medium text-muted-foreground">{doneCount}/{unlockReqs.length} completos</span>
+                          <div className="w-full max-w-[220px] h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-2.5 bg-green-500 rounded-full transition-all duration-500" style={{ width: `${(doneCount / unlockReqs.length) * 100}%` }} />
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
-                          {unlockReqs.map((r, i) => (
-                            <span key={i} className="inline-flex items-center gap-1">
-                              {r.done ? <CheckCircle2 className="h-3 w-3 text-green-500" /> : <Circle className="h-3 w-3 text-muted-foreground" />}
-                              <span className={r.done ? "text-foreground" : "text-muted-foreground"}>{r.text}</span>
-                            </span>
-                          ))}
-                        </div>
+                        {pending.length > 0 && (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                            <span className="text-[10px] font-medium text-muted-foreground/70 uppercase tracking-wide">Falta:</span>
+                            {pending.map((r, i) => (
+                              <span key={i} className="inline-flex items-center gap-1">
+                                <Circle className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-muted-foreground">{r.text}</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </>
                     );
                   })()}
                   {!canShowProbability && (
                     <Link to="/study" className="self-start inline-flex items-center gap-1.5 px-4 py-1.5 bg-foreground text-white rounded-full text-xs font-medium hover:opacity-90 transition-opacity">
-                      Continuar estudando <ArrowRight className="h-3 w-3" />
+                      Avançar no seu plano <ArrowRight className="h-3 w-3" />
                     </Link>
                   )}
                 </div>
@@ -507,18 +513,18 @@ const Performance = () => {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1.5">
-                          <div className="h-6 w-6 rounded-md bg-red-50 flex items-center justify-center shrink-0">
-                            <Target className="h-3.5 w-3.5 text-red-500" />
+                          <div className="h-6 w-6 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
+                            <Target className="h-3.5 w-3.5 text-amber-500" />
                           </div>
-                          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Seu maior gargalo</h2>
+                          <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Sua maior oportunidade</h2>
                         </div>
-                        <p className="text-base font-bold text-foreground">{worstArea.label} está segurando sua evolução</p>
+                        <p className="text-base font-bold text-foreground">{worstArea.label} tem mais espaço para crescer</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          É a matéria que mais reduz sua estimativa hoje.
+                          Melhorar aqui traz o maior impacto na sua estimativa.
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-2xl font-bold text-red-600">{worstArea.pct}%</p>
+                        <p className="text-2xl font-bold text-amber-600">{worstArea.pct}%</p>
                         <p className="text-[10px] text-muted-foreground">
                           {worstArea.total < MIN_FOR_CONFIDENT ? "poucas respostas" : `últimas ${worstArea.total} questões`}
                         </p>
@@ -536,26 +542,30 @@ const Performance = () => {
                     <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide mb-3">Desempenho recente por matéria</h2>
                     <div className="space-y-0.5">
                       {subjectScores.map((s) => {
-                        // State A: no data at all
+                        // State A: sem dados (0 answers)
                         if (s.confidence === "none") {
                           return (
                             <div key={s.subject} className="px-3 py-2.5 rounded-lg">
                               <div className="flex items-center gap-3">
                                 <span className="text-[13px] font-medium text-muted-foreground w-24 shrink-0 truncate">{s.subject}</span>
-                                <div className="flex-1 h-2 bg-gray-100 rounded-full" />
-                                <span className="text-[11px] text-muted-foreground shrink-0">—</span>
+                                <div className="flex-1 flex items-center gap-1">
+                                  {Array.from({ length: MIN_FOR_PERCENT }).map((_, i) => (
+                                    <div key={i} className="h-2 w-2 rounded-full bg-gray-200" />
+                                  ))}
+                                </div>
+                                <span className="text-[11px] text-muted-foreground shrink-0 w-28 text-right">Sem dados ainda</span>
                               </div>
                             </div>
                           );
                         }
 
-                        // State B: initial reading (<5 answers) — progress dots toward MIN_FOR_PERCENT
+                        // State B: poucos dados (1-4 answers) — progress dots toward MIN_FOR_PERCENT
                         if (s.confidence === "initial") {
                           const remaining = MIN_FOR_PERCENT - s.total;
                           return (
                             <div key={s.subject} className="px-3 py-2.5 rounded-lg">
                               <div className="flex items-center gap-3">
-                                <span className="text-[13px] font-medium text-foreground w-24 shrink-0 truncate">{s.subject}</span>
+                                <span className="text-[13px] font-medium text-muted-foreground w-24 shrink-0 truncate">{s.subject}</span>
                                 <div className="flex-1 flex items-center gap-1">
                                   {Array.from({ length: MIN_FOR_PERCENT }).map((_, i) => (
                                     <div key={i} className={`h-2 w-2 rounded-full transition-colors ${i < s.total ? "bg-foreground/40" : "bg-gray-200"}`} />
@@ -587,9 +597,8 @@ const Performance = () => {
                                 <span className="text-[13px] font-semibold w-9 text-right tabular-nums text-foreground">
                                   {s.pct}%
                                 </span>
-                                {/* Trend only shown for solid confidence */}
+                                {/* Only positive or stable trend shown */}
                                 {s.confidence === "solid" && s.trend === "up" && <TrendingUp className="h-3 w-3 text-green-500" />}
-                                {s.confidence === "solid" && s.trend === "down" && <TrendingDown className="h-3 w-3 text-muted-foreground" />}
                                 {s.confidence === "solid" && s.trend === "stable" && <Minus className="h-3 w-3 text-muted-foreground" />}
                               </div>
                             </div>
@@ -636,10 +645,10 @@ const Performance = () => {
                         <div className="h-6 w-6 rounded-md bg-gray-100 flex items-center justify-center shrink-0">
                           <Lock className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
-                        <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Destrave sua estimativa</h2>
+                        <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Estimativa de aprovação</h2>
                       </div>
                       <p className="text-xs text-muted-foreground mb-3">
-                        Acompanhe sua evolução e veja sua posição com mais precisão.
+                        Complete os requisitos abaixo para ver sua chance de aprovação no seu objetivo.
                       </p>
                       <div className="space-y-1.5 bg-gray-50 rounded-xl p-3">
                         {unlockReqs.map((r, i) => (
@@ -655,11 +664,14 @@ const Performance = () => {
 
                 {/* Plano de Ataque */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.25s" }}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="h-6 w-6 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
-                      <Zap className="h-3.5 w-3.5 text-amber-500" />
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
+                        <Zap className="h-3.5 w-3.5 text-amber-500" />
+                      </div>
+                      <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Plano de ataque</h2>
                     </div>
-                    <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Plano de ataque</h2>
+                    <p className="text-[11px] text-muted-foreground mt-1 ml-8">Siga estes passos para evoluir mais rápido</p>
                   </div>
                   <div className="space-y-1.5">
                     {attackPlan.map((item, i) => (
@@ -681,6 +693,26 @@ const Performance = () => {
             </div>
 
             {/* ─── Below-grid ─── */}
+
+            {/* Locked evolution chart — shown when estimate is not yet unlocked */}
+            {!canShowProbability && (
+              <div className="mt-3 bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="h-6 w-6 rounded-md bg-gray-100 flex items-center justify-center shrink-0">
+                    <BarChart3 className="h-3.5 w-3.5 text-muted-foreground" />
+                  </div>
+                  <h2 className="text-xs font-semibold text-foreground uppercase tracking-wide">Evolução da sua estimativa</h2>
+                </div>
+                <div className="relative rounded-xl bg-gray-50 h-32 flex items-center justify-center overflow-hidden">
+                  <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_15px,rgba(0,0,0,0.03)_15px,rgba(0,0,0,0.03)_16px)] pointer-events-none" />
+                  <div className="text-center z-10">
+                    <Lock className="h-5 w-5 text-muted-foreground mx-auto mb-1.5" />
+                    <p className="text-xs font-medium text-muted-foreground">Disponível após destravar a estimativa</p>
+                    <p className="text-[10px] text-muted-foreground/70 mt-0.5">Acompanhe como sua chance de aprovação evolui ao longo do tempo</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {examHistory.length > 0 && (
               <div className="mt-3 bg-white rounded-2xl border border-gray-100 p-4 lg:p-5 animate-fade-in" style={{ animationDelay: "0.3s" }}>

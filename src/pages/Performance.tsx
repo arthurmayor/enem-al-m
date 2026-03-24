@@ -189,6 +189,8 @@ const Performance = () => {
   });
 
   // Pass probability
+  // TODO(evolution): Replace this simple average with the calibrated model from @/lib/scoring
+  // (calculatePassProbability + estimateScore). Requires passing exam config context to this page.
   const latestScores = subjects.map((s) => {
     const subjectRows = proficiencyData.filter((p) => p.subject === s);
     return subjectRows.length > 0 ? subjectRows.reduce((sum, r) => sum + r.score, 0) / subjectRows.length : 0;
@@ -241,8 +243,8 @@ const Performance = () => {
                 <div className={`inline-flex items-center justify-center h-24 w-24 rounded-full ${probBg} ${probColor} text-3xl font-semibold`}>
                   {passProb}%
                 </div>
-                <p className="mt-3 text-sm font-semibold text-foreground">Probabilidade de Aprovação</p>
-                <p className="text-xs text-muted-foreground">Estimativa baseada no seu desempenho</p>
+                <p className="mt-3 text-sm font-semibold text-foreground">Estimativa de Aprovação</p>
+                <p className="text-xs text-muted-foreground">Posição atual — evolui com a prática</p>
               </div>
             ) : (
               <div className="animate-fade-in">
@@ -264,7 +266,7 @@ const Performance = () => {
 
                 {/* Unlock checklist */}
                 <div className="mt-4 bg-gray-50 rounded-2xl p-4">
-                  <p className="text-xs font-semibold text-foreground mb-3">Para liberar sua previsão de aprovação:</p>
+                  <p className="text-xs font-semibold text-foreground mb-3">Para liberar sua estimativa de aprovação:</p>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       {totalAnswered >= 60 ? (

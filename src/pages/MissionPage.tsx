@@ -352,7 +352,7 @@ const MissionPage = () => {
           const content = data.reply as string;
           setSummaryContent(content);
           // Cache no payload da mission
-          await supabase.rpc("jsonb_set_mission_cache", { mission_id: id, content_val: content }).catch(() => {
+          await supabase.rpc("jsonb_set_mission_cache", { mission_id: id, content_val: content }).then(({ error: rpcErr }) => { if (rpcErr) {
             // Fallback: update direto
             supabase
               .from("daily_missions")

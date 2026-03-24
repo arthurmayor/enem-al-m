@@ -18,9 +18,13 @@ jobs:
 
       - name: Fix letter bias
         run: node scripts/fix-letter-bias.mjs
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
       - name: QA Parte 1 - Validação de questões
         run: node scripts/qa-parte1-questoes.mjs
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
       - name: QA Parte 2 - Seed users
         run: |
@@ -29,6 +33,8 @@ jobs:
           else
             echo "qa-parte2-seed.mjs not found, skipping"
           fi
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
 
       - name: QA Parte 3 - Smoke tests
         run: |
@@ -37,3 +43,5 @@ jobs:
           else
             echo "qa-parte3-tests.mjs not found, skipping"
           fi
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

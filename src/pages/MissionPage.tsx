@@ -151,8 +151,8 @@ async function fetchMissionQuestions(
     ]);
     const seen = new Set<string>();
     const combined: Question[] = [];
-    for (const q of [...(diagResult.data || []), ...(questResult.data || [])]) {
-      if (!seen.has(q.id)) { seen.add(q.id); combined.push(q); }
+    for (const q of [...(diagResult.data || []), ...(questResult.data || [])] as any[]) {
+      if (!seen.has(q.id)) { seen.add(q.id); combined.push(q as Question); }
     }
     return combined;
   }

@@ -879,7 +879,15 @@ const DiagnosticTest = () => {
       mode: "deep",
       totalCorrect: totalCorrectRef.current,
       totalQuestions: TOTAL_QUESTIONS,
-      placementBand: probBand.band,
+      estimatedScore: score,
+      cutoffMean,
+      gap,
+      probability: Math.round(probability * 100),
+      probabilityBand: probBand.band,
+      course: examConfig.course_slug,
+      exam: examConfig.exam_slug,
+      subjectsCovered,
+      accuracyPct,
     }, user.id);
 
     navigate("/diagnostic/results", {

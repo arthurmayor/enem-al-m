@@ -91,6 +91,8 @@ export function estimateScore(
 
   const dataVolume = (totalQuestionsEver || totalDiagnosticQuestions) + (totalSimulados * 90);
   let directWeight: number;
+  // TODO(evolution): Recalibrate blend thresholds once real student data (N>100) is available.
+  // Current thresholds are based on simulation with synthetic data.
   if (totalSimulados === 0 && dataVolume <= 50) directWeight = 0.95;
   else if (dataVolume <= 50) directWeight = 0.70;
   else if (dataVolume <= 200) directWeight = 0.50;
@@ -129,6 +131,9 @@ export function calculatePassProbability(
 ): number {
   const safeCutoffSd = Math.min(cutoffSd, 5);
   const infoScore = (questionsAnswered / 100) + (simulados * 3) + (subjectsCovered * 0.5);
+  // TODO(evolution): When students have 3+ simulados, consider dynamic sigma floor:
+  //   const floor = simulados >= 3 ? 4 : 7;
+  // This would tighten confidence bands as data accumulates.
   const sigmaStudent = Math.max(7, 16 / Math.sqrt(Math.max(0.1, infoScore)));
   const muDiff = score - cutoffMean;
   const sigmaDiff = Math.sqrt(sigmaStudent ** 2 + safeCutoffSd ** 2);

@@ -5,6 +5,7 @@ import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
+import { expectedAccuracy } from "@/lib/scoring";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -92,17 +93,6 @@ interface RouterState {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function expectedAccuracy(studentElo: number, meanDiff: number, sdDiff: number): number {
-  const grid = [-2.0, -1.5, -1.0, -0.5, -0.25, 0, 0.25, 0.5, 1.0, 1.5, 2.0];
-  const weights = [0.02, 0.05, 0.10, 0.15, 0.18, 0.18, 0.15, 0.10, 0.05, 0.02, 0.00];
-  let totalP = 0;
-  for (let i = 0; i < grid.length; i++) {
-    const qDiff = meanDiff + grid[i] * sdDiff;
-    totalP += (1 / (1 + Math.pow(10, (qDiff - studentElo) / 400))) * weights[i];
-  }
-  return totalP;
-}
 
 function humanizeStrengths(subjects: string[]): string {
   if (subjects.length === 0) return "";
@@ -226,12 +216,26 @@ const DiagnosticResults = () => {
     if (state?.mode === "router" && state?.routerResult) {
       setRouterData(state as unknown as RouterState);
       setLoading(false);
+      trackEvent("diagnostic_results_viewed", {
+        mode: "router",
+        placementBand: state.routerResult.placementBand,
+        course: state.examConfig?.course_slug,
+        exam: state.examConfig?.exam_slug,
+      });
       return;
     }
 
     if (state?.proficiencies && state?.examConfig) {
       setData(state);
       setLoading(false);
+      trackEvent("diagnostic_results_viewed", {
+        mode: "deep",
+        estimatedScore: state.estimatedScore,
+        probability: Math.round((state.probability ?? 0) * 100),
+        probabilityBand: state.probBand?.band ?? "unknown",
+        course: state.examConfig.course_slug,
+        exam: state.examConfig.exam_slug,
+      });
       return;
     }
     setLoading(false);
@@ -516,12 +520,35 @@ const DiagnosticResults = () => {
               </p>
             </div>
             {data && (
-              <div className="pt-2 border-t border-gray-50">
+              <div className="pt-2 border-t border-gray-50 space-y-2">
                 <p className="text-[13px] text-muted-foreground">
                   {totalCorrect} de {totalQuestions} acertos no diagnóstico
                   {data.estimatedScore > 0 && (
                     <> — nota estimada: {data.estimatedScore}/{data.examConfig.total_questions}</>
                   )}
+                </p>
+                {data.probBand && (
+                  <div
+                    className="flex items-center gap-2.5 rounded-lg px-3 py-2"
+                    style={{ backgroundColor: data.probBand.bgColor, border: `1px solid ${data.probBand.borderColor}` }}
+                  >
+                    <span
+                      className="text-[13px] font-semibold tabular-nums"
+                      style={{ color: data.probBand.color }}
+                    >
+                      {data.probBand.band}
+                    </span>
+                    <span className="text-[12px]" style={{ color: data.probBand.color }}>
+                      {data.probability < 0.10
+                        ? "Posição inicial — muita evolução possível"
+                        : data.probability < 0.25
+                          ? "Em construção — caminho claro de evolução"
+                          : data.probBand.label}
+                    </span>
+                  </div>
+                )}
+                <p className="text-[11px] text-muted-foreground/70 leading-snug">
+                  Estimativa atual com base no diagnóstico. Vai ficando mais precisa com o uso.
                 </p>
               </div>
             )}

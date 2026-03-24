@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { Clock, ChevronLeft, ChevronRight, Flag, CheckCircle2 } from "lucide-react";
+import { Clock, ChevronLeft, ChevronRight, Flag, CheckCircle2, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -8,11 +8,33 @@ interface Question { id: string; subject: string; subtopic: string; difficulty: 
 interface PerSubjectScore { subject: string; correct: number; total: number; percent: number; }
 
 const EXAM_CONFIGS: Record<string, { name: string; questionCount: number; durationMinutes: number; examType: string }> = {
+  "fuvest-mini": { name: "Mini Simulado Fuvest", questionCount: 25, durationMinutes: 75, examType: "Fuvest" },
   "enem-rapido": { name: "ENEM Rápido", questionCount: 30, durationMinutes: 90, examType: "ENEM" },
-  "enem-completo": { name: "ENEM Completo", questionCount: 90, durationMinutes: 300, examType: "ENEM" },
   "fuvest": { name: "Fuvest 1ª Fase", questionCount: 45, durationMinutes: 150, examType: "Fuvest" },
   "unicamp": { name: "Unicamp", questionCount: 36, durationMinutes: 120, examType: "Unicamp" },
 };
+
+// Fuvest proportional distribution for 25 questions (total 90 → scale by 25/90 ≈ 0.278)
+const FUVEST_MINI_DISTRIBUTION: Record<string, number> = {
+  "Português": 4,
+  "Matemática": 4,
+  "História": 3,
+  "Geografia": 3,
+  "Biologia": 3,
+  "Física": 3,
+  "Química": 3,
+  "Inglês": 1,
+  "Filosofia": 1,
+}; // = 25
+
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
 const ExamSession = () => {
   const { examId } = useParams<{ examId: string }>();
@@ -27,27 +49,67 @@ const ExamSession = () => {
   const [timeLeft, setTimeLeft] = useState(config.durationMinutes * 60);
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
-  const [results, setResults] = useState<{ score: number; correct: number; total: number; perSubject: PerSubjectScore[] } | null>(null);
+  const [results, setResults] = useState<{ score: number; correct: number; total: number; perSubject: PerSubjectScore[]; cutoffPercent?: number } | null>(null);
   const [showNav, setShowNav] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     const loadQuestions = async () => {
-      const { data } = await supabase.from("questions").select("*").limit(200);
+      // Fetch questions recently answered (72h dedup)
+      const since72h = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
+      const { data: recentAnswers } = await supabase
+        .from("answer_history")
+        .select("question_id")
+        .eq("user_id", user.id)
+        .gte("created_at", since72h);
+      const recentIds = new Set((recentAnswers || []).map(a => a.question_id));
+
+      const { data } = await supabase.from("questions").select("*").limit(300);
       if (data && data.length > 0) {
+        // Separate into fresh and recent
+        const fresh = data.filter((q: Question) => !recentIds.has(q.id));
+        const pool = fresh.length >= config.questionCount ? fresh : data;
+
         const bySubject: Record<string, Question[]> = {};
-        data.forEach((q: Question) => { if (!bySubject[q.subject]) bySubject[q.subject] = []; bySubject[q.subject].push(q); });
-        Object.values(bySubject).forEach(pool => pool.sort(() => Math.random() - 0.5));
-        const picked: Question[] = [];
-        const subjects = Object.keys(bySubject);
-        let idx = 0;
-        while (picked.length < config.questionCount && idx < 500) {
-          const subj = subjects[idx % subjects.length];
-          const pool = bySubject[subj];
-          if (pool && pool.length > 0) picked.push(pool.shift()!);
-          idx++;
+        (pool as Question[]).forEach((q) => {
+          if (!bySubject[q.subject]) bySubject[q.subject] = [];
+          bySubject[q.subject].push(q);
+        });
+        Object.values(bySubject).forEach(arr => shuffleArray(arr).splice(0)); // shuffle in-place
+        for (const key of Object.keys(bySubject)) {
+          bySubject[key] = shuffleArray(bySubject[key]);
         }
-        setQuestions(picked);
+
+        const picked: Question[] = [];
+
+        if (examId === "fuvest-mini") {
+          // Proportional distribution for mini simulado
+          for (const [subject, count] of Object.entries(FUVEST_MINI_DISTRIBUTION)) {
+            const subPool = bySubject[subject] || [];
+            const take = Math.min(count, subPool.length);
+            for (let i = 0; i < take; i++) picked.push(subPool[i]);
+          }
+          // If we didn't fill 25, pad with any remaining
+          if (picked.length < 25) {
+            const usedIds = new Set(picked.map(q => q.id));
+            const remaining = (pool as Question[]).filter(q => !usedIds.has(q.id));
+            for (const q of shuffleArray(remaining)) {
+              if (picked.length >= 25) break;
+              picked.push(q);
+            }
+          }
+        } else {
+          // Generic round-robin distribution
+          const subjects = Object.keys(bySubject);
+          let idx = 0;
+          while (picked.length < config.questionCount && idx < 500) {
+            const subj = subjects[idx % subjects.length];
+            const subjPool = bySubject[subj];
+            if (subjPool && subjPool.length > 0) picked.push(subjPool.shift()!);
+            idx++;
+          }
+        }
+        setQuestions(shuffleArray(picked));
       }
       setLoading(false);
     };
@@ -70,7 +132,18 @@ const ExamSession = () => {
     const total = questions.length;
     const scorePercent = Math.round((correct / total) * 100);
     const perSubject: PerSubjectScore[] = Object.entries(subjectScores).map(([subject, s]) => ({ subject, correct: s.correct, total: s.total, percent: Math.round((s.correct / s.total) * 100) })).sort((a, b) => a.percent - b.percent);
-    setResults({ score: scorePercent, correct, total, perSubject });
+
+    // Fetch cutoff for comparison
+    let cutoffPercent: number | undefined;
+    const { data: profileForCutoff } = await supabase.from("profiles").select("exam_config_id").eq("id", user.id).single();
+    if (profileForCutoff?.exam_config_id) {
+      const { data: ec } = await supabase.from("exam_configs").select("cutoff_mean, total_questions").eq("id", profileForCutoff.exam_config_id).single();
+      if (ec && ec.total_questions > 0) {
+        cutoffPercent = Math.round((ec.cutoff_mean / ec.total_questions) * 100);
+      }
+    }
+
+    setResults({ score: scorePercent, correct, total, perSubject, cutoffPercent });
 
     await supabase.from("exam_results").insert({ user_id: user.id, exam_type: config.examType, exam_name: config.name, total_questions: total, correct_answers: correct, score_percent: scorePercent, time_spent_seconds: (config.durationMinutes * 60) - timeLeft, per_subject_scores: perSubject });
 
@@ -118,6 +191,29 @@ const ExamSession = () => {
             <div className={`mt-6 inline-flex items-center justify-center h-28 w-28 rounded-full ${getBg(results.score)} ${getColor(results.score)} text-4xl font-semibold`}>{results.score}%</div>
             <p className="mt-3 text-sm text-muted-foreground">{results.correct} de {results.total} corretas • Tempo: {formatTime((config.durationMinutes * 60) - timeLeft)}</p>
           </div>
+          {results.cutoffPercent !== undefined && (
+            <div className="mt-6 p-4 bg-white rounded-2xl border border-gray-100 animate-fade-in" style={{ animationDelay: "0.08s" }}>
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-4 w-4 text-foreground" />
+                <span className="text-sm font-semibold text-foreground">Comparação com nota de corte</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <div className="h-3 bg-gray-100 rounded-full relative overflow-hidden">
+                    <div className={`h-3 rounded-full transition-all duration-700 ${results.score >= results.cutoffPercent ? "bg-success" : "bg-warning"}`} style={{ width: `${Math.min(results.score, 100)}%` }} />
+                    <div className="absolute top-0 bottom-0 w-0.5 bg-foreground" style={{ left: `${Math.min(results.cutoffPercent, 100)}%` }} />
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-xs text-muted-foreground">Você: {results.score}%</span>
+                    <span className="text-xs text-muted-foreground">Corte: {results.cutoffPercent}%</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs mt-2 font-medium" style={{ color: results.score >= results.cutoffPercent ? "hsl(var(--success))" : "hsl(var(--warning))" }}>
+                {results.score >= results.cutoffPercent ? "Acima da nota de corte!" : `Faltam ${results.cutoffPercent - results.score}% para a nota de corte`}
+              </p>
+            </div>
+          )}
           <div className="mt-8 space-y-3 animate-fade-in" style={{ animationDelay: "0.1s" }}>
             <h2 className="text-base font-semibold text-foreground">Desempenho por Matéria</h2>
             {results.perSubject.map(s => (

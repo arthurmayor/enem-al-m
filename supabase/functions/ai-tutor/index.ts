@@ -1,12 +1,109 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// ─── Fetch real student context from database ────────────────────────────────
+
+async function fetchStudentContext(userId: string) {
+  const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  // Parallel fetches for performance
+  const [planResult, errorsResult, profResult, profileResult] = await Promise.all([
+    // Active study plan
+    sb.from("study_plans")
+      .select("plan_json, status")
+      .eq("user_id", userId)
+      .eq("is_current", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single(),
+    // Last 5 incorrect answers with question details
+    sb.from("answer_history")
+      .select("question_id, created_at, context")
+      .eq("user_id", userId)
+      .eq("is_correct", false)
+      .order("created_at", { ascending: false })
+      .limit(5),
+    // Latest proficiency scores per subject
+    sb.from("proficiency_scores")
+      .select("subject, score, source, measured_at")
+      .eq("user_id", userId)
+      .order("measured_at", { ascending: false })
+      .limit(20),
+    // Profile with course info
+    sb.from("profiles")
+      .select("name, education_goal, desired_course, exam_config_id")
+      .eq("id", userId)
+      .single(),
+  ]);
+
+  // Extract focus subjects from plan
+  let focusSubjects: string[] = [];
+  let placementBand = "Nao avaliado";
+  const planJson = planResult.data?.plan_json;
+  if (planJson) {
+    const weeks = planJson.weeks || [];
+    if (weeks.length > 0) {
+      focusSubjects = weeks[0].focus_areas || [];
+    }
+    placementBand = planJson.metadata?.placement_band || placementBand;
+  }
+
+  // Get question subjects/subtopics for recent errors
+  const recentErrors: { subject: string; subtopic: string }[] = [];
+  if (errorsResult.data && errorsResult.data.length > 0) {
+    const questionIds = errorsResult.data.map(e => e.question_id);
+    // Fetch from both question tables
+    const [{ data: diagQ }, { data: mainQ }] = await Promise.all([
+      sb.from("diagnostic_questions").select("id, subject, subtopic").in("id", questionIds),
+      sb.from("questions").select("id, subject, subtopic").in("id", questionIds),
+    ]);
+    const qMap = new Map<string, { subject: string; subtopic: string }>();
+    for (const q of [...(diagQ || []), ...(mainQ || [])]) {
+      qMap.set(q.id, { subject: q.subject, subtopic: q.subtopic });
+    }
+    for (const e of errorsResult.data) {
+      const q = qMap.get(e.question_id);
+      if (q) recentErrors.push(q);
+    }
+  }
+
+  // Deduplicate proficiency scores (latest per subject)
+  const profMap = new Map<string, number>();
+  for (const p of profResult.data || []) {
+    if (!profMap.has(p.subject)) {
+      profMap.set(p.subject, p.score);
+    }
+  }
+
+  // Get course name from exam config
+  let courseName = profileResult.data?.desired_course || profileResult.data?.education_goal || "Vestibular";
+  if (profileResult.data?.exam_config_id) {
+    const { data: ec } = await sb.from("exam_configs")
+      .select("course_name, exam_name")
+      .eq("id", profileResult.data.exam_config_id)
+      .single();
+    if (ec) courseName = `${ec.course_name} (${ec.exam_name})`;
+  }
+
+  return {
+    courseName,
+    placementBand,
+    focusSubjects,
+    recentErrors,
+    proficiencies: Object.fromEntries(profMap),
+    studentName: profileResult.data?.name || "Estudante",
+  };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -20,6 +117,42 @@ serve(async (req) => {
 
     const { message, chatHistory, userContext } = await req.json();
 
+    // ─── Fetch real context if userId provided ────────────────────
+    let enrichedContext = "";
+    const userId = userContext?.userId;
+    if (userId && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const ctx = await fetchStudentContext(userId);
+
+        const errorsStr = ctx.recentErrors.length > 0
+          ? ctx.recentErrors.map(e => `  - ${e.subject}: ${e.subtopic}`).join("\n")
+          : "  Nenhum erro recente registrado";
+
+        const profStr = Object.entries(ctx.proficiencies).length > 0
+          ? Object.entries(ctx.proficiencies)
+              .map(([subj, score]) => `  - ${subj}: ${Math.round((score as number) * 100)}%`)
+              .join("\n")
+          : "  Nao avaliado ainda";
+
+        const focusStr = ctx.focusSubjects.length > 0
+          ? ctx.focusSubjects.join(", ")
+          : "Nao definidas";
+
+        enrichedContext = "\n\nCONTEXTO REAL DO ALUNO (dados do sistema):\n" +
+          "- Curso alvo: " + ctx.courseName + "\n" +
+          "- Nivel (placement band): " + ctx.placementBand + "\n" +
+          "- Materias foco do plano: " + focusStr + "\n" +
+          "- Ultimos erros:\n" + errorsStr + "\n" +
+          "- Proficiencia por materia:\n" + profStr + "\n\n" +
+          "Use esses dados para personalizar suas respostas. Se o aluno perguntar 'o que estudar', " +
+          "referencie o plano atual e as materias foco. Se ele errou algo recentemente, mencione isso " +
+          "de forma encorajadora (ex: 'Vi que voce teve dificuldade em X, vamos revisar?').";
+      } catch (ctxErr) {
+        console.error("Context fetch error (non-fatal):", ctxErr);
+        // Continue without enriched context
+      }
+    }
+
     const systemPrompt = "Voce eh um tutor paciente e encorajador ajudando um estudante brasileiro a se preparar para vestibulares.\n\n" +
       "PERFIL DO ALUNO:\n" +
       "- Nome: " + (userContext.name || "Estudante") + "\n" +
@@ -29,7 +162,8 @@ serve(async (req) => {
       "- Materia atual: " + (userContext.current_subject || "Geral") + "\n" +
       "- Nivel de proficiencia: " + (userContext.proficiency_level || "Nao avaliado") + "\n\n" +
       "ULTIMOS ERROS DO ALUNO:\n" +
-      (userContext.recent_errors ? JSON.stringify(userContext.recent_errors) : "Nenhum registrado") + "\n\n" +
+      (userContext.recent_errors ? JSON.stringify(userContext.recent_errors) : "Nenhum registrado") +
+      enrichedContext + "\n\n" +
       "REGRAS:\n" +
       "1. Explique conceitos passo a passo com exemplos do dia a dia\n" +
       "2. Use analogias e linguagem acessivel\n" +
@@ -38,8 +172,9 @@ serve(async (req) => {
       "5. Encoraje o aluno quando estiver com dificuldade\n" +
       "6. Responda sempre em Portugues do Brasil\n" +
       "7. Mantenha respostas focadas e com no maximo 400 palavras\n" +
-      "8. Se o aluno perguntar o que devo estudar hoje, sugira com base na materia atual e nivel\n" +
-      "9. Se o aluno disser que esta perdido ou desanimado, seja empatico e sugira revisar o basico";
+      "8. Se o aluno perguntar o que devo estudar hoje, sugira com base nas materias foco do plano e nos erros recentes\n" +
+      "9. Se o aluno disser que esta perdido ou desanimado, seja empatico e sugira revisar o basico\n" +
+      "10. Quando tiver dados de proficiencia, use-os para adaptar a dificuldade das explicacoes";
 
     const messages = [];
 

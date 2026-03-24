@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Zap, Flame } from "lucide-react";
+import { ArrowLeft, Zap, Flame, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from "recharts";
@@ -11,6 +11,13 @@ interface MissionRow { status: string; score: number | null; date: string; }
 interface AnswerRow { is_correct: boolean; created_at: string; }
 interface SubtopicError { name: string; subject: string; gap: number; }
 
+const BAND_LABELS: Record<string, string> = {
+  base: "Base",
+  intermediario: "Intermediário",
+  competitivo: "Competitivo",
+  forte: "Forte",
+};
+
 const Performance = () => {
   const { user } = useAuth();
   const [selectedSubject, setSelectedSubject] = useState("all");
@@ -21,6 +28,12 @@ const Performance = () => {
   const [subtopicErrors, setSubtopicErrors] = useState<SubtopicError[]>([]);
   const [examHistory, setExamHistory] = useState<{ exam_name: string; score_percent: number; created_at: string }[]>([]);
   const [profileStats, setProfileStats] = useState<{ total_xp: number; current_streak: number; longest_streak: number; missions_completed: number; exams_completed: number } | null>(null);
+
+  // Gate data (Change 2)
+  const [totalAnswered, setTotalAnswered] = useState(0);
+  const [subjectsCovered, setSubjectsCovered] = useState(0);
+  const [regenerations, setRegenerations] = useState(0);
+  const [placementBand, setPlacementBand] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -44,6 +57,26 @@ const Performance = () => {
       if (examData) setExamHistory(examData);
       const { data: profileStatsData } = await supabase.from("profiles").select("total_xp, current_streak, longest_streak, missions_completed, exams_completed").eq("id", user.id).single();
       if (profileStatsData) setProfileStats(profileStatsData);
+
+      // ─── Gate data (Change 2) ──────────────────────────────────────
+      // Total questões respondidas (all time)
+      const { count: totalCount } = await supabase.from("answer_history").select("id", { count: "exact", head: true }).eq("user_id", user.id);
+      setTotalAnswered(totalCount || 0);
+
+      // Matérias distintas cobertas
+      const distinctSubjects = new Set((profData || []).map(p => p.subject));
+      setSubjectsCovered(distinctSubjects.size);
+
+      // Planos com status='superseded' (indica regeneração)
+      const { count: supersededCount } = await supabase.from("study_plans").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "superseded");
+      setRegenerations(supersededCount || 0);
+
+      // Placement band mais recente
+      const { data: latestEstimate } = await supabase.from("diagnostic_estimates").select("placement_band").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1);
+      if (latestEstimate && latestEstimate.length > 0 && latestEstimate[0].placement_band) {
+        setPlacementBand(latestEstimate[0].placement_band);
+      }
+
       setLoading(false);
     };
     fetchAll();
@@ -76,6 +109,9 @@ const Performance = () => {
   const probColor = passProb >= 70 ? "text-success" : passProb >= 40 ? "text-warning" : "text-destructive";
   const probBg = passProb >= 70 ? "bg-success/10" : passProb >= 40 ? "bg-warning/10" : "bg-destructive/10";
 
+  // Gate: only show probability if enough data (Change 2)
+  const canShowProbability = totalAnswered >= 60 && subjectsCovered >= 4 && regenerations >= 1;
+
   const hasData = proficiencyData.length > 0;
 
   if (loading) { return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>); }
@@ -99,11 +135,26 @@ const Performance = () => {
           </div>
         ) : (
           <>
-            <div className="text-center animate-fade-in">
-              <div className={`inline-flex items-center justify-center h-24 w-24 rounded-full ${probBg} ${probColor} text-3xl font-semibold`}>{passProb}%</div>
-              <p className="mt-3 text-sm font-semibold text-foreground">Probabilidade de Aprovação</p>
-              <p className="text-xs text-muted-foreground">Estimativa baseada no seu desempenho</p>
-            </div>
+            {canShowProbability ? (
+              <div className="text-center animate-fade-in">
+                <div className={`inline-flex items-center justify-center h-24 w-24 rounded-full ${probBg} ${probColor} text-3xl font-semibold`}>{passProb}%</div>
+                <p className="mt-3 text-sm font-semibold text-foreground">Probabilidade de Aprovação</p>
+                <p className="text-xs text-muted-foreground">Estimativa baseada no seu desempenho</p>
+              </div>
+            ) : (
+              <div className="text-center animate-fade-in">
+                <div className="inline-flex items-center justify-center h-24 w-24 rounded-full bg-gray-100 text-foreground text-lg font-semibold">
+                  {placementBand ? BAND_LABELS[placementBand] || placementBand : <Lock className="h-6 w-6 text-muted-foreground" />}
+                </div>
+                <p className="mt-3 text-sm font-semibold text-foreground">Nível Atual{placementBand ? `: ${BAND_LABELS[placementBand] || placementBand}` : ""}</p>
+                <div className="mt-3 max-w-xs mx-auto">
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-2 rounded-full bg-foreground transition-all duration-700" style={{ width: `${Math.min(100, Math.round((totalAnswered / 60) * 100))}%` }} />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">Continue estudando para desbloquear sua estimativa de aprovação</p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-8 grid grid-cols-2 gap-3 animate-fade-in" style={{ animationDelay: "0.1s" }}>
               <div className="p-4 bg-gray-50 rounded-2xl"><p className="text-lg font-semibold text-foreground">{completedMissions}/{totalMissions}</p><p className="text-xs text-muted-foreground mt-1">Missões completadas</p></div>

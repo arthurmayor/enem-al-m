@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Clock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { trackEvent } from "@/lib/trackEvent";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -672,6 +673,7 @@ const DiagnosticTest = () => {
       setLoading(false);
       setStartTime(Date.now());
       setQuestionStartTime(Date.now());
+      trackEvent("diagnostic_started", { mode, questions: finalQuestions.length }, user.id);
     };
     load();
   }, [user, navigate]);
@@ -898,6 +900,13 @@ const DiagnosticTest = () => {
 
     console.log("=== ROUTER RESULT ===", { routerResult, totalCorrect, totalQuestions });
 
+    trackEvent("diagnostic_completed", {
+      mode: "router",
+      totalCorrect,
+      totalQuestions,
+      placementBand: routerResult.placementBand,
+    }, user.id);
+
     navigate("/diagnostic/results", {
       state: {
         mode: "router",
@@ -1033,6 +1042,13 @@ const DiagnosticTest = () => {
     const directWeight = dataVolume <= 50 ? 0.75 : dataVolume <= 200 ? 0.50 : dataVolume <= 500 ? 0.25 : 0.10;
     const confidenceLabel = directWeight > 0.5 ? "baixa" : directWeight >= 0.25 ? "média" : "alta";
     const accuracyPct = Math.round((totalCorrect / Math.max(1, totalQuestionsAnswered)) * 100);
+
+    trackEvent("diagnostic_completed", {
+      mode: "deep",
+      totalCorrect: totalCorrectRef.current,
+      totalQuestions: TOTAL_QUESTIONS,
+      placementBand: probBand.band,
+    }, user.id);
 
     navigate("/diagnostic/results", {
       state: {

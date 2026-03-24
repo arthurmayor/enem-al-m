@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { trackEvent } from "@/lib/trackEvent";
 
 interface ExamOption {
   exam_slug: string;
@@ -35,6 +36,7 @@ const Onboarding = () => {
   const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const startedRef = useRef(false);
 
   // Step 1: Exam + Course from exam_configs
   const [examOptions, setExamOptions] = useState<ExamOption[]>([]);
@@ -51,6 +53,14 @@ const Onboarding = () => {
   const [hoursPerDay, setHoursPerDay] = useState(3);
   const [selectedDays, setSelectedDays] = useState<string[]>(["segunda", "terca", "quarta", "quinta", "sexta"]);
   const [examDate, setExamDate] = useState("");
+
+  // Track onboarding_started (Change 4)
+  useEffect(() => {
+    if (user && !startedRef.current) {
+      startedRef.current = true;
+      trackEvent("onboarding_started", {}, user.id);
+    }
+  }, [user]);
 
   // Load exam options from exam_configs
   useEffect(() => {
@@ -128,6 +138,7 @@ const Onboarding = () => {
   const handleFinish = async () => {
     if (!user) return;
     setLoading(true);
+    trackEvent("onboarding_completed", { exam: selectedExamSlug, course: selectedCourse?.course_name }, user.id);
     const { error } = await supabase.from("profiles").update({
       education_goal: selectedExamSlug,
       desired_course: selectedCourse?.course_name || "",
@@ -145,7 +156,10 @@ const Onboarding = () => {
     else navigate("/diagnostic/intro");
   };
 
-  const handleNext = () => { if (step < 3) setStep(step + 1); else handleFinish(); };
+  const handleNext = () => {
+    if (user) trackEvent("onboarding_step_completed", { step }, user.id);
+    if (step < 3) setStep(step + 1); else handleFinish();
+  };
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4 py-8">

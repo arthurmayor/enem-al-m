@@ -4,6 +4,7 @@ import { ChevronRight, ArrowRight, BookOpen, Clock } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { trackEvent } from "@/lib/trackEvent";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -203,6 +204,7 @@ async function generateAndSavePlan(
   if (missionsToInsert.length > 0) {
     await supabase.from("daily_missions").insert(missionsToInsert);
   }
+  trackEvent("plan_generated", { missions: missionsToInsert.length }, userId);
   navigate("/dashboard");
 }
 

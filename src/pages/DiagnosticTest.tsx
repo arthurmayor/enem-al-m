@@ -81,6 +81,29 @@ function expectedAccuracy(studentElo: number, meanDiff: number, sdDiff: number):
   return totalP;
 }
 
+// ─── Scoring & Probability Model ─────────────────────────────────────────────
+//
+// DESIGN DECISIONS (2026-03-24):
+//
+// 1. BLEND WEIGHT = 0.95 para diagnóstico (totalSimulados === 0)
+//    Com ~3 questões por matéria, o Elo não consegue se afastar significativamente
+//    de 1200 (K=48, ganho máx ≈72 pontos). O score direto (acerto% × 90) é a
+//    melhor estimativa com poucos dados. O Elo contribui apenas 5% (~4.5 pontos).
+//
+// 2. SIGMA = max(7, 16/√infoScore) — incerteza do aluno
+//    30 questões em 9 matérias não permitem estimar habilidade com precisão.
+//    sigma=7.3 → intervalo de ±7.6 pontos (68% confiança) na escala 0-90.
+//    Comparação: sigma anterior era 5.5, confiança excessiva para poucos dados.
+//
+// 3. QUANDO REVISAR:
+//    - Quando houver alunos com 3+ simulados, considerar floor diferenciado:
+//      const floor = simulados >= 3 ? 4 : 7;
+//    - Se dados históricos de FUVEST mudarem cutoff_sd, recalibrar.
+//    - Rodar scripts/simulate-diagnostics-v2.mjs para validar mudanças.
+//
+// VALIDAÇÃO: 14/14 critérios PASS, 0 violações monotonicidade (195 simulações).
+// ─────────────────────────────────────────────────────────────────────────────
+
 function estimateScore(
   proficiencies: Record<string, Proficiency>,
   subjectDist: Record<string, SubjectDistEntry>,

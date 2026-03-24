@@ -302,10 +302,13 @@ function main() {
       simId++;
       const r = runner(strat.fn);
 
-      // Flag logic
+      // Flag logic — course-aware: BUG threshold scales with cutoff difficulty
+      // For Medicina (cutoff 80/90=89%), 70-80% accuracy SHOULD have low probability
+      const cutoffPct = course.cutoff_mean / 90;  // e.g., 0.89 for Medicina
+      const bugThresholdAccuracy = Math.round(cutoffPct * 100) - 5;  // need near-cutoff to flag
       let flag = "OK";
       if (r.probability > 50 && r.pctCorrect < 30) flag = "BUG";
-      else if (r.probability < 10 && r.pctCorrect > 70) flag = "BUG";
+      else if (r.probability < 10 && r.pctCorrect > bugThresholdAccuracy) flag = "BUG";
       else {
         // Check Elo anomalies
         for (const [, prof] of Object.entries(r.proficiencies)) {

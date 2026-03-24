@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Clock, ChevronRight, ArrowRight, Target } from "lucide-react";
+import { BookOpen, Clock, ChevronRight, ArrowRight, Target, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
+import { toast } from "sonner";
 
 interface Profile {
   name: string;
@@ -45,6 +46,151 @@ const Dashboard = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showRegenCta, setShowRegenCta] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [completionRate, setCompletionRate] = useState(0);
+  const regenChecked = useRef(false);
+
+  // ─── Regeneration helper ──────────────────────────────────────────────────
+
+  async function regeneratePlan(userId: string) {
+    setRegenerating(true);
+    try {
+      // Fetch latest diagnostic + profile for plan generation
+      const [{ data: latestEstimate }, { data: profileData }, { data: latestPlan }] = await Promise.all([
+        supabase.from("diagnostic_estimates").select("proficiencies, estimate_scope").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).single(),
+        supabase.from("profiles").select("name, education_goal, desired_course, exam_date, hours_per_day, study_days, available_days, self_declared_blocks, exam_config_id").eq("id", userId).single(),
+        supabase.from("study_plans").select("id, week_number, version").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).single(),
+      ]);
+
+      // Build proficiency scores from latest estimate
+      const proficiencies = latestEstimate?.proficiencies || {};
+      const profArray = Object.entries(proficiencies as Record<string, { elo?: number; score?: number }>).map(([subject, v]) => ({
+        subject,
+        score: v.score ?? (v.elo ? (v.elo - 600) / 1200 : 0.5),
+        confidence: 0.5,
+      }));
+
+      // Get exam config
+      let examConfigData = { phase2_subjects: [] as string[], cutoff_mean: 0, competition_ratio: 10, subject_distribution: {} as Record<string, unknown>, total_questions: 90 };
+      if (profileData?.exam_config_id) {
+        const { data: ec } = await supabase.from("exam_configs").select("*").eq("id", profileData.exam_config_id).single();
+        if (ec) examConfigData = ec as typeof examConfigData;
+      }
+
+      // Build diagnostic result from proficiencies
+      const sorted = [...profArray].sort((a, b) => a.score - b.score);
+      const bottlenecks = sorted.slice(0, 3).map(p => p.subject);
+      const strengths = sorted.slice(-2).map(p => p.subject);
+      const avgScore = profArray.length > 0 ? profArray.reduce((s, p) => s + p.score, 0) / profArray.length : 0.5;
+      const band = avgScore >= 0.75 ? "forte" : avgScore >= 0.55 ? "competitivo" : avgScore >= 0.35 ? "intermediario" : "base";
+
+      const sd = profileData?.available_days || profileData?.study_days;
+      const numDays = Array.isArray(sd) ? sd.length : typeof sd === "number" ? sd : 5;
+
+      const userProfile = {
+        ...(profileData || {}),
+        study_days: numDays,
+        self_declared_blocks: (profileData as Record<string, unknown>)?.self_declared_blocks || {},
+      };
+
+      const newWeek = (latestPlan?.week_number || 1) + 1;
+      const newVersion = (latestPlan?.version || 1) + 1;
+
+      // Fetch due spaced reviews
+      const { data: dueReviews } = await supabase
+        .from("spaced_review_queue")
+        .select("subject, subtopic")
+        .eq("user_id", userId)
+        .lte("next_review_at", new Date().toISOString())
+        .limit(5);
+
+      // Get completion rate of old plan
+      let oldCompletionRate = -1;
+      if (latestPlan?.id) {
+        const { count: totalM } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", latestPlan.id);
+        const { count: doneM } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", latestPlan.id).eq("status", "completed");
+        if (totalM && totalM > 0) oldCompletionRate = Math.round(((doneM || 0) / totalM) * 100);
+      }
+
+      const { data: plan, error: invokeError } = await supabase.functions.invoke("generate-study-plan", {
+        body: {
+          proficiencyScores: { proficiency: profArray },
+          userProfile,
+          diagnosticResult: { placement_band: band, strengths, bottlenecks },
+          examConfig: examConfigData,
+          weekNumber: newWeek,
+          completionRate: oldCompletionRate,
+          spacedReviews: dueReviews || [],
+        },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (plan?.error) throw new Error(plan.error);
+
+      // Mark old plan as superseded
+      await supabase.from("study_plans").update({ status: "superseded", is_current: false } as any).eq("user_id", userId).eq("is_current", true);
+      const today = new Date().toISOString().split("T")[0];
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 6);
+
+      const { data: savedPlan, error: planError } = await supabase.from("study_plans").insert({
+        user_id: userId,
+        week_number: newWeek,
+        start_date: today,
+        end_date: endDate.toISOString().split("T")[0],
+        plan_json: plan,
+        is_current: true,
+        status: "active",
+        version: newVersion,
+      } as any).select("id").single();
+      if (planError) throw new Error(planError.message);
+
+      // Delete old missions for this week forward, insert new
+      await supabase.from("daily_missions").delete().eq("user_id", userId).gte("date", today).eq("status", "pending");
+
+      const dayNames: Record<string, number> = { Domingo: 0, Segunda: 1, Terca: 2, Quarta: 3, Quinta: 4, Sexta: 5, Sabado: 6 };
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      const missionsToInsert: { user_id: string; study_plan_id: string; date: string; subject: string; subtopic: string; mission_type: string; status: string; estimated_minutes: number }[] = [];
+
+      for (const week of plan.weeks ?? []) {
+        for (const dayObj of week.days ?? []) {
+          const targetWeekday = dayNames[dayObj.day] ?? 1;
+          // Find next occurrence of this weekday from today
+          const d = new Date(start);
+          while (d.getDay() !== targetWeekday) d.setDate(d.getDate() + 1);
+          const dateStr = d.toISOString().split("T")[0];
+          for (const mission of dayObj.missions ?? []) {
+            missionsToInsert.push({
+              user_id: userId,
+              study_plan_id: savedPlan!.id,
+              date: dateStr,
+              subject: mission.subject ?? "Geral",
+              subtopic: mission.subtopic ?? "",
+              mission_type: mission.type ?? "questions",
+              status: "pending",
+              estimated_minutes: mission.estimated_minutes ?? 15,
+            });
+          }
+        }
+      }
+
+      if (missionsToInsert.length > 0) {
+        await supabase.from("daily_missions").insert(missionsToInsert);
+      }
+
+      toast.success("Novo plano semanal gerado!");
+      // Reload page data
+      window.location.reload();
+    } catch (err) {
+      console.error("Regeneration error:", err);
+      toast.error("Erro ao regenerar plano. Tente novamente.");
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  // ─── Fetch data + check regeneration ──────────────────────────────────────
 
   useEffect(() => {
     if (!user) return;
@@ -64,6 +210,65 @@ const Dashboard = () => {
         .eq("date", today);
       if (missionsData) setMissions(missionsData);
       setLoading(false);
+
+      // ─── Idempotent weekly regeneration check ─────────────────
+      if (regenChecked.current) return;
+      regenChecked.current = true;
+
+      const { data: activePlan } = await supabase
+        .from("study_plans")
+        .select("id, start_date, end_date, created_at, plan_json, is_current")
+        .eq("user_id", user.id)
+        .eq("is_current", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (!activePlan) return;
+
+      const endDate = (activePlan as any).end_date;
+      const startDate = (activePlan as any).start_date;
+
+      // Calculate completion rate for CTA
+      const { count: totalMissions } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", activePlan.id);
+      const { count: completedCount } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", activePlan.id).eq("status", "completed");
+      const rate = totalMissions && totalMissions > 0 ? Math.round(((completedCount || 0) / totalMissions) * 100) : 0;
+      setCompletionRate(rate);
+
+      // Check if plan has expired (end_date < today)
+      if (endDate && endDate < today) {
+        // Idempotent: check if a plan already exists for this week
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
+        const weekStartStr = weekStart.toISOString().split("T")[0];
+
+        const { data: existingThisWeek } = await supabase
+          .from("study_plans")
+          .select("id")
+          .eq("user_id", user.id)
+          .gte("start_date", weekStartStr)
+          .limit(1);
+
+        if (!existingThisWeek || existingThisWeek.length === 0) {
+          // Don't regenerate if plan is less than 3 days old
+          const createdAt = new Date(activePlan.created_at);
+          const daysSinceCreation = (Date.now() - createdAt.getTime()) / 86400000;
+          if (daysSinceCreation >= 3) {
+            regeneratePlan(user.id);
+          }
+        }
+        return;
+      }
+
+      // CTA: plan active and completion >= 70%
+      if (startDate && rate >= 70) {
+        // Only show if plan has been active for at least 3 days
+        const planStart = new Date(startDate);
+        const daysSinceStart = (Date.now() - planStart.getTime()) / 86400000;
+        if (daysSinceStart >= 3) {
+          setShowRegenCta(true);
+        }
+      }
     };
     fetchData();
   }, [user]);
@@ -233,6 +438,42 @@ const Dashboard = () => {
               <p className="text-[12px] text-muted-foreground mt-3">
                 Vamos ajustar o plano com seu uso
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Regeneration CTA ─────────────────────────────────────── */}
+        {showRegenCta && !regenerating && (
+          <div className="mt-6 animate-fade-in" style={{ animationDelay: "0.14s" }}>
+            <div className="bg-white rounded-2xl p-5 shadow-rest border border-gray-100">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
+                  <RefreshCw className="h-5 w-5 text-foreground" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-[15px] font-semibold text-foreground">
+                    Você completou {completionRate}% do plano!
+                  </h3>
+                  <p className="text-[13px] text-muted-foreground mt-1">
+                    Quer gerar a próxima semana com base no seu progresso?
+                  </p>
+                  <button
+                    onClick={() => user && regeneratePlan(user.id)}
+                    className="mt-3 px-5 py-2 rounded-full bg-foreground text-white text-[13px] font-semibold hover:bg-foreground/90 transition-all"
+                  >
+                    Gerar próxima semana
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {regenerating && (
+          <div className="mt-6 animate-fade-in">
+            <div className="bg-white rounded-2xl p-5 shadow-rest flex items-center gap-3">
+              <div className="h-5 w-5 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
+              <p className="text-[14px] text-foreground">Gerando novo plano semanal...</p>
             </div>
           </div>
         )}

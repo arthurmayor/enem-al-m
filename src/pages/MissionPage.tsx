@@ -124,6 +124,73 @@ async function runCalibration(userId: string, answers: AnswerForCalibration[]) {
   toast("Plano refinado com base no seu desempenho recente", { duration: 3000 });
 }
 
+// ─── Spaced review helpers ───────────────────────────────────────────────────
+
+async function upsertSpacedReview(userId: string, subject: string, subtopic: string) {
+  const nextReview = new Date();
+  nextReview.setDate(nextReview.getDate() + 1);
+
+  // UPSERT: if user+subject+subtopic exists, just bump next_review_at
+  const { data: existing } = await supabase
+    .from("spaced_review_queue")
+    .select("id, interval_days")
+    .eq("user_id", userId)
+    .eq("subject", subject)
+    .eq("subtopic", subtopic)
+    .limit(1)
+    .single();
+
+  if (existing) {
+    await supabase.from("spaced_review_queue").update({
+      next_review_at: nextReview.toISOString(),
+      updated_at: new Date().toISOString(),
+    } as any).eq("id", existing.id);
+  } else {
+    await supabase.from("spaced_review_queue").insert({
+      user_id: userId,
+      subject,
+      subtopic,
+      interval_days: 1,
+      next_review_at: nextReview.toISOString(),
+      review_count: 0,
+      last_performance: null,
+    } as any);
+  }
+}
+
+async function updateSpacedReviewAfterReview(userId: string, subject: string, subtopic: string, performance: number) {
+  const { data: existing } = await supabase
+    .from("spaced_review_queue")
+    .select("id, interval_days, review_count")
+    .eq("user_id", userId)
+    .eq("subject", subject)
+    .eq("subtopic", subtopic)
+    .limit(1)
+    .single();
+
+  if (!existing) return;
+
+  let newInterval = existing.interval_days || 1;
+  if (performance >= 0.8) {
+    newInterval = Math.min(14, Math.round(newInterval * 1.5));
+  } else if (performance < 0.5) {
+    newInterval = 1;
+  }
+  // 0.5-0.8: keep same interval
+
+  const nextReview = new Date();
+  nextReview.setDate(nextReview.getDate() + newInterval);
+
+  await supabase.from("spaced_review_queue").update({
+    interval_days: newInterval,
+    next_review_at: nextReview.toISOString(),
+    last_reviewed_at: new Date().toISOString(),
+    review_count: (existing.review_count || 0) + 1,
+    last_performance: performance,
+    updated_at: new Date().toISOString(),
+  } as any).eq("id", existing.id);
+}
+
 // ─── Fetch questions ─────────────────────────────────────────────────────────
 
 async function fetchMissionQuestions(
@@ -385,6 +452,16 @@ const MissionPage = () => {
     // Run invisible calibration (Change 1)
     if (mission && CALIBRATION_TYPES.includes(mission.mission_type) && calibrationAnswers.current.length > 0) {
       runCalibration(user.id, calibrationAnswers.current).catch(console.error);
+    }
+
+    // Spaced review: upsert after questions, update after spaced_review (Change 6)
+    if (mission) {
+      const perf = finalScore / 100;
+      if (mission.mission_type === "questions") {
+        upsertSpacedReview(user.id, mission.subject, mission.subtopic).catch(console.error);
+      } else if (mission.mission_type === "spaced_review") {
+        updateSpacedReviewAfterReview(user.id, mission.subject, mission.subtopic, perf).catch(console.error);
+      }
     }
 
     // Update profile stats

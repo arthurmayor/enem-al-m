@@ -408,11 +408,11 @@ const DiagnosticResults = () => {
             {generatingPlan ? (
               <span className="flex items-center gap-2">
                 <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Montando seu plano...
+                Gerando plano...
               </span>
             ) : (
               <span className="flex items-center gap-1.5">
-                Começar sessão 1
+                Ver meu plano
                 <ArrowRight className="h-4 w-4" />
               </span>
             )}
@@ -528,17 +528,7 @@ const DiagnosticResults = () => {
           </div>
         </div>
 
-        {/* ─── CTA secundário ───────────────────────────────────────── */}
-        <div className="mt-8 mb-4 animate-fade-in" style={{ animationDelay: "0.24s" }}>
-          <button
-            onClick={handlePlan}
-            disabled={generatingPlan}
-            className="w-full h-11 inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white text-foreground text-[14px] font-medium hover:bg-gray-50 active:scale-[0.98] transition-all duration-200 disabled:opacity-60"
-          >
-            {generatingPlan ? "Montando..." : "Ver plano completo de 7 dias"}
-            <ChevronRight className="ml-1 h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
+        <div className="mt-8 mb-4" />
       </main>
 
       <BottomNav />

@@ -16,6 +16,11 @@ jobs:
       - name: Install dependencies
         run: npm install @supabase/supabase-js
 
+      - name: Fix bad questions (deactivate duplicates + short prompts)
+        run: node scripts/fix-bad-questions.mjs
+        env:
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+
       - name: Fix letter bias
         run: node scripts/fix-letter-bias.mjs
         env:

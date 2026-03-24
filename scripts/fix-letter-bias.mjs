@@ -9,60 +9,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const LABELS = ["A", "B", "C", "D", "E"];
 
-// ─── BUG 3+4: Deactivate known bad questions ───
-const BAD_QUESTION_IDS = [
-  "e9eea8af", // alternativas duplicadas
-  "1d070b4e", // alternativas duplicadas
-  "936a5e7d", // alternativas duplicadas
-  "7ab98c95", // enunciado muito curto
-];
-
-async function deactivateBadQuestions() {
-  console.log("Desativando questões com problemas conhecidos...");
-  for (const prefix of BAD_QUESTION_IDS) {
-    // Match by prefix since we only have the first 8 chars
-    const { data: matches } = await supabase
-      .from("diagnostic_questions")
-      .select("id")
-      .like("id", `${prefix}%`);
-
-    if (matches && matches.length > 0) {
-      for (const m of matches) {
-        const { error } = await supabase
-          .from("diagnostic_questions")
-          .update({ is_active: false })
-          .eq("id", m.id);
-        if (error) console.error(`  Erro desativando ${prefix}: ${error.message}`);
-        else console.log(`  Desativada: ${m.id.substring(0, 8)}...`);
-      }
-    }
-
-    // Also check in questions table
-    const { data: qMatches } = await supabase
-      .from("questions")
-      .select("id")
-      .like("id", `${prefix}%`);
-
-    if (qMatches && qMatches.length > 0) {
-      for (const m of qMatches) {
-        const { error } = await supabase
-          .from("questions")
-          .update({ is_active: false })
-          .eq("id", m.id);
-        if (error) console.error(`  Erro desativando ${prefix} (questions): ${error.message}`);
-        else console.log(`  Desativada (questions): ${m.id.substring(0, 8)}...`);
-      }
-    }
-  }
-  console.log();
-}
-
-// ─── BUG 5: Uniform distribution — shuffle ALL questions ───
 async function main() {
-  // Step 1: Deactivate bad questions
-  await deactivateBadQuestions();
-
-  // Step 2: Fetch all questions
+  // Fetch all questions
   const { data: questions, error } = await supabase
     .from("questions")
     .select("id, options");
@@ -75,19 +23,39 @@ async function main() {
     process.exit(1);
   }
 
-  // Show current distribution
-  const distBefore = { A: 0, B: 0, C: 0, D: 0, E: 0 };
-  let totalBefore = 0;
+  // Calculate current distribution
+  const dist = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+  let total = 0;
   for (const q of questions) {
     const c = (q.options || []).find(o => o.is_correct);
-    if (c?.label) { distBefore[c.label.toUpperCase()]++; totalBefore++; }
+    if (c?.label) { dist[c.label.toUpperCase()]++; total++; }
   }
-  console.log(`Total de questões: ${questions.length}`);
-  console.log("Distribuição ANTES:");
-  console.log("  " + LABELS.map(l => `${l}: ${totalBefore > 0 ? (distBefore[l] / totalBefore * 100).toFixed(1) : "0.0"}%`).join(" | "));
 
-  // Step 3: Assign each question a target letter for the correct answer
-  // to achieve ~20% per letter. Round-robin assignment ensures uniform distribution.
+  console.log(`Total de questões: ${questions.length}`);
+  console.log("Distribuição atual:");
+  console.log("  " + LABELS.map(l => `${l}: ${total > 0 ? (dist[l] / total * 100).toFixed(1) : "0.0"}%`).join(" | "));
+
+  // Check if distribution is already balanced (all letters between 15-25%)
+  const allBalanced = total > 0 && LABELS.every(l => {
+    const pct = dist[l] / total * 100;
+    return pct >= 15 && pct <= 25;
+  });
+
+  if (allBalanced) {
+    console.log("\nDistribuição já equilibrada, nenhuma alteração necessária.");
+    return;
+  }
+
+  // Check if any letter is above 30% — only redistribute if so
+  const maxPct = Math.max(...LABELS.map(l => dist[l] / total * 100));
+  if (maxPct <= 30) {
+    console.log(`\nNenhuma letra acima de 30% (máx: ${maxPct.toFixed(1)}%). Nenhuma alteração necessária.`);
+    return;
+  }
+
+  console.log(`\nLetra com maior viés: ${maxPct.toFixed(1)}% — redistribuindo...`);
+
+  // Filter valid questions (5 options, exactly 1 correct)
   const validQuestions = questions.filter(q => {
     const opts = q.options || [];
     const correct = opts.filter(o => o.is_correct === true);
@@ -95,19 +63,19 @@ async function main() {
   });
 
   // Shuffle the question order so the round-robin assignment is random
-  const shuffledQuestions = [...validQuestions];
-  for (let i = shuffledQuestions.length - 1; i > 0; i--) {
+  const shuffled = [...validQuestions];
+  for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [shuffledQuestions[i], shuffledQuestions[j]] = [shuffledQuestions[j], shuffledQuestions[i]];
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
-  console.log(`\nRedistribuindo ${shuffledQuestions.length} questões válidas...`);
+  console.log(`Redistribuindo ${shuffled.length} questões válidas...`);
 
   let updated = 0;
   let errors = 0;
 
-  for (let i = 0; i < shuffledQuestions.length; i++) {
-    const q = shuffledQuestions[i];
+  for (let i = 0; i < shuffled.length; i++) {
+    const q = shuffled[i];
     const targetLabel = LABELS[i % 5]; // round-robin: A, B, C, D, E, A, B, ...
 
     const opts = q.options.map(o => ({ text: o.text, is_correct: o.is_correct }));
@@ -150,14 +118,14 @@ async function main() {
   // Verify new distribution
   const { data: after } = await supabase.from("questions").select("options");
   if (after) {
-    const dist = { A: 0, B: 0, C: 0, D: 0, E: 0 };
-    let total = 0;
+    const distAfter = { A: 0, B: 0, C: 0, D: 0, E: 0 };
+    let totalAfter = 0;
     for (const q of after) {
       const c = (q.options || []).find(o => o.is_correct);
-      if (c?.label) { dist[c.label.toUpperCase()]++; total++; }
+      if (c?.label) { distAfter[c.label.toUpperCase()]++; totalAfter++; }
     }
     console.log("\nDistribuição DEPOIS:");
-    console.log("  " + LABELS.map(l => `${l}: ${total > 0 ? (dist[l] / total * 100).toFixed(1) : "0.0"}%`).join(" | "));
+    console.log("  " + LABELS.map(l => `${l}: ${totalAfter > 0 ? (distAfter[l] / totalAfter * 100).toFixed(1) : "0.0"}%`).join(" | "));
   }
 }
 

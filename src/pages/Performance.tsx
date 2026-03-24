@@ -198,6 +198,33 @@ const Performance = () => {
               </div>
             )}
 
+            {/* ─── Level per subject (always visible) ─── */}
+            {subjects.length > 0 && (
+              <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+                <h2 className="text-base font-semibold text-foreground mb-4">Nível por Matéria</h2>
+                <div className="space-y-2">
+                  {subjects.map((s) => {
+                    const rows = proficiencyData.filter(p => p.subject === s);
+                    const avg = rows.length > 0 ? rows.reduce((sum, r) => sum + r.score, 0) / rows.length : 0;
+                    const pct = Math.round(avg * 100);
+                    const level = pct >= 75 ? "Forte" : pct >= 55 ? "Competitivo" : pct >= 35 ? "Intermediário" : "Base";
+                    const levelColor = pct >= 75 ? "text-success bg-success/10" : pct >= 55 ? "text-foreground bg-gray-100" : pct >= 35 ? "text-warning bg-warning/10" : "text-destructive bg-destructive/10";
+                    return (
+                      <div key={s} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-foreground">{s}</p>
+                          <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden max-w-[160px]">
+                            <div className="h-1.5 rounded-full bg-foreground/60 transition-all duration-700" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                        <span className={`text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ml-3 ${levelColor}`}>{level}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {examHistory.length > 0 && (
               <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.35s" }}>
                 <h2 className="text-base font-semibold text-foreground mb-4">Últimos Simulados</h2>
@@ -215,7 +242,7 @@ const Performance = () => {
               </div>
             )}
 
-            {chartData.length > 0 && (
+            {chartData.length > 0 && totalAnswered >= 50 && (
               <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
                 <h2 className="text-base font-semibold text-foreground mb-4">Evolução por Matéria</h2>
                 <div className="flex gap-2 mb-4 overflow-x-auto">

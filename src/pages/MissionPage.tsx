@@ -1,11 +1,118 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Question { id: string; subject: string; subtopic: string; difficulty: number; question_text: string; options: { label: string; text: string; is_correct: boolean }[]; explanation: string; }
 interface MissionData { id: string; subject: string; subtopic: string; mission_type: string; status: string; }
+
+const BLOCK_MAP: Record<string, string[]> = {
+  "Português": ["Português", "Inglês"],
+  "Inglês": ["Português", "Inglês"],
+  "História": ["História", "Geografia", "Filosofia"],
+  "Geografia": ["História", "Geografia", "Filosofia"],
+  "Filosofia": ["História", "Geografia", "Filosofia"],
+  "Biologia": ["Biologia", "Física", "Química"],
+  "Física": ["Biologia", "Física", "Química"],
+  "Química": ["Biologia", "Física", "Química"],
+  "Matemática": ["Matemática"],
+};
+
+function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+async function fetchMissionQuestions(
+  userId: string,
+  subject: string,
+  subtopic: string,
+  examSlug: string = "fuvest",
+  limit: number = 8
+): Promise<Question[]> {
+  // Buscar IDs de questões respondidas nas últimas 48h
+  const { data: recentAnswers } = await supabase
+    .from("answer_history")
+    .select("question_id")
+    .eq("user_id", userId)
+    .gte("created_at", new Date(Date.now() - 48 * 3600 * 1000).toISOString());
+  const recentIds = new Set((recentAnswers || []).map(a => a.question_id));
+
+  // Helper: buscar de ambas as tabelas e combinar
+  async function fetchBoth(
+    diagFilter: (q: ReturnType<ReturnType<typeof supabase.from>["select"]>) => typeof q,
+    questFilter: (q: ReturnType<ReturnType<typeof supabase.from>["select"]>) => typeof q,
+    fetchLimit: number
+  ): Promise<Question[]> {
+    const [diagResult, questResult] = await Promise.all([
+      diagFilter(supabase.from("diagnostic_questions").select("*").eq("is_active", true)).limit(fetchLimit),
+      questFilter(supabase.from("questions").select("*")).limit(fetchLimit),
+    ]);
+    const seen = new Set<string>();
+    const combined: Question[] = [];
+    for (const q of [...(diagResult.data || []), ...(questResult.data || [])]) {
+      if (!seen.has(q.id)) { seen.add(q.id); combined.push(q); }
+    }
+    return combined;
+  }
+
+  // Nível 1: buscar por subtópico (ilike parcial) em ambas as tabelas
+  const level1 = await fetchBoth(
+    (q) => q.eq("exam_slug", examSlug).eq("subject", subject).ilike("subtopic", `%${subtopic}%`),
+    (q) => q.eq("subject", subject).ilike("subtopic", `%${subtopic}%`),
+    limit
+  );
+  if (level1.length >= 5) {
+    const fresh = level1.filter(q => !recentIds.has(q.id));
+    const pool = fresh.length >= 3 ? fresh : level1;
+    return shuffleArray(pool).slice(0, limit);
+  }
+
+  // Nível 2: buscar por matéria inteira (ignora subtópico)
+  const level2 = await fetchBoth(
+    (q) => q.eq("exam_slug", examSlug).eq("subject", subject),
+    (q) => q.eq("subject", subject),
+    limit * 2
+  );
+  if (level2.length >= 3) {
+    const fresh = level2.filter(q => !recentIds.has(q.id));
+    const pool = fresh.length >= 3 ? fresh : level2;
+    return shuffleArray(pool).slice(0, limit);
+  }
+
+  // Nível 3: buscar por bloco (linguagens, humanas, natureza, matemática)
+  const blockSubjects = BLOCK_MAP[subject] || [subject];
+  const level3 = await fetchBoth(
+    (q) => q.eq("exam_slug", examSlug).in("subject", blockSubjects),
+    (q) => q.in("subject", blockSubjects),
+    limit * 3
+  );
+  if (level3.length >= 3) {
+    const fresh = level3.filter(q => !recentIds.has(q.id));
+    const pool = fresh.length >= 3 ? fresh : level3;
+    return shuffleArray(pool).slice(0, limit);
+  }
+
+  // Nível 4: qualquer questão ativa (último recurso)
+  const level4 = await fetchBoth(
+    (q) => q.eq("exam_slug", examSlug),
+    (q) => q,
+    limit * 3
+  );
+  if (level4.length > 0) {
+    const fresh = level4.filter(q => !recentIds.has(q.id));
+    const pool = fresh.length >= 3 ? fresh : level4;
+    return shuffleArray(pool).slice(0, limit);
+  }
+
+  return [];
+}
 
 const MissionPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
@@ -28,27 +135,8 @@ const MissionPage = () => {
       if (missionData) { setMission(missionData); if (missionData.status === "completed") { setCompleted(true); setLoading(false); return; } }
       const subject = missionData?.subject || "";
       const subtopic = missionData?.subtopic || "";
-      const { data: profData } = await supabase.from("proficiency_scores").select("score").eq("user_id", user.id).eq("subject", subject).order("measured_at", { ascending: false }).limit(1);
-      const profScore = profData?.[0]?.score ?? 0.5;
-      const targetDifficulty = profScore < 0.3 ? 2 : profScore < 0.6 ? 3 : profScore < 0.8 ? 4 : 5;
-      const { data: exactMatch } = await supabase.from("questions").select("*").eq("subject", subject).ilike("subtopic", `%${subtopic}%`).gte("difficulty", Math.max(1, targetDifficulty - 1)).lte("difficulty", Math.min(5, targetDifficulty + 1)).limit(10);
-      let selectedQuestions: Question[] = exactMatch || [];
-      if (selectedQuestions.length < 5) {
-        const { data: subjectMatch } = await supabase.from("questions").select("*").eq("subject", subject).gte("difficulty", Math.max(1, targetDifficulty - 1)).lte("difficulty", Math.min(5, targetDifficulty + 1)).limit(10);
-        if (subjectMatch) { const ids = new Set(selectedQuestions.map(q => q.id)); subjectMatch.forEach(q => { if (!ids.has(q.id)) selectedQuestions.push(q); }); }
-      }
-      if (selectedQuestions.length < 3) {
-        const { data: anyMatch } = await supabase.from("questions").select("*").eq("subject", subject).limit(10);
-        if (anyMatch) { const ids = new Set(selectedQuestions.map(q => q.id)); anyMatch.forEach(q => { if (!ids.has(q.id)) selectedQuestions.push(q); }); }
-      }
-      if (selectedQuestions.length > 5) {
-        const { data: answeredCorrectly } = await supabase.from("answer_history").select("question_id").eq("user_id", user.id).eq("is_correct", true);
-        const answeredIds = new Set((answeredCorrectly || []).map(a => a.question_id));
-        const fresh = selectedQuestions.filter(q => !answeredIds.has(q.id));
-        selectedQuestions = fresh.length >= 5 ? fresh : selectedQuestions;
-      }
-      selectedQuestions.sort(() => Math.random() - 0.5);
-      setQuestions(selectedQuestions.slice(0, 8));
+      const selectedQuestions = await fetchMissionQuestions(user.id, subject, subtopic);
+      setQuestions(selectedQuestions);
       setLoading(false);
       setQuestionStartTime(Date.now());
     };
@@ -112,7 +200,26 @@ const MissionPage = () => {
   }
 
   if (questions.length === 0) {
-    return (<div className="min-h-screen bg-white flex items-center justify-center px-4"><div className="text-center max-w-sm"><p className="text-muted-foreground">Sem questões disponíveis para este tópico.</p><p className="text-xs text-muted-foreground mt-2">{mission?.subject} — {mission?.subtopic}</p><Link to="/dashboard" className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-foreground"><ArrowLeft className="h-4 w-4" /> Voltar</Link></div></div>);
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center px-4">
+        <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 px-6 text-center">
+          <p className="text-lg font-medium text-foreground">
+            Estamos preparando questões para este tópico
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Enquanto isso, que tal conversar com o Tutor IA sobre {mission?.subject || "este assunto"}?
+          </p>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => navigate(-1)}>
+              ← Voltar
+            </Button>
+            <Button onClick={() => navigate("/ai-tutor")}>
+              Abrir Tutor IA
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

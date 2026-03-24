@@ -26,30 +26,40 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function shuffle(a) { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; }
 
 /**
- * Creates a user via admin API (service_role) with email_confirm: true,
- * then signs in to get an authenticated client for RLS-protected operations.
+ * Gets or creates a user. Uses admin API for creation with email_confirm: true.
+ * If user already exists, looks up via admin.listUsers to get the user ID.
+ * Returns the userId (string) or null on failure.
  */
-async function getAuthenticatedClient(email) {
-  // Use admin API to create user with confirmed email (avoids email confirmation issues)
-  const { data: adminData, error: adminErr } = await adminClient.auth.admin.createUser({
+async function getOrCreateUserId(email) {
+  // Try to create user via admin API
+  const { data: createData, error: createErr } = await adminClient.auth.admin.createUser({
     email,
     password: "testeteste",
     email_confirm: true,
   });
 
-  if (adminErr) {
-    // User already exists — that's fine, proceed to sign in
-    if (!adminErr.message?.includes("already") && !adminErr.message?.includes("Already") && !adminErr.message?.includes("duplicate")) {
-      throw new Error(`Admin createUser failed for ${email}: ${adminErr.message}`);
-    }
+  if (!createErr && createData?.user?.id) {
+    console.log(`  [auth] Usuário criado: ${createData.user.id}`);
+    return createData.user.id;
   }
 
-  // Sign in to get authenticated session for this user
-  const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const { data: signInData, error: signInErr } = await client.auth.signInWithPassword({ email, password: "testeteste" });
-  if (signInErr) throw new Error(`SignIn failed for ${email}: ${signInErr.message}`);
+  // User already exists — look up via admin.listUsers
+  console.log(`  [auth] createUser: ${createErr.message} — buscando usuário existente...`);
 
-  return { client, user: signInData.user, session: signInData.session };
+  const { data: listData, error: listErr } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+  if (listErr) {
+    console.error(`  [auth] listUsers error: ${listErr.message}`);
+    return null;
+  }
+
+  const existing = (listData?.users || []).find(u => u.email === email);
+  if (existing?.id) {
+    console.log(`  [auth] Usuário encontrado: ${existing.id}`);
+    return existing.id;
+  }
+
+  console.error(`  [auth] ERRO: Usuário ${email} não encontrado após createUser falhar`);
+  return null;
 }
 
 async function getExamConfig(courseName) {
@@ -62,18 +72,24 @@ async function getExamConfig(courseName) {
 }
 
 async function seedUser(u) {
-  process.stdout.write(`Criando ${u.name}... `);
+  process.stdout.write(`Criando ${u.name}...\n`);
 
-  // a) Auth — get an authenticated client for this user
-  const { client, user } = await getAuthenticatedClient(u.email);
-  const userId = user.id;
+  // a) Auth — get or create user, get userId
+  const userId = await getOrCreateUserId(u.email);
+  if (!userId) {
+    console.log(`  ERRO: userId não encontrado para ${u.email}, pulando usuário`);
+    return false;
+  }
 
-  // b) Exam config (public read, anon is fine)
+  // b) Exam config
   const config = await getExamConfig(u.course);
   const configId = config?.id || null;
 
-  // c) Profile — use authenticated client so RLS allows the update
-  const { error: profileErr } = await client.from("profiles").update({
+  // c) Profile — use adminClient (service_role bypasses RLS)
+  console.log(`  Inserindo profile para userId: ${userId}`);
+  // Try upsert: if profile exists (from trigger), update it; if not, insert it
+  const { error: profileErr } = await adminClient.from("profiles").upsert({
+    id: userId,
     name: u.name,
     education_goal: "fuvest",
     desired_course: u.course,
@@ -83,11 +99,11 @@ async function seedUser(u) {
     exam_config_id: configId,
     onboarding_complete: true,
     exam_date: "2027-11-15",
-  }).eq("id", userId);
+  }, { onConflict: "id" });
   if (profileErr) console.error(`  Profile error: ${profileErr.message}`);
 
   // d) Diagnostic simulation
-  const { data: diagQuestions } = await client
+  const { data: diagQuestions } = await adminClient
     .from("diagnostic_questions")
     .select("id, subject, difficulty, options")
     .eq("is_active", true)
@@ -123,7 +139,8 @@ async function seedUser(u) {
   }
 
   if (answerRows.length > 0) {
-    const { error: ahErr } = await client.from("answer_history").insert(answerRows);
+    console.log(`  Inserindo answer_history para userId: ${userId} (${answerRows.length} rows)`);
+    const { error: ahErr } = await adminClient.from("answer_history").insert(answerRows);
     if (ahErr) console.error(`  answer_history error: ${ahErr.message}`);
   }
 
@@ -137,7 +154,8 @@ async function seedUser(u) {
     measured_at: new Date().toISOString(),
   }));
   if (profRows.length > 0) {
-    const { error: psErr } = await client.from("proficiency_scores").insert(profRows);
+    console.log(`  Inserindo proficiency_scores para userId: ${userId} (${profRows.length} rows)`);
+    const { error: psErr } = await adminClient.from("proficiency_scores").insert(profRows);
     if (psErr) console.error(`  proficiency_scores error: ${psErr.message}`);
   }
 
@@ -153,7 +171,8 @@ async function seedUser(u) {
     proficiencies[subj] = { elo: Math.round(elo), score: clamp((elo - 600) / 1200, 0, 1) };
   }
 
-  const { error: deErr } = await client.from("diagnostic_estimates").insert({
+  console.log(`  Inserindo diagnostic_estimates para userId: ${userId}`);
+  const { error: deErr } = await adminClient.from("diagnostic_estimates").insert({
     user_id: userId,
     estimate_scope: "router",
     estimated_score: clamp(u.skill * 100, 0, 100),
@@ -170,7 +189,8 @@ async function seedUser(u) {
 
   // e) Study plan + 15 daily missions
   const today = new Date();
-  const { data: planData, error: spErr } = await client.from("study_plans").insert({
+  console.log(`  Inserindo study_plans para userId: ${userId}`);
+  const { data: planData, error: spErr } = await adminClient.from("study_plans").insert({
     user_id: userId,
     week_number: 1,
     is_current: true,
@@ -206,7 +226,8 @@ async function seedUser(u) {
     }
   }
 
-  const { data: insertedMissions, error: dmErr } = await client.from("daily_missions").insert(missionRows).select("id, subject, mission_type");
+  console.log(`  Inserindo daily_missions para userId: ${userId} (${missionRows.length} rows)`);
+  const { data: insertedMissions, error: dmErr } = await adminClient.from("daily_missions").insert(missionRows).select("id, subject, mission_type");
   if (dmErr) console.error(`  daily_missions error: ${dmErr.message}`);
   const missions = insertedMissions || [];
 
@@ -216,7 +237,7 @@ async function seedUser(u) {
 
   for (const mission of completedMissions) {
     const score = clamp(Math.round(u.skill * 100 + rand(-15, 15)), 20, 100);
-    await client.from("daily_missions").update({
+    await adminClient.from("daily_missions").update({
       status: "completed",
       score,
       completed_at: new Date().toISOString(),
@@ -235,7 +256,8 @@ async function seedUser(u) {
     events.push({ user_id: userId, event_name: "mission_opened", properties: { mission_id: mission.id, type: mission.mission_type } });
     events.push({ user_id: userId, event_name: "mission_completed", properties: { mission_id: mission.id, type: mission.mission_type } });
   }
-  const { error: aeErr } = await client.from("analytics_events").insert(events);
+  console.log(`  Inserindo analytics_events para userId: ${userId} (${events.length} rows)`);
+  const { error: aeErr } = await adminClient.from("analytics_events").insert(events);
   if (aeErr) console.error(`  analytics_events error: ${aeErr.message}`);
 
   // h) Spaced review queue
@@ -251,22 +273,21 @@ async function seedUser(u) {
     last_performance: clamp(u.skill - 0.1, 0, 1),
   }));
   if (reviewRows.length > 0) {
-    const { error: srErr } = await client.from("spaced_review_queue").insert(reviewRows);
+    console.log(`  Inserindo spaced_review_queue para userId: ${userId} (${reviewRows.length} rows)`);
+    const { error: srErr } = await adminClient.from("spaced_review_queue").insert(reviewRows);
     if (srErr) console.error(`  spaced_review_queue error: ${srErr.message}`);
   }
 
-  // Sign out this user's session
-  await client.auth.signOut();
-
-  console.log("✅");
+  console.log(`  ✅ ${u.name} completo`);
+  return true;
 }
 
 async function main() {
   let success = 0;
   for (const u of USERS) {
     try {
-      await seedUser(u);
-      success++;
+      const ok = await seedUser(u);
+      if (ok) success++;
     } catch (err) {
       console.log(`❌ ${err.message}`);
     }

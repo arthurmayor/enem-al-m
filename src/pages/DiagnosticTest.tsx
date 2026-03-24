@@ -193,6 +193,173 @@ function getLevel(elo: number) {
   return { label: "Muito baixo", color: "#991b1b" };
 }
 
+// ─── Router mode functions ──────────────────────────────────────────────────
+
+interface RouterResult {
+  placementBand: "base" | "intermediario" | "competitivo" | "forte";
+  placementConfidence: "low" | "medium";
+  strengths: string[];
+  bottlenecks: string[];
+  initialPriority: Array<{ subject: string; weight: number }>;
+  routerNote: string;
+}
+
+function getBlockForSubject(subject: string): string | null {
+  if (["Português", "Inglês"].includes(subject)) return "linguagens";
+  if (["História", "Geografia", "Filosofia"].includes(subject)) return "humanas";
+  if (["Biologia", "Física", "Química"].includes(subject)) return "natureza";
+  if (subject === "Matemática") return "matematica";
+  return null;
+}
+
+const BLOCK_MAP: Record<string, string[]> = {
+  linguagens: ["Português", "Inglês"],
+  matematica: ["Matemática"],
+  humanas: ["História", "Geografia", "Filosofia"],
+  natureza: ["Biologia", "Física", "Química"],
+};
+
+function selectRouterQuestions(
+  allQuestions: Question[],
+  examConfig: ExamConfig,
+  selfDeclaredBlocks: Record<string, string>,
+): Question[] {
+  const selected: Question[] = [];
+  const usedIds = new Set<string>();
+  const usedSubjects = new Set<string>();
+
+  // BLOCO A: 1 questão por bloco universal
+  for (const [block, subjects] of Object.entries(BLOCK_MAP)) {
+    const selfLevel = selfDeclaredBlocks[block];
+    let targetDifficulty: number;
+    if (selfLevel === "fraco") targetDifficulty = 2;
+    else if (selfLevel === "forte") targetDifficulty = 4;
+    else targetDifficulty = 3;
+
+    const candidates = allQuestions
+      .filter((q) => subjects.includes(q.subject) && !usedIds.has(q.id))
+      .sort(
+        (a, b) =>
+          Math.abs(a.difficulty - targetDifficulty) -
+          Math.abs(b.difficulty - targetDifficulty),
+      );
+
+    if (candidates.length > 0) {
+      const top = candidates.slice(0, Math.min(3, candidates.length));
+      const pick = top[Math.floor(Math.random() * top.length)];
+      selected.push(pick);
+      usedIds.add(pick.id);
+      usedSubjects.add(pick.subject);
+    }
+  }
+
+  // BLOCO B: 4 questões orientadas por curso (phase2_subjects)
+  const phase2 = examConfig.phase2_subjects || [];
+  const phase2Remaining = phase2.filter((s) => !usedSubjects.has(s));
+  for (const subject of phase2Remaining) {
+    if (selected.length >= 8) break;
+    const candidates = allQuestions.filter(
+      (q) => q.subject === subject && !usedIds.has(q.id),
+    );
+    if (candidates.length > 0) {
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      selected.push(pick);
+      usedIds.add(pick.id);
+      usedSubjects.add(pick.subject);
+    }
+  }
+
+  // Completar até 8 com matérias ainda não cobertas
+  const allSubjects = [
+    "Português", "Matemática", "História", "Geografia",
+    "Biologia", "Física", "Química", "Inglês", "Filosofia",
+  ];
+  const uncovered = allSubjects.filter((s) => !usedSubjects.has(s));
+  for (const subject of uncovered) {
+    if (selected.length >= 8) break;
+    const candidates = allQuestions.filter(
+      (q) => q.subject === subject && !usedIds.has(q.id),
+    );
+    if (candidates.length > 0) {
+      const pick = candidates[Math.floor(Math.random() * candidates.length)];
+      selected.push(pick);
+      usedIds.add(pick.id);
+      usedSubjects.add(pick.subject);
+    }
+  }
+
+  return selected;
+}
+
+function shouldAddTiebreaker(answers: boolean[], currentCount: number): boolean {
+  if (currentCount < 8) return false;
+  if (currentCount >= 10) return false;
+  const allCorrect = answers.every((a) => a);
+  const allWrong = answers.every((a) => !a);
+  return allCorrect || allWrong;
+}
+
+function calculateRouterResult(
+  answers: Array<{ subject: string; isCorrect: boolean; difficultyElo: number }>,
+  examConfig: ExamConfig,
+  selfDeclaredBlocks: Record<string, string>,
+): RouterResult {
+  const totalCorrect = answers.filter((a) => a.isCorrect).length;
+  const totalQuestions = answers.length;
+  const rate = totalCorrect / totalQuestions;
+
+  const correctAnswers = answers.filter((a) => a.isCorrect);
+  const correctDiffAvg =
+    correctAnswers.length > 0
+      ? correctAnswers.reduce((s, a) => s + a.difficultyElo, 0) / correctAnswers.length
+      : 900;
+
+  let band: "base" | "intermediario" | "competitivo" | "forte";
+  if (rate < 0.3 || (rate < 0.4 && correctDiffAvg < 1100)) {
+    band = "base";
+  } else if (rate < 0.55 || (rate < 0.65 && correctDiffAvg < 1200)) {
+    band = "intermediario";
+  } else if (rate < 0.75 || (rate < 0.85 && correctDiffAvg < 1350)) {
+    band = "competitivo";
+  } else {
+    band = "forte";
+  }
+
+  const bySubject: Record<string, { correct: number; total: number }> = {};
+  for (const a of answers) {
+    if (!bySubject[a.subject]) bySubject[a.subject] = { correct: 0, total: 0 };
+    bySubject[a.subject].total++;
+    if (a.isCorrect) bySubject[a.subject].correct++;
+  }
+
+  const subjectRates = Object.entries(bySubject)
+    .map(([s, d]) => ({ subject: s, rate: d.correct / d.total }))
+    .sort((a, b) => b.rate - a.rate);
+
+  const strengths = subjectRates.slice(0, 2).map((s) => s.subject);
+  const bottlenecks = subjectRates.slice(-2).map((s) => s.subject);
+
+  const phase2Set = new Set(examConfig.phase2_subjects || []);
+  const priority = subjectRates
+    .map((s) => {
+      let weight = 1.0 - s.rate;
+      if (phase2Set.has(s.subject)) weight *= 1.35;
+      const block = getBlockForSubject(s.subject);
+      if (block && selfDeclaredBlocks[block] === "fraco") weight *= 1.2;
+      return { subject: s.subject, weight: Math.round(weight * 100) / 100 };
+    })
+    .sort((a, b) => b.weight - a.weight);
+
+  return {
+    placementBand: band,
+    placementConfidence: totalQuestions >= 9 ? "medium" : "low",
+    strengths,
+    bottlenecks,
+    initialPriority: priority,
+    routerNote: "Estimativa inicial. Vamos calibrar nas próximas sessões.",
+  };
+}
+
 // ─── Adaptive question selection ─────────────────────────────────────────────
 
 interface QuestionPool {
@@ -370,6 +537,15 @@ const DiagnosticTest = () => {
   const isAdaptiveRef = useRef(false);
   const answeredIdsRef = useRef<Set<string>>(new Set());
 
+  // Mode detection (router = 8-10 questions, deep = 30 questions)
+  const mode = (new URLSearchParams(window.location.search).get("mode") || "router") as "router" | "deep";
+
+  // Router-specific refs
+  const selfDeclaredBlocksRef = useRef<Record<string, string>>({});
+  const routerSessionIdRef = useRef<string | null>(null);
+  const routerTiebreakerPoolRef = useRef<Question[]>([]);
+  const [routerTotalQuestions, setRouterTotalQuestions] = useState(8);
+
   useEffect(() => {
     const interval = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000);
     return () => clearInterval(interval);
@@ -382,7 +558,7 @@ const DiagnosticTest = () => {
       // 1. Get profile → exam_config_id
       const { data: profile } = await supabase
         .from("profiles")
-        .select("exam_config_id")
+        .select("exam_config_id, self_declared_blocks")
         .eq("id", user.id)
         .single();
 
@@ -415,39 +591,81 @@ const DiagnosticTest = () => {
         .eq("exam_slug", examConf.exam_slug)
         .eq("is_active", true);
 
+      // Map DB questions to internal format
+      const mappedQuestions: Question[] =
+        dbQuestions && dbQuestions.length >= (mode === "router" ? 8 : 20)
+          ? dbQuestions.map((q) => ({
+              id: q.id,
+              subject: q.subject,
+              subtopic: q.subtopic,
+              difficulty: q.difficulty,
+              difficulty_elo: q.difficulty_elo || 1200,
+              question_text: q.question_text,
+              options: q.options as QuestionOption[],
+              explanation: q.explanation,
+            }))
+          : [];
+
       let finalQuestions: Question[];
-      if (dbQuestions && dbQuestions.length >= 20) {
-        const mappedQuestions = dbQuestions.map((q) => ({
-          id: q.id,
-          subject: q.subject,
-          subtopic: q.subtopic,
-          difficulty: q.difficulty,
-          difficulty_elo: q.difficulty_elo || 1200,
-          question_text: q.question_text,
-          options: q.options as QuestionOption[],
-          explanation: q.explanation,
-        }));
 
-        const isAdaptive = mappedQuestions.length >= 90; // Only adapt with 3x the needed questions
-        console.log(`Diagnóstico: modo ${isAdaptive ? 'ADAPTATIVO' : 'FIXO'} (${mappedQuestions.length} questões no pool)`);
+      if (mode === "router") {
+        // ─── Router mode: 8 questions + up to 2 tiebreakers ───
+        const sdb = (profile as Record<string, unknown>).self_declared_blocks as Record<string, string> || {};
+        selfDeclaredBlocksRef.current = sdb;
 
-        if (isAdaptive) {
-          // Build pool for adaptive selection — questions will be selected dynamically during the test
-          const pool = buildQuestionPool(mappedQuestions);
-          // Pre-select initial interleaved set as starting order; adaptive selection happens in handleAnswer
-          finalQuestions = interleaveQuestions(mappedQuestions, TOTAL_QUESTIONS);
-          // Store pool for adaptive use
-          questionPoolRef.current = pool;
-          isAdaptiveRef.current = true;
+        if (mappedQuestions.length >= 8) {
+          const routerQs = selectRouterQuestions(mappedQuestions, examConf, sdb);
+          const usedIds = new Set(routerQs.map((q) => q.id));
+          routerTiebreakerPoolRef.current = mappedQuestions.filter((q) => !usedIds.has(q.id));
+          finalQuestions = routerQs;
+          setUsingFallback(false);
         } else {
-          finalQuestions = interleaveQuestions(mappedQuestions, TOTAL_QUESTIONS);
+          const fallback = generateFallbackQuestions(examConf.exam_slug);
+          finalQuestions = fallback.slice(0, 8);
+          routerTiebreakerPoolRef.current = fallback.slice(8, 12);
+          setUsingFallback(true);
+        }
+        isAdaptiveRef.current = false;
+
+        // Create diagnostic_session
+        try {
+          const { data: session } = await supabase
+            .from("diagnostic_sessions")
+            .insert({
+              user_id: user.id,
+              exam_config_id: examConf.id,
+              session_type: "router",
+              status: "in_progress",
+            })
+            .select("id")
+            .single();
+          if (session) routerSessionIdRef.current = session.id;
+        } catch (err) {
+          console.warn("Could not create diagnostic_session:", err);
+        }
+
+        console.log(`Diagnóstico ROUTER: ${finalQuestions.length} questões iniciais, ${routerTiebreakerPoolRef.current.length} tiebreakers disponíveis`);
+      } else {
+        // ─── Deep mode: 30 questions with Elo adaptive ─────────
+        if (mappedQuestions.length >= 20) {
+          const isAdaptive = mappedQuestions.length >= 90;
+          console.log(`Diagnóstico: modo ${isAdaptive ? 'ADAPTATIVO' : 'FIXO'} (${mappedQuestions.length} questões no pool)`);
+
+          if (isAdaptive) {
+            const pool = buildQuestionPool(mappedQuestions);
+            finalQuestions = interleaveQuestions(mappedQuestions, TOTAL_QUESTIONS);
+            questionPoolRef.current = pool;
+            isAdaptiveRef.current = true;
+          } else {
+            finalQuestions = interleaveQuestions(mappedQuestions, TOTAL_QUESTIONS);
+            isAdaptiveRef.current = false;
+          }
+          setUsingFallback(false);
+        } else {
+          finalQuestions = generateFallbackQuestions(examConf.exam_slug);
+          setUsingFallback(true);
           isAdaptiveRef.current = false;
         }
-        setUsingFallback(false);
-      } else {
-        finalQuestions = generateFallbackQuestions(examConf.exam_slug);
-        setUsingFallback(true);
-        isAdaptiveRef.current = false;
       }
 
       setQuestions(finalQuestions);
@@ -515,40 +733,184 @@ const DiagnosticTest = () => {
         });
       }
 
+      // Save to diagnostic_item_responses (router mode)
+      if (mode === "router" && user && routerSessionIdRef.current && !q.id.startsWith("fallback")) {
+        try {
+          await supabase.from("diagnostic_item_responses").insert({
+            session_id: routerSessionIdRef.current,
+            user_id: user.id,
+            question_id: q.id,
+            layer: "router",
+            sequence_no: currentIndex + 1,
+            subject: q.subject,
+            subtopic: q.subtopic || null,
+            selected_option: optionLabel,
+            correct_option: q.options.find((o) => o.is_correct)?.label || null,
+            is_correct: correct,
+            response_time_seconds: responseTime,
+            difficulty_presented: q.difficulty_elo,
+          });
+        } catch (err) {
+          console.warn("Could not save diagnostic_item_response:", err);
+        }
+      }
+
       // Next question after delay
       setTimeout(() => {
-        if (currentIndex < TOTAL_QUESTIONS - 1) {
-          // In adaptive mode, replace the next question based on current Elo
-          if (isAdaptiveRef.current) {
-            const nextIdx = currentIndex + 1;
-            const nextSubject = SUBJECT_ORDER[nextIdx % SUBJECT_ORDER.length];
-            const currentElo = proficienciesRef.current[nextSubject]?.elo || 1200;
-            const adaptiveNext = selectNextQuestion(
-              questionPoolRef.current,
-              nextSubject,
-              currentElo,
-              answeredIdsRef.current
-            );
-            if (adaptiveNext) {
-              setQuestions((prev) => {
-                const updated = [...prev];
-                updated[nextIdx] = adaptiveNext;
-                return updated;
-              });
+        if (mode === "router") {
+          // ─── Router stopping logic ───
+          const answeredCount = rawAnswersRef.current.length;
+          const allResults = rawAnswersRef.current.map((a) => a.is_correct);
+
+          if (answeredCount < 8) {
+            // Still in mandatory questions
+            setCurrentIndex((i) => i + 1);
+            setSelectedOption(null);
+            setQuestionStartTime(Date.now());
+          } else if (answeredCount >= 10) {
+            // Maximum absolute
+            finishRouter();
+          } else if (shouldAddTiebreaker(allResults, answeredCount)) {
+            // Extreme pattern — add tiebreaker question
+            const pool = routerTiebreakerPoolRef.current;
+            if (pool.length > 0) {
+              const pick = pool[Math.floor(Math.random() * pool.length)];
+              routerTiebreakerPoolRef.current = pool.filter((qq) => qq.id !== pick.id);
+              setQuestions((prev) => [...prev, pick]);
+              setRouterTotalQuestions(answeredCount + 1);
+              setCurrentIndex((i) => i + 1);
+              setSelectedOption(null);
+              setQuestionStartTime(Date.now());
+            } else {
+              finishRouter(); // No more tiebreaker questions available
             }
+          } else {
+            // Mixed pattern after 8+ questions — done
+            finishRouter();
           }
-          setCurrentIndex((i) => i + 1);
-          setSelectedOption(null);
-          setQuestionStartTime(Date.now());
         } else {
-          // Finalize and navigate
-          finishDiagnostic();
+          // ─── Deep mode: existing logic ───
+          if (currentIndex < TOTAL_QUESTIONS - 1) {
+            if (isAdaptiveRef.current) {
+              const nextIdx = currentIndex + 1;
+              const nextSubject = SUBJECT_ORDER[nextIdx % SUBJECT_ORDER.length];
+              const currentElo = proficienciesRef.current[nextSubject]?.elo || 1200;
+              const adaptiveNext = selectNextQuestion(
+                questionPoolRef.current,
+                nextSubject,
+                currentElo,
+                answeredIdsRef.current,
+              );
+              if (adaptiveNext) {
+                setQuestions((prev) => {
+                  const updated = [...prev];
+                  updated[nextIdx] = adaptiveNext;
+                  return updated;
+                });
+              }
+            }
+            setCurrentIndex((i) => i + 1);
+            setSelectedOption(null);
+            setQuestionStartTime(Date.now());
+          } else {
+            finishDiagnostic();
+          }
         }
       }, 1200);
     },
     [selectedOption, currentQuestion, currentIndex, questionStartTime, user, questions]
   );
 
+  // ─── Router finalization ──────────────────────────────────────────────────
+  const finishRouter = async () => {
+    if (!user || !examConfig) return;
+
+    const answers = rawAnswersRef.current.map((a) => ({
+      subject: a.subject,
+      isCorrect: a.is_correct,
+      difficultyElo: a.difficulty_elo,
+    }));
+    const routerResult = calculateRouterResult(answers, examConfig, selfDeclaredBlocksRef.current);
+    const totalCorrect = rawAnswersRef.current.filter((a) => a.is_correct).length;
+    const totalQuestions = rawAnswersRef.current.length;
+
+    // Update diagnostic_sessions → completed
+    if (routerSessionIdRef.current) {
+      try {
+        await supabase
+          .from("diagnostic_sessions")
+          .update({
+            status: "completed",
+            completed_at: new Date().toISOString(),
+            total_items_presented: totalQuestions,
+            total_correct: totalCorrect,
+            placement_band: routerResult.placementBand,
+            placement_confidence: routerResult.placementConfidence,
+          })
+          .eq("id", routerSessionIdRef.current);
+      } catch (err) {
+        console.warn("Could not update diagnostic_session:", err);
+      }
+    }
+
+    // Save diagnostic_estimates
+    if (routerSessionIdRef.current) {
+      try {
+        await supabase.from("diagnostic_estimates").insert({
+          user_id: user.id,
+          session_id: routerSessionIdRef.current,
+          estimate_scope: "router",
+          placement_band: routerResult.placementBand,
+          placement_confidence: routerResult.placementConfidence,
+          strengths_json: routerResult.strengths,
+          bottlenecks_json: routerResult.bottlenecks,
+          initial_priority_json: routerResult.initialPriority,
+        });
+      } catch (err) {
+        console.warn("Could not save diagnostic_estimates:", err);
+      }
+    }
+
+    // Save proficiency_scores (low confidence from router)
+    const prof = proficienciesRef.current;
+    try {
+      await supabase
+        .from("proficiency_scores")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("source", "diagnostic");
+
+      const rows = Object.entries(prof).map(([subject, p]) => ({
+        user_id: user.id,
+        subject,
+        subtopic: subject,
+        score: Math.min(1, Math.max(0, (p.elo - 600) / 1200)),
+        confidence: Math.min(1, p.total / 10),
+        source: "diagnostic",
+        measured_at: new Date().toISOString(),
+      }));
+      if (rows.length > 0) {
+        await supabase.from("proficiency_scores").insert(rows);
+      }
+    } catch (err) {
+      console.warn("Could not save proficiency_scores:", err);
+    }
+
+    console.log("=== ROUTER RESULT ===", { routerResult, totalCorrect, totalQuestions });
+
+    navigate("/diagnostic/results", {
+      state: {
+        mode: "router",
+        routerResult,
+        totalCorrect,
+        totalQuestions,
+        examConfig,
+        answers: rawAnswersRef.current,
+      },
+    });
+  };
+
+  // ─── Deep finalization ──────────────────────────────────────────────────
   const finishDiagnostic = async () => {
     if (!user || !examConfig) return;
 
@@ -703,7 +1065,7 @@ const DiagnosticTest = () => {
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="flex items-center justify-between h-14">
             <span className="text-sm font-semibold text-foreground">
-              Questão {currentIndex + 1} de {TOTAL_QUESTIONS}
+              Questão {currentIndex + 1} de {mode === "router" ? routerTotalQuestions : TOTAL_QUESTIONS}
             </span>
             <span className="text-xs font-semibold px-3 py-1 rounded-full bg-primary/5 text-primary">
               {currentSubject}
@@ -717,7 +1079,7 @@ const DiagnosticTest = () => {
           <div className="h-1 bg-muted rounded-full -mt-1 mb-1">
             <div
               className="h-1 bg-primary rounded-full transition-all duration-500"
-              style={{ width: `${((currentIndex + 1) / TOTAL_QUESTIONS) * 100}%` }}
+              style={{ width: `${((currentIndex + 1) / (mode === "router" ? routerTotalQuestions : TOTAL_QUESTIONS)) * 100}%` }}
             />
           </div>
         </div>

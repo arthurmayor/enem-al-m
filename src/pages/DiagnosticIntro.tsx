@@ -1,8 +1,13 @@
-import { Link } from "react-router-dom";
-import { BookOpen, Clock, Target, ChevronRight, Lightbulb } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { BookOpen, Clock, Target, ChevronRight, Lightbulb, Zap } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 
 const DiagnosticIntro = () => {
+  const [searchParams] = useSearchParams();
+  const mode = (searchParams.get("mode") || "router") as "router" | "deep";
+
+  const isRouter = mode === "router";
+
   return (
     <div className="min-h-screen bg-white pb-20">
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
@@ -19,11 +24,25 @@ const DiagnosticIntro = () => {
       <main className="container mx-auto px-4 py-10 max-w-lg">
         <div className="text-center animate-fade-in">
           <div className="h-20 w-20 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-6">
-            <Target className="h-10 w-10 text-foreground" />
+            {isRouter ? (
+              <Zap className="h-10 w-10 text-foreground" />
+            ) : (
+              <Target className="h-10 w-10 text-foreground" />
+            )}
           </div>
-          <h1 className="text-2xl font-semibold text-foreground">Vamos descobrir seu nível atual</h1>
+          <h1 className="text-2xl font-semibold text-foreground">
+            {isRouter ? "Vamos montar seu ponto de partida" : "Vamos descobrir seu nível atual"}
+          </h1>
           <p className="text-muted-foreground mt-3 leading-relaxed">
-            Você vai responder <strong className="text-foreground">30 questões adaptativas</strong>. O teste ajusta a dificuldade com base nas suas respostas.
+            {isRouter ? (
+              <>
+                São <strong className="text-foreground">8 questões rápidas</strong> para entender suas forças e lacunas. Usamos isso para montar seu plano personalizado.
+              </>
+            ) : (
+              <>
+                Você vai responder <strong className="text-foreground">30 questões adaptativas</strong>. O teste ajusta a dificuldade com base nas suas respostas.
+              </>
+            )}
           </p>
         </div>
 
@@ -33,7 +52,9 @@ const DiagnosticIntro = () => {
               <Clock className="h-4 w-4 text-foreground" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">~30 minutos</p>
+              <p className="text-sm font-semibold text-foreground">
+                {isRouter ? "~5 minutos" : "~30 minutos"}
+              </p>
               <p className="text-xs text-muted-foreground">Tempo estimado para completar</p>
             </div>
           </div>
@@ -42,8 +63,14 @@ const DiagnosticIntro = () => {
               <Target className="h-4 w-4 text-foreground" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-foreground">Adaptativo</p>
-              <p className="text-xs text-muted-foreground">A dificuldade se ajusta ao seu nível</p>
+              <p className="text-sm font-semibold text-foreground">
+                {isRouter ? "Diagnóstico rápido" : "Adaptativo"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {isRouter
+                  ? "Questões estratégicas para mapear seu perfil"
+                  : "A dificuldade se ajusta ao seu nível"}
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-2xl">
@@ -59,10 +86,10 @@ const DiagnosticIntro = () => {
 
         <div className="mt-10 animate-fade-in" style={{ animationDelay: "0.2s" }}>
           <Link
-            to="/diagnostic/test"
+            to={`/diagnostic/test?mode=${mode}`}
             className="w-full h-12 inline-flex items-center justify-center rounded-full bg-foreground text-white text-base font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all duration-200"
           >
-            Iniciar Diagnóstico
+            {isRouter ? "Começar Diagnóstico Rápido" : "Iniciar Diagnóstico Completo"}
             <ChevronRight className="ml-1 h-4 w-4" />
           </Link>
         </div>

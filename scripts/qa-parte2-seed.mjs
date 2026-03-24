@@ -93,7 +93,7 @@ async function seedUser(u) {
     name: u.name,
     education_goal: "fuvest",
     desired_course: u.course,
-    hours_per_day: u.hours,
+    hours_per_day: Math.ceil(u.hours),
     available_days: ALL_DAYS.slice(0, u.days),
     school_stage: u.stage,
     exam_config_id: configId,
@@ -102,11 +102,10 @@ async function seedUser(u) {
   }, { onConflict: "id" });
   if (profileErr) console.error(`  Profile error: ${profileErr.message}`);
 
-  // d) Diagnostic simulation
+  // d) Diagnostic simulation — fetch from 'questions' table (answer_history FK references questions)
   const { data: diagQuestions } = await adminClient
-    .from("diagnostic_questions")
+    .from("questions")
     .select("id, subject, difficulty, options")
-    .eq("is_active", true)
     .limit(30);
 
   const questions = diagQuestions || [];
@@ -282,7 +281,37 @@ async function seedUser(u) {
   return true;
 }
 
+async function cleanupOldSeedData(userIds) {
+  console.log(`Limpando dados antigos de ${userIds.length} usuários seed...`);
+  // Delete in reverse dependency order to avoid FK violations
+  const tables = [
+    "spaced_review_queue",
+    "analytics_events",
+    "daily_missions",
+    "study_plans",
+    "diagnostic_estimates",
+    "proficiency_scores",
+    "answer_history",
+  ];
+  for (const table of tables) {
+    const { error, count } = await adminClient.from(table).delete({ count: "exact" }).in("user_id", userIds);
+    if (error) console.error(`  Cleanup ${table}: ${error.message}`);
+    else console.log(`  ${table}: ${count ?? 0} registros deletados`);
+  }
+  console.log("Cleanup concluído.\n");
+}
+
 async function main() {
+  // Collect userIds for all seed users first, then cleanup old data
+  const userIds = [];
+  for (const u of USERS) {
+    const uid = await getOrCreateUserId(u.email);
+    if (uid) userIds.push(uid);
+  }
+  if (userIds.length > 0) {
+    await cleanupOldSeedData(userIds);
+  }
+
   let success = 0;
   for (const u of USERS) {
     try {

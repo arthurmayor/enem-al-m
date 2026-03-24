@@ -352,14 +352,14 @@ const MissionPage = () => {
           const content = data.reply as string;
           setSummaryContent(content);
           // Cache no payload da mission
-          await supabase.rpc("jsonb_set_mission_cache", { mission_id: id, content_val: content }).then(({ error: rpcErr }) => { if (rpcErr) {
+          const { error: rpcErr } = await supabase.rpc("jsonb_set_mission_cache", { mission_id: id, content_val: content });
+          if (rpcErr) {
             // Fallback: update direto
-            supabase
+            await supabase
               .from("daily_missions")
               .update({ payload: { ...(missionData?.payload || {}), cached_content: content } })
-              .eq("id", id)
-              .then(() => {});
-          });
+              .eq("id", id);
+          }
         } catch {
           setSummaryError(true);
         } finally {

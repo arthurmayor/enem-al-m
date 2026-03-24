@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight, Info, Award, Target, TrendingUp } from "lucide-react";
+import { ChevronRight, Info, Award, Target, TrendingUp, Zap, ShieldCheck, AlertTriangle } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,6 +72,32 @@ interface DiagnosticState {
   blendInfo?: BlendInfo;
 }
 
+// Router result types
+interface RouterResultData {
+  placementBand: "base" | "intermediario" | "competitivo" | "forte";
+  placementConfidence: "low" | "medium";
+  strengths: string[];
+  bottlenecks: string[];
+  initialPriority: Array<{ subject: string; weight: number }>;
+  routerNote: string;
+}
+
+interface RouterState {
+  mode: "router";
+  routerResult: RouterResultData;
+  totalCorrect: number;
+  totalQuestions: number;
+  examConfig: ExamConfigState;
+  answers: Array<{ subject: string; is_correct: boolean; difficulty_elo: number }>;
+}
+
+const BAND_CONFIG: Record<string, { label: string; color: string; bgColor: string; borderColor: string; icon: "forte" | "competitivo" | "intermediario" | "base" }> = {
+  forte: { label: "Forte", color: "#14532d", bgColor: "#ecfdf5", borderColor: "#6ee7b7", icon: "forte" },
+  competitivo: { label: "Competitivo", color: "#166534", bgColor: "#f0fdf4", borderColor: "#bbf7d0", icon: "competitivo" },
+  intermediario: { label: "Intermediário", color: "#a16207", bgColor: "#fefce8", borderColor: "#fef08a", icon: "intermediario" },
+  base: { label: "Base", color: "#9a3412", bgColor: "#fff7ed", borderColor: "#fed7aa", icon: "base" },
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function expectedAccuracy(studentElo: number, meanDiff: number, sdDiff: number): number {
@@ -105,12 +131,20 @@ const DiagnosticResults = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [data, setData] = useState<DiagnosticState | null>(null);
+  const [routerData, setRouterData] = useState<RouterState | null>(null);
   const [loading, setLoading] = useState(true);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
 
   useEffect(() => {
-    const state = location.state as DiagnosticState | null;
+    const state = location.state as (DiagnosticState & { mode?: string; routerResult?: RouterResultData }) | null;
+
+    if (state?.mode === "router" && state?.routerResult) {
+      setRouterData(state as unknown as RouterState);
+      setLoading(false);
+      return;
+    }
+
     if (state?.proficiencies && state?.examConfig) {
       setData(state);
       setLoading(false);
@@ -181,10 +215,209 @@ const DiagnosticResults = () => {
     } catch (err) { console.error(err); setGeneratingPlan(false); }
   };
 
+  // Generate plan handler for router mode
+  const handleRouterGeneratePlan = async () => {
+    if (!user || !routerData) return;
+    setGeneratingPlan(true);
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("name, education_goal, desired_course, exam_date, hours_per_day, study_days")
+        .eq("id", user.id)
+        .single();
+      const userProfile = profile || {};
+
+      const rr = routerData.routerResult;
+      const proficiencyScores = {
+        proficiency: rr.initialPriority.map((p) => ({
+          subject: p.subject,
+          subtopic: p.subject,
+          score: Math.max(0, 1 - p.weight),
+          confidence: routerData.totalQuestions >= 9 ? 0.3 : 0.2,
+        })),
+        overall_readiness: routerData.totalCorrect / routerData.totalQuestions,
+        priority_areas: rr.bottlenecks,
+        summary: `Router diagnóstico — Faixa: ${rr.placementBand}. Forças: ${rr.strengths.join(", ")}. Gargalos: ${rr.bottlenecks.join(", ")}.`,
+      };
+
+      const { data: plan, error: invokeError } = await supabase.functions.invoke("generate-study-plan", {
+        body: { proficiencyScores, userProfile },
+      });
+      if (invokeError) throw new Error(invokeError.message);
+      if (plan?.error) throw new Error(plan.error);
+
+      await supabase.from("daily_missions").delete().eq("user_id", user.id);
+      await supabase.from("study_plans").delete().eq("user_id", user.id);
+
+      const { data: savedPlan, error: planError } = await supabase
+        .from("study_plans")
+        .insert({ user_id: user.id, week_number: 1, start_date: new Date().toISOString().split("T")[0], plan_json: plan, is_current: true, version: 1 })
+        .select("id")
+        .single();
+      if (planError) throw new Error(planError.message);
+
+      const dayNames: Record<string, number> = { Domingo: 0, Segunda: 1, Terca: 2, Quarta: 3, Quinta: 4, Sexta: 5, Sabado: 6 };
+      const start = new Date();
+      start.setHours(0, 0, 0, 0);
+      start.setDate(start.getDate() + 1);
+      const firstOfWeekday: Record<number, Date> = {};
+      for (let wd = 0; wd <= 6; wd++) { const d = new Date(start); while (d.getDay() !== wd) d.setDate(d.getDate() + 1); firstOfWeekday[wd] = new Date(d); }
+      const weekdayCount: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+      const missionsToInsert: { user_id: string; study_plan_id: string; date: string; subject: string; subtopic: string; mission_type: string; status: string }[] = [];
+      for (const week of plan.weeks ?? []) {
+        for (const dayObj of week.days ?? []) {
+          const targetWeekday = dayNames[dayObj.day] ?? 1;
+          const n = weekdayCount[targetWeekday] ?? 0;
+          const base = firstOfWeekday[targetWeekday];
+          const d = new Date(base); d.setDate(d.getDate() + n * 7);
+          weekdayCount[targetWeekday] = n + 1;
+          const dateStr = d.toISOString().split("T")[0];
+          for (const mission of dayObj.missions ?? []) {
+            missionsToInsert.push({ user_id: user.id, study_plan_id: savedPlan.id, date: dateStr, subject: mission.subject ?? "Geral", subtopic: mission.subtopic ?? "", mission_type: mission.type ?? "questions", status: "pending" });
+          }
+        }
+      }
+      if (missionsToInsert.length > 0) await supabase.from("daily_missions").insert(missionsToInsert);
+      navigate("/dashboard");
+    } catch (err) {
+      console.error(err);
+      setGeneratingPlan(false);
+    }
+  };
+
   if (loading) {
     return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>);
   }
 
+  // ─── Router results view ────────────────────────────────────────────────────
+  if (routerData) {
+    const { routerResult, totalCorrect, totalQuestions, examConfig } = routerData;
+    const bandCfg = BAND_CONFIG[routerResult.placementBand];
+
+    return (
+      <div className="min-h-screen bg-white pb-20">
+        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+          <div className="container mx-auto flex h-14 items-center px-4 max-w-3xl">
+            <span className="text-base font-semibold text-foreground">Seu Ponto de Partida</span>
+          </div>
+        </header>
+
+        <main className="container mx-auto px-4 py-8 max-w-3xl space-y-6">
+          {/* Title */}
+          <div className="text-center animate-fade-in">
+            <h1 className="text-xl font-bold text-foreground">
+              {examConfig.exam_name} — {examConfig.course_name}
+            </h1>
+          </div>
+
+          {/* Acertos */}
+          <div className="p-4 bg-card rounded-xl shadow-rest text-center animate-fade-in" style={{ animationDelay: "0.05s" }}>
+            <span className="text-sm font-medium text-muted-foreground">Diagnóstico rápido</span>
+            <p className="text-2xl font-bold text-foreground mt-1">
+              {totalCorrect} de {totalQuestions} acertos
+            </p>
+          </div>
+
+          {/* Placement band */}
+          <div
+            className="p-5 rounded-xl border-2 animate-fade-in"
+            style={{ backgroundColor: bandCfg.bgColor, borderColor: bandCfg.borderColor, animationDelay: "0.1s" }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="h-5 w-5" style={{ color: bandCfg.color }} />
+              <span className="text-sm font-semibold" style={{ color: bandCfg.color }}>
+                Sua faixa inicial
+              </span>
+            </div>
+            <p className="text-2xl font-bold" style={{ color: bandCfg.color }}>
+              {bandCfg.label}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              {routerResult.routerNote}
+            </p>
+            <span className={`inline-block mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+              routerResult.placementConfidence === "medium"
+                ? "bg-yellow-100 text-yellow-700"
+                : "bg-orange-100 text-orange-700"
+            }`}>
+              Confiança {routerResult.placementConfidence === "medium" ? "média" : "baixa"}
+            </span>
+          </div>
+
+          {/* Strengths */}
+          {routerResult.strengths.length > 0 && (
+            <div className="animate-fade-in" style={{ animationDelay: "0.15s" }}>
+              <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-green-600" />
+                Suas forças
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {routerResult.strengths.map((s) => (
+                  <span key={s} className="px-3 py-1.5 rounded-lg bg-green-50 border border-green-200 text-sm font-medium text-green-700">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bottlenecks */}
+          {routerResult.bottlenecks.length > 0 && (
+            <div className="animate-fade-in" style={{ animationDelay: "0.2s" }}>
+              <h2 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                Gargalos para focar
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {routerResult.bottlenecks.map((s) => (
+                  <span key={s} className="px-3 py-1.5 rounded-lg bg-orange-50 border border-orange-200 text-sm font-medium text-orange-700">
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Priority list */}
+          {routerResult.initialPriority.length > 0 && (
+            <div className="animate-fade-in" style={{ animationDelay: "0.25s" }}>
+              <h2 className="text-base font-semibold text-foreground mb-3">Prioridade de estudo</h2>
+              <div className="space-y-2">
+                {routerResult.initialPriority.map((p, i) => (
+                  <div key={p.subject} className="flex items-center gap-3 p-3 bg-card rounded-lg border border-gray-100">
+                    <span className="text-sm font-bold text-muted-foreground w-6">{i + 1}.</span>
+                    <span className="text-sm font-medium text-foreground flex-1">{p.subject}</span>
+                    <div className="h-1.5 w-16 bg-muted rounded-full">
+                      <div
+                        className="h-1.5 rounded-full bg-primary"
+                        style={{ width: `${Math.min(100, p.weight * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CTA */}
+          <div className="animate-fade-in" style={{ animationDelay: "0.3s" }}>
+            <button
+              onClick={handleRouterGeneratePlan}
+              disabled={generatingPlan}
+              className="w-full h-12 inline-flex items-center justify-center rounded-lg bg-primary text-primary-foreground text-base font-semibold hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-60"
+            >
+              {generatingPlan ? "Montando seu plano..." : "Ver meu plano de 7 dias"}
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </button>
+          </div>
+        </main>
+
+        <BottomNav />
+      </div>
+    );
+  }
+
+  // ─── Deep mode: no data fallback ────────────────────────────────────────────
   if (!data?.proficiencies) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center px-4">

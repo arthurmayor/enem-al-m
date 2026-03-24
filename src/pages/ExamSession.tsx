@@ -64,11 +64,21 @@ const ExamSession = () => {
         .gte("created_at", since72h);
       const recentIds = new Set((recentAnswers || []).map(a => a.question_id));
 
-      const { data } = await supabase.from("questions").select("*").limit(300);
-      if (data && data.length > 0) {
+      // Fetch from BOTH tables (diagnostic_questions + questions), combine & deduplicate
+      const [{ data: diagData }, { data: questData }] = await Promise.all([
+        supabase.from("diagnostic_questions").select("*").eq("is_active", true).limit(300),
+        supabase.from("questions").select("*").limit(300),
+      ]);
+      const seen = new Set<string>();
+      const allQuestions: Question[] = [];
+      for (const q of [...(diagData || []), ...(questData || [])] as Question[]) {
+        if (!seen.has(q.id)) { seen.add(q.id); allQuestions.push(q); }
+      }
+
+      if (allQuestions.length > 0) {
         // Separate into fresh and recent
-        const fresh = data.filter((q: Question) => !recentIds.has(q.id));
-        const pool = fresh.length >= config.questionCount ? fresh : data;
+        const fresh = allQuestions.filter((q: Question) => !recentIds.has(q.id));
+        const pool = fresh.length >= config.questionCount ? fresh : allQuestions;
 
         const bySubject: Record<string, Question[]> = {};
         (pool as Question[]).forEach((q) => {

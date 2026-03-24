@@ -114,18 +114,23 @@ function humanizeStrengths(subjects: string[]): string {
 async function generateAndSavePlan(
   userId: string,
   proficiencyScores: Record<string, unknown>,
+  diagnosticResult: { placement_band: string; strengths: string[]; bottlenecks: string[] },
+  examConfigData: { phase2_subjects: string[]; cutoff_mean: number; competition_ratio: number; subject_distribution: Record<string, unknown>; total_questions: number },
   navigate: (path: string) => void,
   setGenerating: (v: boolean) => void,
 ) {
   const { data: profile } = await supabase
     .from("profiles")
-    .select("name, education_goal, desired_course, exam_date, hours_per_day, study_days")
+    .select("name, education_goal, desired_course, exam_date, hours_per_day, study_days, self_declared_blocks")
     .eq("id", userId)
     .single();
-  const userProfile = profile || {};
+  const userProfile = {
+    ...(profile || {}),
+    self_declared_blocks: (profile as Record<string, unknown>)?.self_declared_blocks || {},
+  };
 
   const { data: plan, error: invokeError } = await supabase.functions.invoke("generate-study-plan", {
-    body: { proficiencyScores, userProfile },
+    body: { proficiencyScores, userProfile, diagnosticResult, examConfig: examConfigData },
   });
   if (invokeError) throw new Error(invokeError.message);
   if (plan?.error) throw new Error(plan.error);
@@ -168,6 +173,7 @@ async function generateAndSavePlan(
     subtopic: string;
     mission_type: string;
     status: string;
+    estimated_minutes: number;
   }[] = [];
 
   for (const week of plan.weeks ?? []) {
@@ -188,6 +194,7 @@ async function generateAndSavePlan(
           subtopic: mission.subtopic ?? "",
           mission_type: mission.type ?? "questions",
           status: "pending",
+          estimated_minutes: mission.estimated_minutes ?? 15,
         });
       }
     }
@@ -245,7 +252,15 @@ const DiagnosticResults = () => {
         priority_areas: rr.bottlenecks,
         summary: `Diagnóstico rápido — Forças: ${rr.strengths.join(", ")}. Foco: ${rr.bottlenecks.join(", ")}.`,
       };
-      await generateAndSavePlan(user.id, proficiencyScores, navigate, setGeneratingPlan);
+      const ec = routerData.examConfig;
+      await generateAndSavePlan(
+        user.id,
+        proficiencyScores,
+        { placement_band: rr.placementBand, strengths: rr.strengths, bottlenecks: rr.bottlenecks },
+        { phase2_subjects: ec.phase2_subjects || [], cutoff_mean: ec.cutoff_mean, competition_ratio: ec.competition_ratio, subject_distribution: ec.subject_distribution, total_questions: ec.total_questions },
+        navigate,
+        setGeneratingPlan,
+      );
     } catch (err) {
       console.error(err);
       setGeneratingPlan(false);
@@ -268,7 +283,26 @@ const DiagnosticResults = () => {
         priority_areas: data.priorities.map((p) => p.subject),
         summary: `Diagnóstico ${data.examConfig.exam_name} - ${data.examConfig.course_name}. Nota estimada: ${data.estimatedScore}/${data.examConfig.total_questions}.`,
       };
-      await generateAndSavePlan(user.id, proficiencyScores, navigate, setGeneratingPlan);
+      // Derive placement_band from accuracy rate
+      const accuracy = data.totalCorrect / data.totalQuestions;
+      let band = "intermediario";
+      if (accuracy >= 0.75) band = "forte";
+      else if (accuracy >= 0.55) band = "competitivo";
+      else if (accuracy < 0.3) band = "base";
+      const deepStrengths = Object.entries(data.proficiencies)
+        .sort((a, b) => b[1].elo - a[1].elo)
+        .slice(0, 2)
+        .map(([s]) => s);
+      const deepBottlenecks = data.priorities.slice(0, 3).map((p) => p.subject);
+      const ec = data.examConfig;
+      await generateAndSavePlan(
+        user.id,
+        proficiencyScores,
+        { placement_band: band, strengths: deepStrengths, bottlenecks: deepBottlenecks },
+        { phase2_subjects: ec.phase2_subjects || [], cutoff_mean: ec.cutoff_mean, competition_ratio: ec.competition_ratio, subject_distribution: ec.subject_distribution, total_questions: ec.total_questions },
+        navigate,
+        setGeneratingPlan,
+      );
     } catch (err) {
       console.error(err);
       setGeneratingPlan(false);

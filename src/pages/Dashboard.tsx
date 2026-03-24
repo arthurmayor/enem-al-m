@@ -21,10 +21,20 @@ interface Mission {
   mission_type: string;
   status: string;
   date: string;
+  estimated_minutes?: number;
 }
 
 const missionTypeLabels: Record<string, string> = {
   questions: "Questões",
+  error_review: "Revisão de erros",
+  short_summary: "Resumo",
+  spaced_review: "Revisão",
+  mixed_block: "Bloco misto",
+  reading_work: "Leitura",
+  writing_outline: "Planejamento de redação",
+  writing_partial: "Redação parcial",
+  writing_full: "Redação completa",
+  // Legacy
   summary: "Resumo",
   flashcards: "Flashcards",
   review: "Revisão de erros",
@@ -49,7 +59,7 @@ const Dashboard = () => {
       const today = new Date().toISOString().split("T")[0];
       const { data: missionsData } = await supabase
         .from("daily_missions")
-        .select("*")
+        .select("id, subject, subtopic, mission_type, status, date, estimated_minutes")
         .eq("user_id", user.id)
         .eq("date", today);
       if (missionsData) setMissions(missionsData);
@@ -68,9 +78,11 @@ const Dashboard = () => {
   const hasMissions = missions.length > 0;
   const needsDiagnostic = !profile?.onboarding_complete;
 
-  // Estimate total study time for today
-  const totalMinutesToday = missions.length * 15;
-  const completedMinutesToday = completedMissions * 15;
+  // Estimate total study time for today (use real estimated_minutes when available)
+  const totalMinutesToday = missions.reduce((s, m) => s + (m.estimated_minutes || 15), 0);
+  const completedMinutesToday = missions
+    .filter((m) => m.status === "completed")
+    .reduce((s, m) => s + (m.estimated_minutes || 15), 0);
 
   // Mock weekly data (from missions data)
   const weeklySessionsTarget = 5;
@@ -175,7 +187,7 @@ const Dashboard = () => {
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
                       <Clock className="h-3 w-3" />
-                      15 min
+                      {mission.estimated_minutes || 15} min
                     </div>
                   </Link>
                 );

@@ -10,6 +10,7 @@ import StepRoutine from "@/components/onboarding/StepRoutine";
 import StepAboutYou from "@/components/onboarding/StepAboutYou";
 import StepSelfAssessment from "@/components/onboarding/StepSelfAssessment";
 import { type OnboardingData, INITIAL_DATA, STORAGE_KEY } from "@/components/onboarding/types";
+import { trackEvent } from "@/lib/trackEvent";
 
 const TOTAL_STEPS = 4;
 
@@ -27,6 +28,11 @@ const Onboarding = () => {
   const [data, setData] = useState<OnboardingData>(loadDraft);
   const [loading, setLoading] = useState(false);
   const step = data.current_step;
+
+  // Track onboarding start once
+  useEffect(() => {
+    trackEvent("onboarding_started", {}, user?.id);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist draft on every change
   useEffect(() => {
@@ -74,11 +80,13 @@ const Onboarding = () => {
       toast.error("Erro ao salvar. Tente novamente.");
     } else {
       localStorage.removeItem(STORAGE_KEY);
+      trackEvent("onboarding_completed", {}, user?.id);
       navigate("/diagnostic/intro");
     }
   };
 
   const handleNext = () => {
+    trackEvent("onboarding_step_completed", { step }, user?.id);
     if (step < TOTAL_STEPS) update("current_step", step + 1);
     else handleFinish();
   };

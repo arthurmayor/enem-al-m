@@ -306,6 +306,9 @@ const MissionPage = () => {
   // Calibration answers collector (Change 1)
   const calibrationAnswers = useRef<AnswerForCalibration[]>([]);
 
+  // Canonical score ref — avoids stale closure in finishMission
+  const scoreRef = useRef({ correct: 0, total: 0 });
+
   // Track mission_opened (Change 4)
   const openedRef = useRef(false);
 
@@ -458,7 +461,10 @@ const MissionPage = () => {
     setSelectedOption(optionLabel);
     const correct = currentQuestion.options.find((o) => o.label === optionLabel)?.is_correct || false;
     const responseTime = Math.floor((Date.now() - questionStartTime) / 1000);
-    setScore((prev) => ({ correct: prev.correct + (correct ? 1 : 0), total: prev.total + 1 }));
+    const newCorrect = scoreRef.current.correct + (correct ? 1 : 0);
+    const newTotal = scoreRef.current.total + 1;
+    scoreRef.current = { correct: newCorrect, total: newTotal };
+    setScore({ correct: newCorrect, total: newTotal });
 
     if (!currentQuestion.id.startsWith("mock")) {
       await supabase.from("answer_history").insert({ user_id: user.id, question_id: currentQuestion.id, selected_option: optionLabel, is_correct: correct, response_time_seconds: responseTime, context: "practice" });
@@ -489,64 +495,65 @@ const MissionPage = () => {
 
   const finishMission = async () => {
     if (!user || !id) return;
-    const finalScore = Math.round(((score.correct + (currentQuestion?.options.find((o) => o.label === selectedOption)?.is_correct ? 1 : 0)) / (score.total + 1)) * 100);
-    await supabase.from("daily_missions").update({ status: MISSION_STATUSES.COMPLETED, score: finalScore, completed_at: new Date().toISOString() }).eq("id", id);
+
+    // 1. Canonical score from ref (already includes last answer)
+    const finalScore = scoreRef.current.total > 0
+      ? Math.round((scoreRef.current.correct / scoreRef.current.total) * 100)
+      : 0;
+
+    // 2. Mark completed in UI immediately
     setCompleted(true);
 
-    // Track mission_completed (Change 4)
+    // 3. Calibration and spaced review (awaited, not fire-and-forget)
+    try {
+      if (mission && CALIBRATION_TYPES.includes(mission.mission_type) && calibrationAnswers.current.length > 0) {
+        await runCalibration(user.id, calibrationAnswers.current);
+      }
+      if (mission) {
+        if (mission.mission_type === "questions") {
+          await upsertSpacedReview(user.id, mission.subject, mission.subtopic);
+        } else if (mission.mission_type === "spaced_review") {
+          await updateSpacedReviewAfterReview(user.id, mission.subject, mission.subtopic, finalScore / 100);
+        }
+      }
+    } catch (err) {
+      console.error("Calibration/review error:", err);
+    }
+
+    // 4. Atomic conclusion via RPC (updates mission + profile in one transaction)
+    const xpEarned = 10 + Math.round(finalScore * 0.5);
+    await supabase.rpc("complete_mission_atomic", {
+      p_user_id: user.id,
+      p_mission_id: id,
+      p_score: finalScore,
+      p_xp_earned: xpEarned,
+    });
+
+    // 5. Track event
     trackEvent("mission_completed", {
       type: mission?.mission_type,
       subject: mission?.subject,
       score: finalScore,
       mission_id: id,
     }, user.id);
-
-    // Run invisible calibration (Change 1)
-    if (mission && CALIBRATION_TYPES.includes(mission.mission_type) && calibrationAnswers.current.length > 0) {
-      runCalibration(user.id, calibrationAnswers.current).catch(console.error);
-    }
-
-    // Spaced review: upsert after questions, update after spaced_review (Change 6)
-    if (mission) {
-      const perf = finalScore / 100;
-      if (mission.mission_type === "questions") {
-        upsertSpacedReview(user.id, mission.subject, mission.subtopic).catch(console.error);
-      } else if (mission.mission_type === "spaced_review") {
-        updateSpacedReviewAfterReview(user.id, mission.subject, mission.subtopic, perf).catch(console.error);
-      }
-    }
-
-    // Update profile stats
-    const today = new Date().toISOString().split("T")[0];
-    const { data: currentProfile } = await supabase.from("profiles").select("total_xp, current_streak, longest_streak, missions_completed, last_activity_date").eq("id", user.id).single();
-    if (currentProfile) {
-      const lastDate = currentProfile.last_activity_date;
-      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split("T")[0];
-      const newStreak = lastDate === yesterdayStr ? (currentProfile.current_streak || 0) + 1 : lastDate === today ? currentProfile.current_streak || 1 : 1;
-      const xpEarned = 10 + Math.round(finalScore * 0.5);
-      await supabase.from("profiles").update({ total_xp: (currentProfile.total_xp || 0) + xpEarned, current_streak: newStreak, longest_streak: Math.max(newStreak, currentProfile.longest_streak || 0), missions_completed: (currentProfile.missions_completed || 0) + 1, last_activity_date: today }).eq("id", user.id);
-    }
   };
 
   // ─── Complete summary mission ──────────────────────────────────────────────
 
   const completeSummaryMission = async () => {
     if (!user || !id) return;
-    await supabase.from("daily_missions").update({ status: MISSION_STATUSES.COMPLETED, score: 100, completed_at: new Date().toISOString() }).eq("id", id);
     setCompleted(true);
-    trackEvent("mission_completed", { type: mission?.mission_type, subject: mission?.subject, score: 100, mission_id: id }, user.id);
 
-    const today = new Date().toISOString().split("T")[0];
-    const { data: currentProfile } = await supabase.from("profiles").select("total_xp, current_streak, longest_streak, missions_completed, last_activity_date").eq("id", user.id).single();
-    if (currentProfile) {
-      const lastDate = currentProfile.last_activity_date;
-      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split("T")[0];
-      const newStreak = lastDate === yesterdayStr ? (currentProfile.current_streak || 0) + 1 : lastDate === today ? currentProfile.current_streak || 1 : 1;
-      const xpEarned = 15;
-      await supabase.from("profiles").update({ total_xp: (currentProfile.total_xp || 0) + xpEarned, current_streak: newStreak, longest_streak: Math.max(newStreak, currentProfile.longest_streak || 0), missions_completed: (currentProfile.missions_completed || 0) + 1, last_activity_date: today }).eq("id", user.id);
-    }
+    // Atomic conclusion via RPC (score=100 for summaries, xp=15)
+    const xpEarned = 15;
+    await supabase.rpc("complete_mission_atomic", {
+      p_user_id: user.id,
+      p_mission_id: id,
+      p_score: 100,
+      p_xp_earned: xpEarned,
+    });
+
+    trackEvent("mission_completed", { type: mission?.mission_type, subject: mission?.subject, score: 100, mission_id: id }, user.id);
   };
 
   // ─── Renders ───────────────────────────────────────────────────────────────
@@ -559,7 +566,7 @@ const MissionPage = () => {
       ? Math.round((score.correct / score.total) * 100)
       : (mission?.score ?? 0);
     const isSummary = mission && SUMMARY_TYPES.includes(mission.mission_type);
-    const hasScore = score.total > 0 || (mission?.score != null && mission.score > 0);
+    const hasScore = score.total > 0 || mission?.score != null;
     const scoreColor = finalPercent >= 70 ? "text-success bg-success/10" : finalPercent >= 40 ? "text-warning bg-warning/10" : "text-destructive bg-destructive/10";
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-4">

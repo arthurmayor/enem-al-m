@@ -71,7 +71,7 @@ const ExamSession = () => {
       ]);
       const seen = new Set<string>();
       const allQuestions: Question[] = [];
-      for (const q of [...(diagData || []), ...(questData || [])] as Question[]) {
+      for (const q of [...(diagData || []), ...(questData || [])] as unknown as Question[]) {
         if (!seen.has(q.id)) { seen.add(q.id); allQuestions.push(q); }
       }
 
@@ -155,7 +155,7 @@ const ExamSession = () => {
 
     setResults({ score: scorePercent, correct, total, perSubject, cutoffPercent });
 
-    await supabase.from("exam_results").insert({ user_id: user.id, exam_type: config.examType, exam_name: config.name, total_questions: total, correct_answers: correct, score_percent: scorePercent, time_spent_seconds: (config.durationMinutes * 60) - timeLeft, per_subject_scores: perSubject });
+    await supabase.from("exam_results").insert({ user_id: user.id, exam_type: config.examType, exam_name: config.name, total_questions: total, correct_answers: correct, score_percent: scorePercent, time_spent_seconds: (config.durationMinutes * 60) - timeLeft, per_subject_scores: perSubject } as any);
 
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i]; const selected = answers[i];

@@ -38,5 +38,5 @@ export async function trackEvent(
     user_id: userId || null,
     event_name: eventName,
     properties,
-  });
+  } as any);
 }

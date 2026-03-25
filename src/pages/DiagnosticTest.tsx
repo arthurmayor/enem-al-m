@@ -433,7 +433,7 @@ const DiagnosticTest = () => {
         return;
       }
 
-      const examConf = config as ExamConfig;
+      const examConf = config as unknown as ExamConfig;
       setExamConfig(examConf);
 
       // 3. Get diagnostic questions
@@ -453,7 +453,7 @@ const DiagnosticTest = () => {
               difficulty: q.difficulty,
               difficulty_elo: q.difficulty_elo || 1200,
               question_text: q.question_text,
-              options: q.options as QuestionOption[],
+              options: q.options as unknown as QuestionOption[],
               explanation: q.explanation,
             }))
           : [];
@@ -832,7 +832,7 @@ const DiagnosticTest = () => {
         proficiencies: prof,
         priority_areas: priorities,
         raw_answers: rawAnswersRef.current,
-      });
+      } as any);
     } catch (err) {
       console.warn("Could not save diagnostic_results (table may not exist yet):", err);
     }

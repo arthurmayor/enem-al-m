@@ -471,7 +471,7 @@ const MissionPage = () => {
     setScore({ correct: newCorrect, total: newTotal });
 
     if (!currentQuestion.id.startsWith("mock")) {
-      await supabase.from("answer_history").insert({ user_id: user.id, question_id: currentQuestion.id, selected_option: optionLabel, is_correct: correct, response_time_seconds: responseTime, context: "practice" });
+      await supabase.from("answer_history").insert({ user_id: user.id, question_id: currentQuestion.id, selected_option: optionLabel, is_correct: correct, response_time_seconds: responseTime, subtopic: currentQuestion.subtopic || mission?.subtopic || "geral", context: "practice" });
     }
 
     trackEvent("question_answered", {

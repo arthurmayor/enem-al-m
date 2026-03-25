@@ -1,26 +1,16 @@
 const STAGES = ["1º EM", "2º EM", "3º EM", "Cursinho", "Formado"];
-const SCHOOL_TYPES = ["Escola pública", "Escola particular"];
-const MOCK_OPTIONS = ["Nunca fiz simulado", "Faz um tempo", "Fiz recentemente"];
 
 interface Props {
   schoolStage: string;
-  schoolType: string;
-  lastMockExperience: string;
   difficulty: string;
   onChangeStage: (v: string) => void;
-  onChangeType: (v: string) => void;
-  onChangeMock: (v: string) => void;
   onChangeDifficulty: (v: string) => void;
 }
 
 const StepAboutYou = ({
   schoolStage,
-  schoolType,
-  lastMockExperience,
   difficulty,
   onChangeStage,
-  onChangeType,
-  onChangeMock,
   onChangeDifficulty,
 }: Props) => {
   return (
@@ -49,46 +39,6 @@ const StepAboutYou = ({
               }`}
             >
               {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* School type */}
-      <div>
-        <label className="text-sm font-medium text-foreground">Tipo de escola</label>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {SCHOOL_TYPES.map((t) => (
-            <button
-              key={t}
-              onClick={() => onChangeType(t)}
-              className={`h-11 rounded-xl text-sm font-medium transition-all border ${
-                schoolType === t
-                  ? "bg-foreground text-primary-foreground border-foreground"
-                  : "bg-background text-foreground border-border hover:border-foreground/20"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Mock experience */}
-      <div>
-        <label className="text-sm font-medium text-foreground">Experiência com simulados</label>
-        <div className="mt-3 flex flex-col gap-2">
-          {MOCK_OPTIONS.map((m) => (
-            <button
-              key={m}
-              onClick={() => onChangeMock(m)}
-              className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all border ${
-                lastMockExperience === m
-                  ? "bg-foreground text-primary-foreground border-foreground"
-                  : "bg-background text-foreground border-border hover:border-foreground/20"
-              }`}
-            >
-              {m}
             </button>
           ))}
         </div>

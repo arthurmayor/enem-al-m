@@ -62,12 +62,8 @@ const Onboarding = () => {
       .update({
         exam_config_id: data.exam_config_id,
         school_stage: data.school_stage,
-        school_type: data.school_type,
         hours_per_day: data.hours_per_day,
         available_days: data.available_days,
-        preferred_shift: data.preferred_shift,
-        routine_is_unstable: data.routine_is_unstable,
-        last_mock_experience: data.last_mock_experience,
         current_biggest_difficulty: data.current_biggest_difficulty,
         self_declared_blocks: data.self_declared_blocks,
         onboarding_completed_at: new Date().toISOString(),
@@ -154,24 +150,16 @@ const Onboarding = () => {
             <StepRoutine
               hoursPerDay={data.hours_per_day}
               availableDays={data.available_days}
-              preferredShift={data.preferred_shift}
-              routineIsUnstable={data.routine_is_unstable}
               onChangeHours={(v) => update("hours_per_day", v)}
               onToggleDay={toggleDay}
-              onChangeShift={(v) => update("preferred_shift", v)}
-              onChangeUnstable={(v) => update("routine_is_unstable", v)}
             />
           )}
 
           {step === 3 && (
             <StepAboutYou
               schoolStage={data.school_stage}
-              schoolType={data.school_type}
-              lastMockExperience={data.last_mock_experience}
               difficulty={data.current_biggest_difficulty}
               onChangeStage={(v) => update("school_stage", v)}
-              onChangeType={(v) => update("school_type", v)}
-              onChangeMock={(v) => update("last_mock_experience", v)}
               onChangeDifficulty={(v) => update("current_biggest_difficulty", v)}
             />
           )}

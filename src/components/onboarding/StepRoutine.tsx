@@ -1,5 +1,3 @@
-import { Checkbox } from "@/components/ui/checkbox";
-
 const HOURS_OPTIONS = [
   { label: "30 min", value: 0.5 },
   { label: "1h", value: 1 },
@@ -17,28 +15,18 @@ const DAYS = [
   { id: "dom", label: "D" },
 ];
 
-const SHIFTS = ["Manhã", "Tarde", "Noite", "Flexível"];
-
 interface Props {
   hoursPerDay: number | null;
   availableDays: string[];
-  preferredShift: string;
-  routineIsUnstable: boolean;
   onChangeHours: (v: number) => void;
   onToggleDay: (day: string) => void;
-  onChangeShift: (v: string) => void;
-  onChangeUnstable: (v: boolean) => void;
 }
 
 const StepRoutine = ({
   hoursPerDay,
   availableDays,
-  preferredShift,
-  routineIsUnstable,
   onChangeHours,
   onToggleDay,
-  onChangeShift,
-  onChangeUnstable,
 }: Props) => {
   return (
     <div className="animate-fade-in space-y-8">
@@ -75,7 +63,7 @@ const StepRoutine = ({
       <div>
         <label className="text-sm font-medium text-foreground">Dias disponíveis</label>
         <div className="mt-3 flex gap-2 justify-center">
-          {DAYS.map((day, i) => (
+          {DAYS.map((day) => (
             <button
               key={day.id}
               onClick={() => onToggleDay(day.id)}
@@ -91,37 +79,6 @@ const StepRoutine = ({
           ))}
         </div>
       </div>
-
-      {/* Preferred shift */}
-      <div>
-        <label className="text-sm font-medium text-foreground">Turno preferido</label>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {SHIFTS.map((s) => (
-            <button
-              key={s}
-              onClick={() => onChangeShift(s)}
-              className={`h-11 rounded-xl text-sm font-medium transition-all border ${
-                preferredShift === s
-                  ? "bg-foreground text-primary-foreground border-foreground"
-                  : "bg-background text-foreground border-border hover:border-foreground/20"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Unstable routine */}
-      <label className="flex items-center gap-3 cursor-pointer group">
-        <Checkbox
-          checked={routineIsUnstable}
-          onCheckedChange={(v) => onChangeUnstable(!!v)}
-        />
-        <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
-          Minha rotina muda bastante
-        </span>
-      </label>
     </div>
   );
 };

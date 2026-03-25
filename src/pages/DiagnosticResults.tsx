@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
 import { expectedAccuracy } from "@/lib/scoring";
+import { MISSION_STATUSES, PLAN_STATUSES } from "@/lib/constants";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -135,14 +136,14 @@ async function generateAndSavePlan(
     .limit(1);
   if (existingPlan && existingPlan.length > 0) {
     await supabase.from("study_plans")
-      .update({ status: "superseded", is_current: false } as any)
+      .update({ status: PLAN_STATUSES.SUPERSEDED, is_current: false } as any)
       .eq("user_id", userId)
       .eq("is_current", true);
     // Supersede old pending missions (preserve history)
     await supabase.from("daily_missions")
-      .update({ status: "superseded" } as any)
+      .update({ status: MISSION_STATUSES.SUPERSEDED } as any)
       .eq("user_id", userId)
-      .eq("status", "pending");
+      .eq("status", MISSION_STATUSES.PENDING);
   }
 
   const { data: savedPlan, error: planError } = await supabase
@@ -200,7 +201,7 @@ async function generateAndSavePlan(
           subject: mission.subject ?? "Geral",
           subtopic: mission.subtopic ?? "",
           mission_type: mission.type ?? "questions",
-          status: "pending",
+          status: MISSION_STATUSES.PENDING,
           estimated_minutes: mission.estimated_minutes ?? 15,
         });
       }

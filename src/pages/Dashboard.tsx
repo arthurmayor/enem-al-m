@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
-import { BookOpen, Clock, ChevronRight, ChevronDown, ArrowRight, Target, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { BookOpen, Clock, ChevronDown, ArrowRight, Target, RefreshCw, CheckCircle2, Flame, Zap, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -8,6 +8,10 @@ import { toast } from "sonner";
 import { trackEvent } from "@/lib/trackEvent";
 import { MISSION_TYPE_LABELS, MISSION_STATUSES, PLAN_STATUSES } from "@/lib/constants";
 import { deduplicateProficiencies, diagnosticToProfArray, buildPlannerInput, calculateBand } from "@/lib/plannerInput";
+import ProgressBar from "@/components/ui/ProgressBar";
+import SubjectBadge from "@/components/ui/SubjectBadge";
+import EmptyState from "@/components/ui/EmptyState";
+import { getSubjectColor } from "@/lib/subjectColors";
 
 interface Profile {
   name: string;
@@ -16,6 +20,7 @@ interface Profile {
   onboarding_complete: boolean;
   total_xp?: number;
   current_streak?: number;
+  exam_config_id?: string | null;
 }
 
 interface Mission {
@@ -26,12 +31,15 @@ interface Mission {
   status: string;
   date: string;
   estimated_minutes?: number;
+  mission_order?: number | null;
+  score?: number | null;
 }
 
 const missionTypeLabels = MISSION_TYPE_LABELS;
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +48,9 @@ const Dashboard = () => {
   const [completionRate, setCompletionRate] = useState(0);
   const [weeklySessionsTarget, setWeeklySessionsTarget] = useState(0);
   const [weeklySessionsDone, setWeeklySessionsDone] = useState(0);
+  const [weakestSubjects, setWeakestSubjects] = useState<{ subject: string; score: number }[]>([]);
+  const [totalAnswered, setTotalAnswered] = useState<number | null>(null);
+  const [examName, setExamName] = useState<string | null>(null);
   const regenChecked = useRef(false);
 
   // ─── Regeneration helper ──────────────────────────────────────────────────
@@ -200,7 +211,7 @@ const Dashboard = () => {
       // Refetch today's missions without full page reload
       const { data: freshMissions } = await supabase
         .from("daily_missions")
-        .select("id, subject, subtopic, mission_type, status, date, estimated_minutes")
+        .select("id, subject, subtopic, mission_type, status, date, estimated_minutes, mission_order, score")
         .eq("user_id", userId)
         .eq("date", today)
         .not("status", "eq", MISSION_STATUSES.SUPERSEDED);
@@ -221,17 +232,28 @@ const Dashboard = () => {
     const fetchData = async () => {
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("name, education_goal, exam_date, onboarding_complete, total_xp, current_streak")
+        .select("name, education_goal, exam_date, onboarding_complete, total_xp, current_streak, exam_config_id")
         .eq("id", user.id)
         .single();
-      if (profileData) setProfile(profileData);
+      if (profileData) {
+        setProfile(profileData);
+        // Fetch exam name
+        if (profileData.exam_config_id) {
+          const { data: ec } = await supabase
+            .from("exam_configs")
+            .select("exam_name")
+            .eq("id", profileData.exam_config_id)
+            .single();
+          if (ec?.exam_name) setExamName(ec.exam_name);
+        }
+      }
 
       trackEvent("dashboard_loaded", {}, user.id);
 
       const today = new Date().toISOString().split("T")[0];
       const { data: missionsData } = await supabase
         .from("daily_missions")
-        .select("id, subject, subtopic, mission_type, status, date, estimated_minutes")
+        .select("id, subject, subtopic, mission_type, status, date, estimated_minutes, mission_order, score")
         .eq("user_id", user.id)
         .eq("date", today);
       if (missionsData) setMissions(missionsData);
@@ -254,6 +276,31 @@ const Dashboard = () => {
       ]);
       setWeeklySessionsTarget(weeklyTarget || 0);
       setWeeklySessionsDone(weeklyDone || 0);
+
+      // Fetch proficiency scores for weakest subjects card
+      const { data: profRows } = await supabase
+        .from("proficiency_scores")
+        .select("subject, score, measured_at")
+        .eq("user_id", user.id)
+        .order("measured_at", { ascending: false });
+      if (profRows && profRows.length > 0) {
+        const profMap = new Map<string, number>();
+        for (const row of profRows) {
+          if (!profMap.has(row.subject)) profMap.set(row.subject, row.score);
+        }
+        const weakest = Array.from(profMap.entries())
+          .sort((a, b) => a[1] - b[1])
+          .slice(0, 3)
+          .map(([subject, score]) => ({ subject, score }));
+        setWeakestSubjects(weakest);
+      }
+
+      // Fetch total answered questions
+      const { count: answeredCount } = await supabase
+        .from("answer_history")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id);
+      if (answeredCount !== null) setTotalAnswered(answeredCount);
 
       setLoading(false);
 
@@ -324,342 +371,324 @@ const Dashboard = () => {
     : null;
 
   const firstName = profile?.name?.split(" ")[0] || "Estudante";
-  const completedMissionsList = missions.filter((m) => m.status === MISSION_STATUSES.COMPLETED);
-  const completedMissions = completedMissionsList.length;
-  const pendingMissions = missions.filter((m) => m.status !== MISSION_STATUSES.COMPLETED);
-  const hasMissions = missions.length > 0;
+
+  // Filter missions excluding superseded
+  const activeMissions = missions.filter((m) => m.status !== MISSION_STATUSES.SUPERSEDED);
+  const completedMissionsList = activeMissions.filter((m) => m.status === MISSION_STATUSES.COMPLETED);
+  const pendingMissions = activeMissions
+    .filter((m) => m.status === MISSION_STATUSES.PENDING || m.status === MISSION_STATUSES.IN_PROGRESS)
+    .sort((a, b) => (a.mission_order ?? 999) - (b.mission_order ?? 999));
+  const completedCount = completedMissionsList.length;
+  const totalToday = activeMissions.length;
+  const hasMissions = totalToday > 0;
   const allDone = hasMissions && pendingMissions.length === 0;
   const needsDiagnostic = !profile?.onboarding_complete;
   const [showCompleted, setShowCompleted] = useState(false);
 
-  // Estimate total study time for today (use real estimated_minutes when available)
-  const totalMinutesToday = missions.reduce((s, m) => s + (m.estimated_minutes || 15), 0);
-  const completedMinutesToday = missions
-    .filter((m) => m.status === MISSION_STATUSES.COMPLETED)
-    .reduce((s, m) => s + (m.estimated_minutes || 15), 0);
+  const totalMinutesToday = activeMissions.reduce((s, m) => s + (m.estimated_minutes || 15), 0);
+  const completedMinutesToday = completedMissionsList.reduce((s, m) => s + (m.estimated_minutes || 15), 0);
 
-  // Weekly progress from real data (state set in fetchData)
   const weeklyPct = weeklySessionsTarget > 0
     ? Math.round((weeklySessionsDone / weeklySessionsTarget) * 100)
     : 0;
 
-  // Focus subjects: top 3 from pending missions
-  const focusSubjects = [...new Set(pendingMissions.map((m) => m.subject))].slice(0, 3);
+  const nextMission = pendingMissions[0] || null;
 
-  // Last incomplete mission for "continue where you left off"
-  const lastMission = pendingMissions[0] || null;
+  // Subtitle
+  const subtitle = needsDiagnostic
+    ? "Faça o diagnóstico para começar seu plano."
+    : allDone
+      ? "Sessão do dia completa. Volte amanhã."
+      : pendingMissions.length > 0
+        ? `Você tem ${pendingMissions.length} ${pendingMissions.length === 1 ? "missão" : "missões"} hoje.`
+        : "Gere seu plano de estudos.";
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
-        <div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-bg-app flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAF9] pb-24">
-      {/* ─── Header ─────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-[#FAFAF9]/80 backdrop-blur-xl border-b border-gray-100/60">
-        <div className="container mx-auto flex h-14 items-center justify-between px-5 max-w-lg">
-          <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
-              <BookOpen className="h-3.5 w-3.5 text-white" />
-            </div>
-            <span className="text-[15px] font-semibold text-foreground tracking-tight">Cátedra</span>
+    <div className="min-h-screen bg-bg-app pb-24 md:pb-0">
+      {/* ─── Header (full width) ────────────────────────────────── */}
+      <header className="mb-6 animate-fade-in">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+          <div>
+            <h1 className="text-2xl font-bold text-ink-strong">Olá, {firstName}</h1>
+            <p className="text-sm text-ink-soft mt-0.5">{subtitle}</p>
           </div>
           {daysUntilExam !== null && (
-            <span className="text-xs font-medium text-muted-foreground">
-              {daysUntilExam} dias para a prova
+            <span className="text-sm text-ink-soft whitespace-nowrap">
+              {daysUntilExam} dias para {examName ? `o ${examName}` : "a prova"}
             </span>
           )}
         </div>
       </header>
 
-      <main className="container mx-auto px-5 max-w-lg">
-        {/* ─── Greeting ─────────────────────────────────────────────── */}
-        <div className="pt-8 animate-fade-in">
-          <h1 className="text-2xl font-semibold text-foreground">Olá, {firstName}</h1>
-          <p className="text-[14px] text-muted-foreground mt-1">
-            {needsDiagnostic
-              ? "Faça o diagnóstico para começar seu plano."
-              : allDone
-                ? "Sessão do dia completa. Volte amanhã."
-                : hasMissions
-                  ? "Seu estudo de hoje está montado."
-                  : "Sem sessões pendentes. Bom descanso."}
-          </p>
-        </div>
-
-        {/* ─── Needs diagnostic CTA ─────────────────────────────────── */}
-        {needsDiagnostic && (
-          <Link
-            to="/diagnostic/intro"
-            className="block mt-6 bg-white rounded-2xl p-6 shadow-rest animate-fade-in hover:shadow-interactive transition-shadow"
-            style={{ animationDelay: "0.06s" }}
-          >
-            <div className="flex items-start gap-4">
-              <div className="h-10 w-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                <Target className="h-5 w-5 text-foreground" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-[15px] font-semibold text-foreground">Comece pelo diagnóstico</h3>
-                <p className="text-[13px] text-muted-foreground mt-1 leading-relaxed">
-                  8 questões rápidas para montar seu plano personalizado
-                </p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+      {/* ─── Needs diagnostic CTA ─────────────────────────────── */}
+      {needsDiagnostic && (
+        <Link
+          to="/diagnostic/intro"
+          className="block bg-bg-card rounded-card p-6 border border-line-light shadow-card hover:shadow-card-hover transition-shadow animate-fade-in mb-6"
+        >
+          <div className="flex items-start gap-4">
+            <div className="h-10 w-10 rounded-xl bg-bg-app flex items-center justify-center shrink-0">
+              <Target className="h-5 w-5 text-ink-strong" />
             </div>
-          </Link>
-        )}
-
-        {/* ─── 1. Hoje ──────────────────────────────────────────────── */}
-        {hasMissions && (
-          <div className="mt-6 animate-fade-in" style={{ animationDelay: "0.06s" }}>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[15px] font-semibold text-foreground">Hoje</h2>
-              <span className="text-xs text-muted-foreground">
-                Meta: {totalMinutesToday} min
-              </span>
-            </div>
-
-            {/* ─── All done state ─── */}
-            {allDone && (
-              <div className="bg-white rounded-2xl shadow-rest p-6 text-center">
-                <CheckCircle2 className="h-10 w-10 text-foreground mx-auto mb-3" />
-                <h3 className="text-[15px] font-semibold text-foreground">Sessão do dia completa!</h3>
-                <p className="text-[13px] text-muted-foreground mt-1">Bom trabalho. Descanse e volte amanhã.</p>
-              </div>
-            )}
-
-            {/* ─── Next pending mission (highlighted) ─── */}
-            {pendingMissions.length > 0 && (
-              <Link
-                to={`/mission/${pendingMissions[0].mission_type}/${pendingMissions[0].id}`}
-                className="block bg-foreground rounded-2xl p-5 shadow-rest hover:bg-foreground/90 transition-colors mb-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-semibold text-white/60 uppercase tracking-wider">Próxima</p>
-                    <p className="text-[15px] font-semibold text-white mt-1 truncate">
-                      {pendingMissions[0].subject} — {missionTypeLabels[pendingMissions[0].mission_type] || pendingMissions[0].mission_type}
-                    </p>
-                    <p className="text-[12px] text-white/70 mt-0.5 truncate">{pendingMissions[0].subtopic}</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-white/70 shrink-0 ml-3">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span className="text-xs font-medium">{pendingMissions[0].estimated_minutes || 15} min</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-center gap-2 mt-4 text-white text-[14px] font-semibold">
-                  Continuar estudo
-                  <ArrowRight className="h-4 w-4" />
-                </div>
-              </Link>
-            )}
-
-            {/* ─── Remaining pending missions ─── */}
-            {pendingMissions.length > 1 && (
-              <div className="bg-white rounded-2xl shadow-rest overflow-hidden">
-                {pendingMissions.slice(1).map((mission, i) => (
-                  <Link
-                    key={mission.id}
-                    to={`/mission/${mission.mission_type}/${mission.id}`}
-                    className={`flex items-center gap-4 px-5 py-4 transition-colors hover:bg-gray-50 ${i > 0 ? "border-t border-gray-50" : ""}`}
-                  >
-                    <div className="h-2 w-2 rounded-full shrink-0 bg-foreground" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-medium text-foreground truncate">
-                        {mission.subject} — {missionTypeLabels[mission.mission_type] || mission.mission_type}
-                      </p>
-                      <p className="text-[12px] text-muted-foreground mt-0.5 truncate">{mission.subtopic}</p>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                      <Clock className="h-3 w-3" />
-                      {mission.estimated_minutes || 15} min
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-
-            {/* ─── Collapsible completed missions ─── */}
-            {completedMissions > 0 && (
-              <div className="mt-3">
-                <button
-                  onClick={() => setShowCompleted(!showCompleted)}
-                  className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showCompleted ? "" : "-rotate-90"}`} />
-                  Concluídas ({completedMissions})
-                </button>
-                {showCompleted && (
-                  <div className="mt-2 bg-white rounded-2xl shadow-rest overflow-hidden">
-                    {completedMissionsList.map((mission, i) => (
-                      <div
-                        key={mission.id}
-                        className={`flex items-center gap-4 px-5 py-3 opacity-60 ${i > 0 ? "border-t border-gray-50" : ""}`}
-                      >
-                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[13px] text-foreground truncate">
-                            {mission.subject} — {missionTypeLabels[mission.mission_type] || mission.mission_type}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-[12px] text-muted-foreground mt-2">
-                  {completedMinutesToday} de {totalMinutesToday} min concluídos
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ─── 2. Sua semana ────────────────────────────────────────── */}
-        {!needsDiagnostic && (
-          <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.12s" }}>
-            <h2 className="text-[15px] font-semibold text-foreground mb-3">Sua semana</h2>
-            <div className="bg-white rounded-2xl p-5 shadow-rest">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-[14px] text-foreground">
-                  <span className="font-semibold">{weeklySessionsDone}</span> de {weeklySessionsTarget} sessões
-                </p>
-                <span className="text-xs text-muted-foreground">{weeklyPct}% do plano</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-2 rounded-full bg-foreground transition-all duration-700"
-                  style={{ width: `${weeklyPct}%` }}
-                />
-              </div>
-              <p className="text-[12px] text-muted-foreground mt-3">
-                Vamos ajustar o plano com seu uso
+            <div className="flex-1">
+              <h3 className="text-base font-semibold text-ink-strong">Comece pelo diagnóstico</h3>
+              <p className="text-sm text-ink-soft mt-1 leading-relaxed">
+                8 questões rápidas para montar seu plano personalizado
               </p>
             </div>
+            <ArrowRight className="h-5 w-5 text-ink-soft mt-0.5 shrink-0" />
           </div>
-        )}
+        </Link>
+      )}
 
-        {/* ─── Regeneration CTA ─────────────────────────────────────── */}
-        {showRegenCta && !regenerating && (
-          <div className="mt-6 animate-fade-in" style={{ animationDelay: "0.14s" }}>
-            <div className="bg-white rounded-2xl p-5 shadow-rest border border-gray-100">
+      {/* ─── 2-column grid ────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* ══════ LEFT COLUMN ══════ */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* ─── Card: Hoje ─────────────────────────────────── */}
+          {hasMissions && (
+            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
+              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Hoje</span>
+              <div className="flex items-baseline gap-2 mt-2">
+                <span className="text-2xl font-bold text-ink-strong">
+                  {completedCount}/{totalToday} missões
+                </span>
+              </div>
+              <div className="mt-3">
+                <ProgressBar
+                  value={totalToday > 0 ? (completedCount / totalToday) * 100 : 0}
+                  color="#059669"
+                />
+              </div>
+              <p className="text-sm text-ink-soft mt-2">
+                {completedMinutesToday} de {totalMinutesToday} min
+              </p>
+            </div>
+          )}
+
+          {/* ─── Card: Próxima Missão ──────────────────────── */}
+          {nextMission ? (
+            <div
+              className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in"
+              style={{ borderLeftWidth: "4px", borderLeftColor: getSubjectColor(nextMission.subject) }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <SubjectBadge subject={nextMission.subject} />
+                  <p className="text-base text-ink mt-2">{nextMission.subtopic}</p>
+                  <div className="flex items-center gap-3 mt-1.5 text-sm text-ink-soft">
+                    <span>{missionTypeLabels[nextMission.mission_type] || nextMission.mission_type}</span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5" />
+                      {nextMission.estimated_minutes || 15} min
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => navigate(`/mission/${nextMission.mission_type}/${nextMission.id}`)}
+                className="mt-4 w-full flex items-center justify-center gap-2 bg-ink-strong text-white rounded-input px-4 py-2.5 text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
+              >
+                Iniciar <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          ) : hasMissions && allDone ? (
+            <EmptyState
+              icon={CheckCircle2}
+              title="Sessão completa. Bom trabalho!"
+              description="Todas as missões de hoje foram concluídas."
+            />
+          ) : null}
+
+          {/* ─── Remaining pending missions ─────────────────── */}
+          {pendingMissions.length > 1 && (
+            <div className="bg-bg-card rounded-card border border-line-light shadow-card overflow-hidden animate-fade-in">
+              {pendingMissions.slice(1).map((mission, i) => (
+                <Link
+                  key={mission.id}
+                  to={`/mission/${mission.mission_type}/${mission.id}`}
+                  className={`flex items-center gap-4 px-5 py-4 transition-colors hover:bg-bg-app ${i > 0 ? "border-t border-line-light" : ""}`}
+                >
+                  <div
+                    className="h-2 w-2 rounded-full shrink-0"
+                    style={{ backgroundColor: getSubjectColor(mission.subject) }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-ink truncate">
+                      {mission.subject} — {missionTypeLabels[mission.mission_type] || mission.mission_type}
+                    </p>
+                    <p className="text-xs text-ink-soft mt-0.5 truncate">{mission.subtopic}</p>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-ink-soft shrink-0">
+                    <Clock className="h-3 w-3" />
+                    {mission.estimated_minutes || 15} min
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          {/* ─── Completed missions accordion ──────────────── */}
+          {completedCount > 0 && (
+            <div className="animate-fade-in">
+              <button
+                onClick={() => setShowCompleted(!showCompleted)}
+                className="flex items-center gap-2 text-sm font-medium text-ink-soft hover:text-ink-strong transition-colors"
+              >
+                <ChevronDown className={`h-4 w-4 transition-transform ${showCompleted ? "" : "-rotate-90"}`} />
+                Concluídas ({completedCount})
+              </button>
+              {showCompleted && (
+                <div className="mt-2 bg-bg-card rounded-card border border-line-light shadow-card overflow-hidden">
+                  {completedMissionsList.map((mission, i) => (
+                    <Link
+                      key={mission.id}
+                      to={`/mission/${mission.mission_type}/${mission.id}`}
+                      className={`flex items-center gap-4 px-5 py-3 opacity-60 hover:opacity-80 transition-opacity ${i > 0 ? "border-t border-line-light" : ""}`}
+                    >
+                      <CheckCircle2 className="h-4 w-4 text-signal-ok shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <SubjectBadge subject={mission.subject} />
+                          <span className="text-sm text-ink-soft">
+                            {missionTypeLabels[mission.mission_type] || mission.mission_type}
+                          </span>
+                        </div>
+                      </div>
+                      {mission.score != null && (
+                        <span className="text-sm font-medium text-ink-soft shrink-0">
+                          {Math.round(mission.score)}%
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ─── Regeneration CTA ─────────────────────────── */}
+          {showRegenCta && !regenerating && (
+            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-xl bg-gray-50 flex items-center justify-center shrink-0">
-                  <RefreshCw className="h-5 w-5 text-foreground" />
+                <div className="h-10 w-10 rounded-xl bg-bg-app flex items-center justify-center shrink-0">
+                  <RefreshCw className="h-5 w-5 text-ink-strong" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-[15px] font-semibold text-foreground">
+                  <h3 className="text-base font-semibold text-ink-strong">
                     Você completou {completionRate}% do plano!
                   </h3>
-                  <p className="text-[13px] text-muted-foreground mt-1">
+                  <p className="text-sm text-ink-soft mt-1">
                     Quer gerar a próxima semana com base no seu progresso?
                   </p>
                   <button
                     onClick={() => user && regeneratePlan(user.id)}
-                    className="mt-3 px-5 py-2 rounded-full bg-foreground text-white text-[13px] font-semibold hover:bg-foreground/90 transition-all"
+                    className="mt-3 px-5 py-2 rounded-input bg-ink-strong text-white text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
                   >
                     Gerar próxima semana
                   </button>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {regenerating && (
-          <div className="mt-6 animate-fade-in">
-            <div className="bg-white rounded-2xl p-5 shadow-rest flex items-center gap-3">
-              <div className="h-5 w-5 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
-              <p className="text-[14px] text-foreground">Gerando novo plano semanal...</p>
+          {regenerating && (
+            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card flex items-center gap-3 animate-fade-in">
+              <div className="h-5 w-5 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-ink">Gerando novo plano semanal...</p>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* ─── 3. Matérias em foco ──────────────────────────────────── */}
-        {focusSubjects.length > 0 && (
-          <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.18s" }}>
-            <h2 className="text-[15px] font-semibold text-foreground mb-3">Matérias em foco</h2>
-            <div className="space-y-2.5">
-              {focusSubjects.map((subject) => {
-                const subjectMission = pendingMissions.find((m) => m.subject === subject);
-                const actionLabel = subjectMission
-                  ? missionTypeLabels[subjectMission.mission_type] === "Revisão de erros"
-                    ? "Rever erros"
-                    : missionTypeLabels[subjectMission.mission_type] === "Questões"
-                      ? "Resolver questões"
-                      : missionTypeLabels[subjectMission.mission_type] || "Estudar"
-                  : "Estudar";
+          {/* ─── Empty state: no missions, no diagnostic ──── */}
+          {!needsDiagnostic && !hasMissions && (
+            <EmptyState
+              icon={BookOpen}
+              title="Sem missões hoje"
+              description="Descanse ou explore conteúdo por conta própria."
+              actionLabel="Ver semana"
+              onAction={() => navigate("/study")}
+            />
+          )}
+        </div>
 
-                return (
-                  <div
-                    key={subject}
-                    className="flex items-center justify-between bg-white rounded-xl px-4 py-3.5 shadow-rest"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-2 w-2 rounded-full bg-foreground" />
-                      <span className="text-[14px] font-medium text-foreground">{subject}</span>
-                    </div>
-                    {subjectMission ? (
-                      <Link
-                        to={`/mission/${subjectMission.mission_type}/${subjectMission.id}`}
-                        className="text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-                      >
-                        {actionLabel}
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Link>
-                    ) : (
-                      <span className="text-[13px] text-muted-foreground">{actionLabel}</span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ─── 4. Continue de onde parou ─────────────────────────────── */}
-        {lastMission && completedMissions > 0 && (
-          <div className="mt-8 mb-4 animate-fade-in" style={{ animationDelay: "0.24s" }}>
-            <h2 className="text-[15px] font-semibold text-foreground mb-3">Continue de onde parou</h2>
-            <Link
-              to={`/mission/${lastMission.mission_type}/${lastMission.id}`}
-              className="flex items-center gap-4 bg-white rounded-2xl px-5 py-4 shadow-rest hover:shadow-interactive transition-shadow"
-            >
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-medium text-foreground truncate">
-                  {missionTypeLabels[lastMission.mission_type] || lastMission.mission_type} de {lastMission.subject}
-                </p>
-                <p className="text-[12px] text-muted-foreground mt-0.5 truncate">
-                  {lastMission.subtopic}
-                </p>
-              </div>
-              <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0" />
-            </Link>
-          </div>
-        )}
-
-        {/* ─── Empty state (no missions, not needing diagnostic) ───── */}
-        {!needsDiagnostic && !hasMissions && (
-          <div className="mt-8 text-center animate-fade-in" style={{ animationDelay: "0.06s" }}>
-            <div className="bg-white rounded-2xl p-8 shadow-rest">
-              <p className="text-[15px] font-medium text-foreground">Nada pendente por hoje</p>
-              <p className="text-[13px] text-muted-foreground mt-2">
-                Descanse ou pratique por conta própria.
+        {/* ══════ RIGHT COLUMN ══════ */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* ─── Card: Sua Semana ──────────────────────────── */}
+          {!needsDiagnostic && (
+            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
+              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Sua semana</span>
+              <p className="text-lg font-semibold text-ink-strong mt-2">
+                {weeklySessionsDone} de {weeklySessionsTarget} sessões
               </p>
-              <Link
-                to="/study"
-                className="mt-5 inline-flex items-center gap-1.5 text-[14px] font-medium text-foreground hover:underline"
-              >
-                Explorar conteúdo
-                <ChevronRight className="h-4 w-4" />
-              </Link>
+              <div className="mt-3">
+                <ProgressBar value={weeklyPct} />
+              </div>
+              <p className="text-sm text-ink-soft mt-2">{weeklyPct}% do plano</p>
             </div>
-          </div>
-        )}
-      </main>
+          )}
+
+          {/* ─── Card: Foco da semana (weakest subjects) ──── */}
+          {weakestSubjects.length > 0 && (
+            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
+              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Foco da semana</span>
+              <div className="mt-4 space-y-4">
+                {weakestSubjects.map(({ subject, score }) => (
+                  <div key={subject} className="flex items-center gap-3">
+                    <SubjectBadge subject={subject} />
+                    <div className="flex-1">
+                      <ProgressBar
+                        value={Math.round(score * 100)}
+                        color={getSubjectColor(subject)}
+                        size="sm"
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-ink-soft w-10 text-right">
+                      {Math.round(score * 100)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ─── Card: Streak & XP ─────────────────────────── */}
+          {!needsDiagnostic && (
+            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5 text-ink-strong">
+                  <Flame className="h-5 w-5 text-brand-500" />
+                  <span className="text-lg font-semibold">{profile?.current_streak || 0} dias</span>
+                </div>
+                <div className="h-5 w-px bg-line-light" />
+                <div className="flex items-center gap-1.5 text-ink-strong">
+                  <Zap className="h-5 w-5 text-brand-500" />
+                  <span className="text-lg font-semibold">{profile?.total_xp || 0} XP</span>
+                </div>
+              </div>
+              {totalAnswered !== null && totalAnswered > 0 && (
+                <p className="text-sm text-ink-soft mt-2">
+                  {totalAnswered} {totalAnswered === 1 ? "questão respondida" : "questões respondidas"}
+                </p>
+              )}
+              <button
+                onClick={() => navigate("/exams")}
+                className="mt-4 w-full flex items-center justify-center gap-2 bg-bg-app border border-line-light rounded-input px-4 py-2.5 text-sm font-medium text-ink-strong hover:shadow-card transition-shadow"
+              >
+                <FileText className="h-4 w-4" />
+                Mini Simulado
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       <BottomNav />
     </div>

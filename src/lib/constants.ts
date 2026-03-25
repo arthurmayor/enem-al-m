@@ -31,13 +31,13 @@ export const ALL_SUBJECTS = [
   "Filosofia",
 ] as const;
 
-export const MISSION_STATUSES = [
-  "pending",
-  "in_progress",
-  "completed",
-  "abandoned",
-  "expired",
-  "superseded",
-] as const;
+export const MISSION_STATUSES = {
+  PENDING: "pending",
+  IN_PROGRESS: "in_progress",
+  COMPLETED: "completed",
+  ABANDONED: "abandoned",
+  EXPIRED: "expired",
+  SUPERSEDED: "superseded",
+} as const;
 
-export type MissionStatus = (typeof MISSION_STATUSES)[number];
+export type MissionStatus = (typeof MISSION_STATUSES)[keyof typeof MISSION_STATUSES];

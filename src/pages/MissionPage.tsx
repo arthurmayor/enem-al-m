@@ -325,7 +325,7 @@ const MissionPage = () => {
       const questionIds = (missionData as any).question_ids as string[] | null;
 
       // ─── COMPLETED: show result, block re-execution ────────────────
-      if (status === MISSION_STATUSES[2] /* completed */) {
+      if (status === MISSION_STATUSES.COMPLETED) {
         setMission(missionData as MissionData);
         setCompleted(true);
         setLoading(false);
@@ -333,11 +333,11 @@ const MissionPage = () => {
       }
 
       // ─── PENDING → IN_PROGRESS transition ─────────────────────────
-      if (status === MISSION_STATUSES[0] /* pending */) {
+      if (status === MISSION_STATUSES.PENDING) {
         await supabase.from("daily_missions")
-          .update({ status: "in_progress" })
+          .update({ status: MISSION_STATUSES.IN_PROGRESS })
           .eq("id", id);
-        missionData.status = "in_progress";
+        missionData.status = MISSION_STATUSES.IN_PROGRESS;
       }
 
       setMission(missionData as MissionData);
@@ -399,7 +399,7 @@ const MissionPage = () => {
       // ─── Question-based missions ──────────────────────────────────
       let selectedQuestions: Question[];
 
-      if (status !== MISSION_STATUSES[0] /* was already in_progress */ && questionIds && questionIds.length > 0) {
+      if (status !== MISSION_STATUSES.PENDING && questionIds && questionIds.length > 0) {
         // RESUME: fetch bound questions by ID, preserving order
         selectedQuestions = await fetchQuestionsByIds(questionIds);
       } else {
@@ -490,7 +490,7 @@ const MissionPage = () => {
   const finishMission = async () => {
     if (!user || !id) return;
     const finalScore = Math.round(((score.correct + (currentQuestion?.options.find((o) => o.label === selectedOption)?.is_correct ? 1 : 0)) / (score.total + 1)) * 100);
-    await supabase.from("daily_missions").update({ status: "completed", score: finalScore, completed_at: new Date().toISOString() }).eq("id", id);
+    await supabase.from("daily_missions").update({ status: MISSION_STATUSES.COMPLETED, score: finalScore, completed_at: new Date().toISOString() }).eq("id", id);
     setCompleted(true);
 
     // Track mission_completed (Change 4)
@@ -533,7 +533,7 @@ const MissionPage = () => {
 
   const completeSummaryMission = async () => {
     if (!user || !id) return;
-    await supabase.from("daily_missions").update({ status: "completed", score: 100, completed_at: new Date().toISOString() }).eq("id", id);
+    await supabase.from("daily_missions").update({ status: MISSION_STATUSES.COMPLETED, score: 100, completed_at: new Date().toISOString() }).eq("id", id);
     setCompleted(true);
     trackEvent("mission_completed", { type: mission?.mission_type, subject: mission?.subject, score: 100, mission_id: id }, user.id);
 

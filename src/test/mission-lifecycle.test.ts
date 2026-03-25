@@ -11,9 +11,9 @@ function resolveMissionLoadAction(
   status: string,
   questionIds: string[] | null,
 ): "transition_to_in_progress" | "resume" | "fetch_new" | "completed" | "unknown" {
-  if (status === "completed") return "completed";
-  if (status === "pending") return "transition_to_in_progress";
-  if (status === "in_progress") {
+  if (status === MISSION_STATUSES.COMPLETED) return "completed";
+  if (status === MISSION_STATUSES.PENDING) return "transition_to_in_progress";
+  if (status === MISSION_STATUSES.IN_PROGRESS) {
     return questionIds && questionIds.length > 0 ? "resume" : "fetch_new";
   }
   return "unknown";
@@ -32,15 +32,22 @@ function reorderByIds<T extends { id: string }>(items: T[], ids: string[]): T[] 
 
 describe("Mission lifecycle", () => {
   describe("MISSION_STATUSES contract", () => {
-    it("contains exactly 6 statuses in canonical order", () => {
-      expect(MISSION_STATUSES).toEqual([
-        "pending",
-        "in_progress",
-        "completed",
-        "abandoned",
-        "expired",
-        "superseded",
-      ]);
+    it("contains exactly 6 statuses with named keys", () => {
+      expect(MISSION_STATUSES).toEqual({
+        PENDING: "pending",
+        IN_PROGRESS: "in_progress",
+        COMPLETED: "completed",
+        ABANDONED: "abandoned",
+        EXPIRED: "expired",
+        SUPERSEDED: "superseded",
+      });
+    });
+
+    it("each key maps to a lowercase string value", () => {
+      for (const [key, value] of Object.entries(MISSION_STATUSES)) {
+        expect(key).toBe(key.toUpperCase());
+        expect(value).toBe(value.toLowerCase());
+      }
     });
   });
 

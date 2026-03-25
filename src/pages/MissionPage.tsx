@@ -384,11 +384,11 @@ const MissionPage = () => {
           if (error || !data?.reply) throw new Error("Falha na geração");
           const content = data.reply as string;
           setSummaryContent(content);
-          const { error: rpcErr } = await supabase.rpc("jsonb_set_mission_cache", { mission_id: id, content_val: content });
+          const { error: rpcErr } = await (supabase.rpc as any)("jsonb_set_mission_cache", { mission_id: id, content_val: content });
           if (rpcErr) {
             await supabase
               .from("daily_missions")
-              .update({ payload: { ...(missionData.payload || {}), cached_content: content } })
+              .update({ payload: { ...((missionData.payload as any) || {}), cached_content: content } as any })
               .eq("id", id);
           }
         } catch {

@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/trackEvent";
-import { MISSION_TYPE_LABELS } from "@/lib/constants";
+import { MISSION_TYPE_LABELS, MISSION_STATUSES } from "@/lib/constants";
 
 interface Profile {
   name: string;
@@ -134,8 +134,12 @@ const Dashboard = () => {
       } as any).select("id").single();
       if (planError) throw new Error(planError.message);
 
-      // Delete old missions for this week forward, insert new
-      await supabase.from("daily_missions").delete().eq("user_id", userId).gte("date", today).eq("status", "pending");
+      // Supersede old pending missions (preserve history, don't touch in_progress)
+      await supabase.from("daily_missions")
+        .update({ status: MISSION_STATUSES.SUPERSEDED })
+        .eq("user_id", userId)
+        .gte("date", today)
+        .in("status", [MISSION_STATUSES.PENDING]);
 
       const dayNames: Record<string, number> = { Domingo: 0, Segunda: 1, Terca: 2, Quarta: 3, Quinta: 4, Sexta: 5, Sabado: 6 };
       const start = new Date();
@@ -169,9 +173,16 @@ const Dashboard = () => {
       }
 
       trackEvent("replan_applied", { week: newWeek, missions: missionsToInsert.length }, userId);
+
+      // Refetch today's missions without full page reload
+      const { data: freshMissions } = await supabase
+        .from("daily_missions")
+        .select("id, subject, subtopic, mission_type, status, date, estimated_minutes")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .not("status", "eq", MISSION_STATUSES.SUPERSEDED);
+      if (freshMissions) setMissions(freshMissions);
       toast.success("Novo plano semanal gerado!");
-      // Reload page data
-      window.location.reload();
     } catch (err) {
       console.error("Regeneration error:", err);
       toast.error("Erro ao regenerar plano. Tente novamente.");

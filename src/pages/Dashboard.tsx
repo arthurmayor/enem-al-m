@@ -6,7 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/trackEvent";
-import { MISSION_TYPE_LABELS, MISSION_STATUSES } from "@/lib/constants";
+import { MISSION_TYPE_LABELS, MISSION_STATUSES, PLAN_STATUSES } from "@/lib/constants";
+import { deduplicateProficiencies, diagnosticToProfArray, buildPlannerInput } from "@/lib/plannerInput";
 
 interface Profile {
   name: string;
@@ -45,20 +46,35 @@ const Dashboard = () => {
     setRegenerating(true);
     trackEvent("replan_triggered", {}, userId);
     try {
-      // Fetch latest diagnostic + profile for plan generation
-      const [{ data: latestEstimate }, { data: profileData }, { data: latestPlan }] = await Promise.all([
-        supabase.from("diagnostic_estimates").select("proficiencies, estimate_scope").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).single(),
+      // Fetch calibrated proficiencies, profile, and latest plan in parallel
+      const [{ data: profRows }, { data: profileData }, { data: latestPlan }, { count: totalAnswered }] = await Promise.all([
+        supabase.from("proficiency_scores").select("subject, score, source, measured_at").eq("user_id", userId).order("measured_at", { ascending: false }),
         supabase.from("profiles").select("name, education_goal, desired_course, exam_date, hours_per_day, study_days, available_days, self_declared_blocks, exam_config_id").eq("id", userId).single(),
         supabase.from("study_plans").select("id, week_number, version").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).single(),
+        supabase.from("answer_history").select("id", { count: "exact", head: true }).eq("user_id", userId),
       ]);
 
-      // Build proficiency scores from latest estimate
-      const proficiencies = latestEstimate?.proficiencies || {};
-      const profArray = Object.entries(proficiencies as Record<string, { elo?: number; score?: number }>).map(([subject, v]) => ({
+      // Build profArray from calibrated proficiency_scores (most recent per subject)
+      const profMap = deduplicateProficiencies(profRows || []);
+      let profArray = Array.from(profMap.entries()).map(([subject, score]) => ({
         subject,
-        score: v.score ?? (v.elo ? (v.elo - 600) / 1200 : 0.5),
-        confidence: 0.5,
+        score,
+        confidence: 0.7,
       }));
+
+      // Fallback: if no calibrated proficiencies, use diagnostic_estimates
+      let originalBand: string | undefined;
+      if (profArray.length === 0) {
+        const { data: latestEstimate } = await supabase
+          .from("diagnostic_estimates")
+          .select("proficiencies, estimate_scope")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+        const proficiencies = latestEstimate?.proficiencies || {};
+        profArray = diagnosticToProfArray(proficiencies as Record<string, { elo?: number; score?: number }>);
+      }
 
       // Get exam config
       let examConfigData = { phase2_subjects: [] as string[], cutoff_mean: 0, competition_ratio: 10, subject_distribution: {} as Record<string, unknown>, total_questions: 90 };
@@ -67,12 +83,12 @@ const Dashboard = () => {
         if (ec) examConfigData = ec as typeof examConfigData;
       }
 
-      // Build diagnostic result from proficiencies
-      const sorted = [...profArray].sort((a, b) => a.score - b.score);
-      const bottlenecks = sorted.slice(0, 3).map(p => p.subject);
-      const strengths = sorted.slice(-2).map(p => p.subject);
-      const avgScore = profArray.length > 0 ? profArray.reduce((s, p) => s + p.score, 0) / profArray.length : 0.5;
-      const band = avgScore >= 0.75 ? "forte" : avgScore >= 0.55 ? "competitivo" : avgScore >= 0.35 ? "intermediario" : "base";
+      // Build planner input with band recalculation
+      const { band, bottlenecks, strengths } = buildPlannerInput(
+        profArray,
+        totalAnswered || 0,
+        originalBand,
+      );
 
       const sd = profileData?.available_days || profileData?.study_days;
       const numDays = Array.isArray(sd) ? sd.length : typeof sd === "number" ? sd : 5;
@@ -98,7 +114,7 @@ const Dashboard = () => {
       let oldCompletionRate = -1;
       if (latestPlan?.id) {
         const { count: totalM } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", latestPlan.id);
-        const { count: doneM } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", latestPlan.id).eq("status", "completed");
+        const { count: doneM } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", latestPlan.id).eq("status", MISSION_STATUSES.COMPLETED);
         if (totalM && totalM > 0) oldCompletionRate = Math.round(((doneM || 0) / totalM) * 100);
       }
 
@@ -117,7 +133,7 @@ const Dashboard = () => {
       if (plan?.error) throw new Error(plan.error);
 
       // Mark old plan as superseded
-      await supabase.from("study_plans").update({ status: "superseded", is_current: false } as any).eq("user_id", userId).eq("is_current", true);
+      await supabase.from("study_plans").update({ status: PLAN_STATUSES.SUPERSEDED, is_current: false } as any).eq("user_id", userId).eq("is_current", true);
       const today = new Date().toISOString().split("T")[0];
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + 6);
@@ -129,7 +145,7 @@ const Dashboard = () => {
         end_date: endDate.toISOString().split("T")[0],
         plan_json: plan,
         is_current: true,
-        status: "active",
+        status: PLAN_STATUSES.ACTIVE,
         version: newVersion,
       } as any).select("id").single();
       if (planError) throw new Error(planError.message);
@@ -161,7 +177,7 @@ const Dashboard = () => {
               subject: mission.subject ?? "Geral",
               subtopic: mission.subtopic ?? "",
               mission_type: mission.type ?? "questions",
-              status: "pending",
+              status: MISSION_STATUSES.PENDING,
               estimated_minutes: mission.estimated_minutes ?? 15,
             });
           }
@@ -234,7 +250,7 @@ const Dashboard = () => {
 
       // Calculate completion rate for CTA
       const { count: totalMissions } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", activePlan.id);
-      const { count: completedCount } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", activePlan.id).eq("status", "completed");
+      const { count: completedCount } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", activePlan.id).eq("status", MISSION_STATUSES.COMPLETED);
       const rate = totalMissions && totalMissions > 0 ? Math.round(((completedCount || 0) / totalMissions) * 100) : 0;
       setCompletionRate(rate);
 
@@ -281,9 +297,9 @@ const Dashboard = () => {
     : null;
 
   const firstName = profile?.name?.split(" ")[0] || "Estudante";
-  const completedMissionsList = missions.filter((m) => m.status === "completed");
+  const completedMissionsList = missions.filter((m) => m.status === MISSION_STATUSES.COMPLETED);
   const completedMissions = completedMissionsList.length;
-  const pendingMissions = missions.filter((m) => m.status !== "completed");
+  const pendingMissions = missions.filter((m) => m.status !== MISSION_STATUSES.COMPLETED);
   const hasMissions = missions.length > 0;
   const allDone = hasMissions && pendingMissions.length === 0;
   const needsDiagnostic = !profile?.onboarding_complete;
@@ -292,7 +308,7 @@ const Dashboard = () => {
   // Estimate total study time for today (use real estimated_minutes when available)
   const totalMinutesToday = missions.reduce((s, m) => s + (m.estimated_minutes || 15), 0);
   const completedMinutesToday = missions
-    .filter((m) => m.status === "completed")
+    .filter((m) => m.status === MISSION_STATUSES.COMPLETED)
     .reduce((s, m) => s + (m.estimated_minutes || 15), 0);
 
   // Mock weekly data (from missions data)

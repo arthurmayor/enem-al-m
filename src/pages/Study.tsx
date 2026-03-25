@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { BookOpen, Clock, ChevronRight, CheckCircle2, ArrowRight, Play } from "lucide-react";
+import { BookOpen, Clock, ChevronRight, ChevronDown, CheckCircle2, ArrowRight, Play, Trophy, RotateCcw, Target } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -215,7 +215,7 @@ const PriorityMissionCard = ({ mission, rationale, isPrimary, isNextRecommended 
       to={`/mission/${mission.mission_type}/${mission.id}`}
       className={`group block rounded-2xl border transition-all duration-200 hover:-translate-y-0.5 ${
         isPrimary
-          ? "p-4 border-foreground/15 bg-foreground/[0.02] shadow-sm hover:shadow-md"
+          ? "p-4 border-foreground/15 bg-foreground/[0.02] shadow-sm hover:shadow-md ring-1 ring-foreground/5"
           : isNextRecommended
             ? "p-3.5 border-foreground/10 bg-white hover:shadow-sm"
             : "p-3.5 border-gray-100 bg-white hover:shadow-sm"
@@ -271,6 +271,7 @@ const Study = () => {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
+  const [agendaOpen, setAgendaOpen] = useState(false);
 
   // Real data for intelligence
   const [proficiencies, setProficiencies] = useState<Record<string, SubjectProficiency>>({});
@@ -530,62 +531,91 @@ const Study = () => {
                 Show when: there are today missions, OR focusParam was passed
                 ═══════════════════════════════════════════════════ */}
             {(todayTotal > 0 || focusParam) && (
-              <div className="bg-foreground rounded-2xl p-5 text-white">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-medium text-white/50 uppercase tracking-wider">Sessão de hoje</p>
-                    {focusSubject ? (
-                      <>
-                        <h1 className="text-xl font-bold mt-1 leading-tight">Foco: {focusSubject}</h1>
-                        {/* Score line when proficiency data exists */}
-                        {proficiencies[focusSubject] && (
-                          <p className="text-sm font-semibold text-white/80 mt-0.5">
-                            {proficiencies[focusSubject].pct}% de proficiência
-                          </p>
-                        )}
-                      </>
-                    ) : (
-                      <h1 className="text-xl font-bold mt-1 leading-tight">{todayPending} {todayPending === 1 ? "missão" : "missões"} pendentes</h1>
+              todayPending === 0 && todayTotal > 0 ? (
+                /* ─── Completed session state ─── */
+                <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-2xl p-6 text-white">
+                  <div className="flex items-center gap-3 mb-1">
+                    <Trophy className="h-6 w-6 text-emerald-200" />
+                    <h1 className="text-xl font-bold leading-tight">Sessão do dia concluída</h1>
+                  </div>
+                  <p className="text-sm text-white/70 mb-5">
+                    {todayCompleted} {todayCompleted === 1 ? "missão concluída" : "missões concluídas"} — bom trabalho!
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {focusSubject && (
+                      <Link
+                        to={`/study?focus=${encodeURIComponent(focusSubject)}`}
+                        className="flex items-center justify-center gap-2 py-2.5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold transition-colors"
+                      >
+                        <Target className="h-4 w-4" />
+                        Praticar {focusSubject.length > 10 ? focusSubject.slice(0, 10) + "…" : focusSubject}
+                      </Link>
                     )}
-                    {focusReason && (
-                      <p className="text-xs text-white/50 mt-0.5">{focusReason}</p>
+                    <Link
+                      to="/exams"
+                      className="flex items-center justify-center gap-2 py-2.5 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold transition-colors"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Mini simulado
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                /* ─── Active session hero ─── */
+                <div className="bg-gradient-to-br from-foreground to-foreground/90 rounded-2xl p-5 text-white shadow-lg">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-medium text-white/50 uppercase tracking-wider">Sessão de hoje</p>
+                      {focusSubject ? (
+                        <>
+                          <h1 className="text-xl font-bold mt-1 leading-tight">Foco: {focusSubject}</h1>
+                          {proficiencies[focusSubject] && (
+                            <p className="text-sm font-semibold text-white/80 mt-0.5">
+                              {proficiencies[focusSubject].pct}% de proficiência
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <h1 className="text-xl font-bold mt-1 leading-tight">{todayPending} {todayPending === 1 ? "missão pendente" : "missões pendentes"}</h1>
+                      )}
+                      {focusReason && (
+                        <p className="text-xs text-white/50 mt-0.5">{focusReason}</p>
+                      )}
+                    </div>
+                    {todayTotal > 0 && (
+                      <div className="text-right shrink-0">
+                        <p className="text-2xl font-bold leading-none">{todayTimeRemaining}<span className="text-sm font-medium text-white/50">min</span></p>
+                        <p className="text-[10px] text-white/40 mt-0.5">{todayPending} restantes</p>
+                      </div>
                     )}
                   </div>
+
                   {todayTotal > 0 && (
-                    <div className="text-right shrink-0">
-                      <p className="text-2xl font-bold leading-none">{todayTimeRemaining}<span className="text-sm font-medium text-white/50">min</span></p>
-                      <p className="text-[10px] text-white/40 mt-0.5">{todayPending} restantes</p>
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] text-white/50">{todayCompleted}/{todayTotal} concluídas</span>
+                        <span className="text-[11px] text-white/50">{Math.round(todayPct)}%</span>
+                      </div>
+                      <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-white rounded-full transition-all duration-500"
+                          style={{ width: `${todayPct}%` }}
+                        />
+                      </div>
                     </div>
                   )}
+
+                  {nextMission && (
+                    <Link
+                      to={`/mission/${nextMission.mission_type}/${nextMission.id}`}
+                      className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 bg-white text-foreground rounded-xl text-sm font-bold hover:bg-white/90 transition-colors"
+                    >
+                      <Play className="h-4 w-4" />
+                      {todayCompleted === 0 ? "Começar sessão" : "Continuar sessão"}
+                    </Link>
+                  )}
                 </div>
-
-                {/* Progress — only when there are today missions */}
-                {todayTotal > 0 && (
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[11px] text-white/50">{todayCompleted}/{todayTotal} concluídas</span>
-                      <span className="text-[11px] text-white/50">{Math.round(todayPct)}%</span>
-                    </div>
-                    <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-white rounded-full transition-all duration-500"
-                        style={{ width: `${todayPct}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* CTA — next mission if available */}
-                {nextMission && (
-                  <Link
-                    to={`/mission/${nextMission.mission_type}/${nextMission.id}`}
-                    className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 bg-white text-foreground rounded-xl text-sm font-bold hover:bg-white/90 transition-colors"
-                  >
-                    <Play className="h-4 w-4" />
-                    {todayCompleted === 0 ? "Começar sessão" : "Continuar sessão"}
-                  </Link>
-                )}
-              </div>
+              )
             )}
 
             {/* ═══════════════════════════════════════════════════
@@ -636,7 +666,7 @@ const Study = () => {
             {/* ═══════════════════════════════════════════════════
                 BLOCO 2 — MISSÕES PRIORIZADAS DE HOJE
                 ═══════════════════════════════════════════════════ */}
-            {todayMissions.length > 0 && (
+            {todayMissions.length > 0 && todayPending > 0 && (
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -705,42 +735,51 @@ const Study = () => {
             )}
 
             {/* ═══════════════════════════════════════════════════
-                BLOCO 3 — AGENDA DA SEMANA (compact, secondary)
+                BLOCO 3 — AGENDA DA SEMANA (collapsible, collapsed by default)
                 ═══════════════════════════════════════════════════ */}
-            {weeklyAgenda.length > 0 && (
-              <div>
-                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  Agenda da semana
-                </h2>
-                <div className="bg-gray-50/80 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
-                  {weeklyAgenda.map((section) => {
-                    const sectionCompleted = section.missions.filter(m => m.status === "completed").length;
-                    const sectionTime = section.missions.reduce((s, m) => s + (m.estimated_minutes ?? 15), 0);
-
-                    return (
-                      <div key={section.date} className="px-3 py-2.5">
-                        {/* Day header */}
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-semibold text-foreground">{section.label}</span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {sectionCompleted}/{section.missions.length}
-                            </span>
+            {weeklyAgenda.length > 0 && (() => {
+              const weekTotal = weeklyAgenda.reduce((s, sec) => s + sec.missions.length, 0);
+              const weekDone = weeklyAgenda.reduce((s, sec) => s + sec.missions.filter(m => m.status === "completed").length, 0);
+              return (
+                <div className="bg-gray-50/80 rounded-2xl border border-gray-100 overflow-hidden">
+                  <button
+                    onClick={() => setAgendaOpen(prev => !prev)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-left"
+                  >
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Agenda da semana · {weekDone}/{weekTotal} feitas
+                    </span>
+                    <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${agendaOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {agendaOpen && (
+                    <div className="divide-y divide-gray-100 border-t border-gray-100">
+                      {weeklyAgenda.map((section) => {
+                        const sectionCompleted = section.missions.filter(m => m.status === "completed").length;
+                        const sectionTime = section.missions.reduce((s, m) => s + (m.estimated_minutes ?? 15), 0);
+                        return (
+                          <div key={section.date} className="px-3 py-2.5">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-semibold text-foreground">{section.label}</span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {sectionCompleted}/{section.missions.length}
+                                </span>
+                              </div>
+                              <span className="text-[10px] text-muted-foreground">{sectionTime}m</span>
+                            </div>
+                            <div className="-mx-1">
+                              {section.missions.map(m => (
+                                <CompactMissionRow key={m.id} mission={m} />
+                              ))}
+                            </div>
                           </div>
-                          <span className="text-[10px] text-muted-foreground">{sectionTime}m</span>
-                        </div>
-                        {/* Compact rows */}
-                        <div className="-mx-1">
-                          {section.missions.map(m => (
-                            <CompactMissionRow key={m.id} mission={m} />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         )}
       </main>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseConfigError } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
 
 // ⚠️ MUDAR PARA false ANTES DO DEPLOY
@@ -28,12 +28,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const authUnavailable = Boolean(supabaseConfigError);
   const [user, setUser] = useState<User | null>(DEV_SKIP_AUTH ? FAKE_USER : null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(DEV_SKIP_AUTH ? false : true);
+  const [loading, setLoading] = useState(DEV_SKIP_AUTH || authUnavailable ? false : true);
 
   useEffect(() => {
-    if (DEV_SKIP_AUTH) return;
+    if (DEV_SKIP_AUTH || authUnavailable) {
+      if (authUnavailable) {
+        console.warn(supabaseConfigError);
+      }
+      return;
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -50,8 +56,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  const getConfigError = () => ({ error: new Error(supabaseConfigError ?? "Backend unavailable") });
+
   const signUp = async (email: string, password: string, name: string) => {
     if (DEV_SKIP_AUTH) return { error: null, needsEmailConfirmation: false };
+    if (authUnavailable) return { ...getConfigError(), needsEmailConfirmation: false };
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -74,17 +83,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signIn = async (email: string, password: string) => {
     if (DEV_SKIP_AUTH) return { error: null };
+    if (authUnavailable) return getConfigError();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
   };
 
   const signOut = async () => {
-    if (DEV_SKIP_AUTH) return;
+    if (DEV_SKIP_AUTH || authUnavailable) return;
     await supabase.auth.signOut();
   };
 
   const resetPassword = async (email: string) => {
     if (DEV_SKIP_AUTH) return { error: null };
+    if (authUnavailable) return getConfigError();
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
     });

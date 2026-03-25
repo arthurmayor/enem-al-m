@@ -38,6 +38,8 @@ const Dashboard = () => {
   const [showRegenCta, setShowRegenCta] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [completionRate, setCompletionRate] = useState(0);
+  const [weeklySessionsTarget, setWeeklySessionsTarget] = useState(0);
+  const [weeklySessionsDone, setWeeklySessionsDone] = useState(0);
   const regenChecked = useRef(false);
 
   // ─── Regeneration helper ──────────────────────────────────────────────────
@@ -228,6 +230,26 @@ const Dashboard = () => {
         .eq("user_id", user.id)
         .eq("date", today);
       if (missionsData) setMissions(missionsData);
+
+      // Fetch real weekly metrics
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+      const weekStartStr = weekStart.toISOString().split("T")[0];
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const weekEndStr = weekEnd.toISOString().split("T")[0];
+
+      const [{ count: weeklyTarget }, { count: weeklyDone }] = await Promise.all([
+        supabase.from("daily_missions").select("id", { count: "exact", head: true })
+          .eq("user_id", user.id).gte("date", weekStartStr).lte("date", weekEndStr)
+          .not("status", "eq", MISSION_STATUSES.SUPERSEDED),
+        supabase.from("daily_missions").select("id", { count: "exact", head: true })
+          .eq("user_id", user.id).gte("date", weekStartStr).lte("date", weekEndStr)
+          .eq("status", MISSION_STATUSES.COMPLETED),
+      ]);
+      setWeeklySessionsTarget(weeklyTarget || 0);
+      setWeeklySessionsDone(weeklyDone || 0);
+
       setLoading(false);
 
       // ─── Idempotent weekly regeneration check ─────────────────
@@ -311,10 +333,10 @@ const Dashboard = () => {
     .filter((m) => m.status === MISSION_STATUSES.COMPLETED)
     .reduce((s, m) => s + (m.estimated_minutes || 15), 0);
 
-  // Mock weekly data (from missions data)
-  const weeklySessionsTarget = 5;
-  const weeklySessionsDone = Math.min(completedMissions, weeklySessionsTarget);
-  const weeklyPct = Math.round((weeklySessionsDone / weeklySessionsTarget) * 100);
+  // Weekly progress from real data (state set in fetchData)
+  const weeklyPct = weeklySessionsTarget > 0
+    ? Math.round((weeklySessionsDone / weeklySessionsTarget) * 100)
+    : 0;
 
   // Focus subjects: top 3 from pending missions
   const focusSubjects = [...new Set(pendingMissions.map((m) => m.subject))].slice(0, 3);

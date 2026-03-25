@@ -453,7 +453,7 @@ const DiagnosticTest = () => {
               difficulty: q.difficulty,
               difficulty_elo: q.difficulty_elo || 1200,
               question_text: q.question_text,
-              options: q.options as QuestionOption[],
+              options: q.options as unknown as QuestionOption[],
               explanation: q.explanation,
             }))
           : [];

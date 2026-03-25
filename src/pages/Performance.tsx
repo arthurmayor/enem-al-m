@@ -12,6 +12,7 @@ import {
   type Proficiency,
   type SubjectDistEntry,
 } from "@/lib/scoring";
+import { ALL_SUBJECTS } from "@/lib/constants";
 
 interface ProficiencyRow { subject: string; subtopic: string; score: number; measured_at: string; source: string; }
 interface MissionRow { status: string; score: number | null; date: string; }
@@ -32,7 +33,7 @@ const FALLBACK_SUBJECT_DIST: Record<string, SubjectDistEntry> = {
   "Artes": { questions: 3, meanDiff: 1100, sdDiff: 200 },
 };
 
-const ALL_SUBJECTS = ["Português", "Matemática", "História", "Geografia", "Biologia", "Física", "Química", "Inglês", "Filosofia"];
+// ALL_SUBJECTS imported from @/lib/constants
 const RECENT_WINDOW = 25;
 const MIN_FOR_PERCENT = 5;
 const MIN_FOR_CONFIDENT = 10;

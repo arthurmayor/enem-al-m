@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { Clock } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { Clock, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
@@ -329,37 +329,9 @@ const DEFAULT_FUVEST_DISTRIBUTION: Record<string, SubjectDistEntry> = {
   "Artes": { questions: 3, meanDiff: 1100, sdDiff: 200 },
 };
 
-// ─── Fallback mock questions ─────────────────────────────────────────────────
+// ─── Difficulty indicators ───────────────────────────────────────────────────
 
-const FALLBACK_SUBJECTS = ["Português", "Matemática", "História", "Geografia", "Biologia", "Física", "Química", "Inglês", "Filosofia"];
 const DIFFICULTY_ELOS = [900, 1050, 1200, 1400, 1600];
-
-function generateFallbackQuestions(examSlug: string): Question[] {
-  const questions: Question[] = [];
-  for (let i = 0; i < 30; i++) {
-    const subject = FALLBACK_SUBJECTS[i % FALLBACK_SUBJECTS.length];
-    const diffIdx = Math.min(4, Math.floor(i / 6));
-    const diffElo = DIFFICULTY_ELOS[diffIdx];
-    const correctIdx = i % 5;
-    questions.push({
-      id: `fallback-${i}`,
-      subject,
-      subtopic: `Tópico Geral`,
-      difficulty: diffIdx + 1,
-      difficulty_elo: diffElo,
-      question_text: `[${subject} — ${examSlug.toUpperCase()}] Questão de exemplo ${i + 1}. Esta é uma questão placeholder de dificuldade ${diffIdx + 1}. Selecione a alternativa correta.`,
-      options: [
-        { label: "A", text: "Alternativa A", is_correct: correctIdx === 0 },
-        { label: "B", text: "Alternativa B", is_correct: correctIdx === 1 },
-        { label: "C", text: "Alternativa C", is_correct: correctIdx === 2 },
-        { label: "D", text: "Alternativa D", is_correct: correctIdx === 3 },
-        { label: "E", text: "Alternativa E", is_correct: correctIdx === 4 },
-      ],
-      explanation: "Explicação da resposta correta.",
-    });
-  }
-  return questions;
-}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -377,7 +349,7 @@ const DiagnosticTest = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [loading, setLoading] = useState(true);
-  const [usingFallback, setUsingFallback] = useState(false);
+  const [insufficientQuestions, setInsufficientQuestions] = useState(false);
 
   // Elo tracking per subject
   const proficienciesRef = useRef<Record<string, Proficiency>>({});
@@ -470,12 +442,15 @@ const DiagnosticTest = () => {
           const usedIds = new Set(routerQs.map((q) => q.id));
           routerTiebreakerPoolRef.current = mappedQuestions.filter((q) => !usedIds.has(q.id));
           finalQuestions = routerQs;
-          setUsingFallback(false);
         } else {
-          const fallback = generateFallbackQuestions(examConf.exam_slug);
-          finalQuestions = fallback.slice(0, 8);
-          routerTiebreakerPoolRef.current = fallback.slice(8, 12);
-          setUsingFallback(true);
+          setInsufficientQuestions(true);
+          setLoading(false);
+          trackEvent("diagnostic_insufficient_questions", {
+            exam_slug: examConf.exam_slug,
+            available: mappedQuestions.length,
+            mode: "router",
+          }, user.id);
+          return;
         }
         isAdaptiveRef.current = false;
 
@@ -510,11 +485,15 @@ const DiagnosticTest = () => {
             finalQuestions = interleaveQuestions(mappedQuestions, TOTAL_QUESTIONS);
             isAdaptiveRef.current = false;
           }
-          setUsingFallback(false);
         } else {
-          finalQuestions = generateFallbackQuestions(examConf.exam_slug);
-          setUsingFallback(true);
-          isAdaptiveRef.current = false;
+          setInsufficientQuestions(true);
+          setLoading(false);
+          trackEvent("diagnostic_insufficient_questions", {
+            exam_slug: examConf.exam_slug,
+            available: mappedQuestions.length,
+            mode: "deep",
+          }, user.id);
+          return;
         }
       }
 
@@ -573,7 +552,7 @@ const DiagnosticTest = () => {
       });
 
       // Save to answer_history
-      if (user && !q.id.startsWith("fallback")) {
+      if (user) {
         await supabase.from("answer_history").insert({
           user_id: user.id,
           question_id: q.id,
@@ -585,7 +564,7 @@ const DiagnosticTest = () => {
       }
 
       // Save to diagnostic_item_responses (router mode)
-      if (mode === "router" && user && routerSessionIdRef.current && !q.id.startsWith("fallback")) {
+      if (mode === "router" && user && routerSessionIdRef.current) {
         try {
           await supabase.from("diagnostic_item_responses").insert({
             session_id: routerSessionIdRef.current,
@@ -911,6 +890,21 @@ const DiagnosticTest = () => {
     });
   };
 
+  if (insufficientQuestions) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
+        <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
+        <h2 className="text-xl font-semibold">Banco de questões em preparação</h2>
+        <p className="text-muted-foreground mt-2 max-w-md">
+          Estamos finalizando as questões do diagnóstico. Tente novamente em breve.
+        </p>
+        <Link to="/dashboard" className="mt-6 px-6 py-3 bg-foreground text-white rounded-xl font-medium">
+          Voltar ao Dashboard
+        </Link>
+      </div>
+    );
+  }
+
   if (loading || !currentQuestion) {
     return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>);
   }
@@ -940,14 +934,6 @@ const DiagnosticTest = () => {
           </div>
         </div>
       </header>
-
-      {usingFallback && (
-        <div className="bg-warning/10 border-b border-warning/20 px-4 py-2">
-          <p className="text-xs text-center text-warning font-medium max-w-3xl mx-auto">
-            Modo demonstração — questões de diagnóstico insuficientes no banco. Importe questões na tabela diagnostic_questions.
-          </p>
-        </div>
-      )}
 
       <main className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="animate-fade-in" key={currentIndex}>

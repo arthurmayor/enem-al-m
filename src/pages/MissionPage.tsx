@@ -49,6 +49,7 @@ function eloUpdate(rating: number, expected: number, actual: number, k: number):
 
 interface AnswerForCalibration {
   subject: string;
+  subtopic: string;
   isCorrect: boolean;
   difficultyElo: number;
 }
@@ -88,11 +89,14 @@ async function runCalibration(userId: string, answers: AnswerForCalibration[]) {
     // Converter Elo de volta para score 0-1
     const newScore = Math.max(0, Math.min(1, (currentElo - 600) / 1200));
 
+    // Use real subtopic from answers (first answer's subtopic, or "geral" as fallback)
+    const realSubtopic = subjectAnswers[0]?.subtopic || "geral";
+
     // Inserir novo registro em proficiency_scores
     await supabase.from("proficiency_scores").insert({
       user_id: userId,
       subject,
-      subtopic: "geral",
+      subtopic: realSubtopic,
       score: Math.round(newScore * 1000) / 1000,
       confidence: Math.min(1, subjectAnswers.length / 10),
       source: "calibration",
@@ -482,6 +486,7 @@ const MissionPage = () => {
     if (mission && CALIBRATION_TYPES.includes(mission.mission_type)) {
       calibrationAnswers.current.push({
         subject: currentQuestion.subject,
+        subtopic: currentQuestion.subtopic || mission.subtopic || "geral",
         isCorrect: correct,
         difficultyElo: currentQuestion.difficulty_elo || 1200,
       });

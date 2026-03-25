@@ -346,7 +346,7 @@ const Performance = () => {
 
     if (reliableSubjects.length > 0 && reliableSubjects[0].pct < 50) {
       const w = reliableSubjects[0];
-      items.push({ text: `Reforçar ${w.subject} — onde você mais pode crescer`, to: "/study" });
+      items.push({ text: `Focar em ${w.subject} — seu maior gargalo`, to: `/study?focus=${encodeURIComponent(w.subject)}` });
     }
 
     if (!canShowProbability) {
@@ -495,8 +495,8 @@ const Performance = () => {
                         <p className="text-[10px] text-muted-foreground">
                           {worstArea.total < MIN_FOR_CONFIDENT ? `${worstArea.total} respostas` : `últimas ${worstArea.total}`}
                         </p>
-                        <Link to="/study" className="mt-1.5 inline-flex items-center gap-1 px-3 py-1.5 bg-foreground text-background rounded-full text-[11px] font-medium hover:opacity-90 transition-opacity">
-                          Praticar
+                        <Link to={`/study?focus=${encodeURIComponent(worstArea.label)}`} className="mt-1.5 inline-flex items-center gap-1 px-3 py-1.5 bg-foreground text-white rounded-full text-[11px] font-medium hover:opacity-90 transition-opacity">
+                          Praticar {worstArea.label}
                         </Link>
                       </div>
                     </div>

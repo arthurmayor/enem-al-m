@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { BookOpen, Clock, ChevronRight, CheckCircle2, ArrowRight, AlertTriangle } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { BookOpen, Clock, ChevronRight, CheckCircle2, ArrowRight, AlertTriangle, Play, Target, Zap } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -35,6 +35,16 @@ const MISSION_TYPE_LABELS: Record<string, string> = {
   review: "Revisão de erros",
 };
 
+// ─── Mission rationale labels ───────────────────────────────────
+
+function getMissionRationale(m: Mission, focusSubject: string | null, idx: number): string | null {
+  if (idx === 0 && m.subject === focusSubject) return "Maior impacto agora";
+  if (m.mission_type === "error_review" || m.mission_type === "review") return "Corrigir erros recentes";
+  if (m.mission_type === "spaced_review") return "Revisão espaçada";
+  if (idx === 0) return "Importante para seu objetivo";
+  return null;
+}
+
 // ─── Date helpers (America/Sao_Paulo) ───────────────────────────
 
 function getSaoPauloTodayStr(): string {
@@ -66,99 +76,136 @@ function showableSubtopic(subtopic: string | null | undefined): string | null {
   return trimmed;
 }
 
-// ─── MissionCard ────────────────────────────────────────────────
+// ─── CompactMissionRow (for weekly agenda) ──────────────────────
 
-interface MissionCardProps {
-  id: string;
-  subject: string;
-  subtopic: string | null;
-  missionType: string;
-  status: string;
-  estimatedMinutes: number | null;
-  score: number | null;
-  isNextRecommended?: boolean;
-}
+const CompactMissionRow = ({ mission }: { mission: Mission }) => {
+  const completed = mission.status === "completed";
+  const minutes = mission.estimated_minutes ?? 15;
+  const typeLabel = MISSION_TYPE_LABELS[mission.mission_type] || mission.mission_type;
 
-const MissionCard = ({
-  id,
-  subject,
-  subtopic,
-  missionType,
-  status,
-  estimatedMinutes,
-  score,
-  isNextRecommended,
-}: MissionCardProps) => {
-  const completed = status === "completed";
-  const minutes = estimatedMinutes ?? 15;
-  const typeLabel = MISSION_TYPE_LABELS[missionType] || missionType;
-  const visibleSubtopic = showableSubtopic(subtopic);
-
-  // Score badge colors (no red)
   let scoreBadge: { bg: string; text: string } | null = null;
-  if (completed && score != null) {
-    if (score >= 70) scoreBadge = { bg: "bg-green-500/10", text: "text-green-600" };
-    else if (score >= 40) scoreBadge = { bg: "bg-amber-500/10", text: "text-amber-600" };
+  if (completed && mission.score != null) {
+    if (mission.score >= 70) scoreBadge = { bg: "bg-green-500/10", text: "text-green-600" };
+    else if (mission.score >= 40) scoreBadge = { bg: "bg-amber-500/10", text: "text-amber-600" };
     else scoreBadge = { bg: "bg-gray-100", text: "text-muted-foreground" };
   }
 
   return (
     <Link
-      to={`/mission/${missionType}/${id}`}
-      className={`group flex items-center justify-between p-4 bg-white rounded-2xl border transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${
-        completed
-          ? "opacity-60 border-gray-100"
-          : isNextRecommended
-            ? "border-foreground/20 bg-foreground/[0.02]"
-            : "border-gray-100"
+      to={`/mission/${mission.mission_type}/${mission.id}`}
+      className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+        completed ? "opacity-50" : "hover:bg-gray-50"
       }`}
     >
-      <div className="flex items-start gap-3 min-w-0 flex-1">
-        {/* Status icon */}
-        {completed ? (
-          <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
-        ) : (
-          <div className="h-5 w-5 shrink-0 mt-0.5 flex items-center justify-center">
-            <div className="h-2.5 w-2.5 rounded-full bg-foreground" />
-          </div>
-        )}
+      {completed ? (
+        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+      ) : (
+        <div className="h-4 w-4 shrink-0 flex items-center justify-center">
+          <div className="h-2 w-2 rounded-full bg-gray-300" />
+        </div>
+      )}
+      <span className={`text-sm flex-1 truncate ${completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
+        {mission.subject}
+      </span>
+      <span className="text-[10px] text-muted-foreground shrink-0">{typeLabel}</span>
+      {scoreBadge && (
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold shrink-0 ${scoreBadge.bg} ${scoreBadge.text}`}>
+          {mission.score}%
+        </span>
+      )}
+      <span className="text-[10px] text-muted-foreground shrink-0">{minutes}m</span>
+      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground shrink-0" />
+    </Link>
+  );
+};
 
+// ─── PriorityMissionCard (for today's prioritized block) ────────
+
+interface PriorityCardProps {
+  mission: Mission;
+  rationale: string | null;
+  isPrimary: boolean;
+  isNextRecommended: boolean;
+}
+
+const PriorityMissionCard = ({ mission, rationale, isPrimary, isNextRecommended }: PriorityCardProps) => {
+  const completed = mission.status === "completed";
+  const minutes = mission.estimated_minutes ?? 15;
+  const typeLabel = MISSION_TYPE_LABELS[mission.mission_type] || mission.mission_type;
+  const visibleSubtopic = showableSubtopic(mission.subtopic);
+
+  let scoreBadge: { bg: string; text: string } | null = null;
+  if (completed && mission.score != null) {
+    if (mission.score >= 70) scoreBadge = { bg: "bg-green-500/10", text: "text-green-600" };
+    else if (mission.score >= 40) scoreBadge = { bg: "bg-amber-500/10", text: "text-amber-600" };
+    else scoreBadge = { bg: "bg-gray-100", text: "text-muted-foreground" };
+  }
+
+  if (completed) {
+    return (
+      <Link
+        to={`/mission/${mission.mission_type}/${mission.id}`}
+        className="group flex items-center gap-3 p-3 rounded-xl opacity-50"
+      >
+        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+        <span className="text-sm text-muted-foreground line-through truncate flex-1">{mission.subject}</span>
+        <span className="text-[10px] text-muted-foreground">{typeLabel}</span>
+        {scoreBadge && (
+          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${scoreBadge.bg} ${scoreBadge.text}`}>
+            {mission.score}%
+          </span>
+        )}
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      to={`/mission/${mission.mission_type}/${mission.id}`}
+      className={`group block rounded-2xl border transition-all duration-200 hover:-translate-y-0.5 ${
+        isPrimary
+          ? "p-4 border-foreground/15 bg-foreground/[0.02] shadow-sm hover:shadow-md"
+          : isNextRecommended
+            ? "p-3.5 border-foreground/10 bg-white hover:shadow-sm"
+            : "p-3.5 border-gray-100 bg-white hover:shadow-sm"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          {/* Subject + type badge */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-sm font-semibold ${completed ? "text-muted-foreground line-through" : "text-foreground"}`}>
-              {subject}
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-foreground font-medium shrink-0">
+          {/* Rationale tag */}
+          {rationale && (
+            <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${
+              isPrimary ? "text-foreground/50" : "text-muted-foreground/70"
+            }`}>
+              {rationale}
+            </p>
+          )}
+          {/* Subject */}
+          <p className={`font-semibold truncate ${isPrimary ? "text-base text-foreground" : "text-sm text-foreground"}`}>
+            {mission.subject}
+          </p>
+          {/* Type + subtopic */}
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-foreground/70 font-medium">
               {typeLabel}
             </span>
-            {scoreBadge && (
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${scoreBadge.bg} ${scoreBadge.text}`}>
-                {score}%
-              </span>
+            {visibleSubtopic && (
+              <span className="text-[11px] text-muted-foreground truncate">{visibleSubtopic}</span>
             )}
           </div>
+        </div>
 
-          {/* Subtopic (only if meaningful) */}
-          {visibleSubtopic && (
-            <p className="text-xs text-muted-foreground mt-0.5 truncate">{visibleSubtopic}</p>
-          )}
-
-          {/* Time — mobile: below title */}
-          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1.5 sm:hidden">
+        {/* Right: time + arrow */}
+        <div className="flex items-center gap-2 shrink-0 mt-0.5">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            <span>{minutes} min</span>
+            <span>{minutes}m</span>
           </div>
+          <ChevronRight className={`h-4 w-4 transition-colors ${
+            isPrimary ? "text-foreground/40 group-hover:text-foreground" : "text-muted-foreground/40 group-hover:text-muted-foreground"
+          }`} />
         </div>
       </div>
-
-      {/* Time — desktop: right-aligned */}
-      <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground shrink-0 ml-3">
-        <Clock className="h-3 w-3" />
-        <span>{minutes} min</span>
-      </div>
-
-      <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-2" />
     </Link>
   );
 };
@@ -167,6 +214,9 @@ const MissionCard = ({
 
 const Study = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const focusParam = searchParams.get("focus"); // e.g. ?focus=Matemática
+
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
@@ -174,7 +224,6 @@ const Study = () => {
   useEffect(() => {
     if (!user) return;
     const fetchMissions = async () => {
-      // 1. Try to get active study plan for date range
       const { data: activePlan } = await supabase
         .from("study_plans")
         .select("id, start_date, end_date")
@@ -187,7 +236,6 @@ const Study = () => {
       const startDate = (activePlan as any)?.start_date || new Date().toISOString().split("T")[0];
       const endDate = (activePlan as any)?.end_date || new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
 
-      // 2. Fetch missions in range
       const { data } = await supabase
         .from("daily_missions")
         .select("id, subject, subtopic, mission_type, status, date, estimated_minutes, score")
@@ -204,7 +252,28 @@ const Study = () => {
 
   const todayStr = getSaoPauloTodayStr();
 
-  // ─── Filtering ─────────────────────────────────────────────
+  // ─── Determine focus subject (from param or auto-detect) ───
+  const focusSubject = useMemo(() => {
+    if (focusParam) {
+      const hasMatch = missions.some(m => m.subject === focusParam && m.date === todayStr && m.status !== "completed");
+      if (hasMatch) return focusParam;
+    }
+    // Auto: most common pending subject today
+    const todayPending = missions.filter(m => m.date === todayStr && m.status !== "completed");
+    if (todayPending.length === 0) return null;
+    const counts: Record<string, number> = {};
+    for (const m of todayPending) counts[m.subject] = (counts[m.subject] || 0) + 1;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  }, [missions, todayStr, focusParam]);
+
+  // ─── Focus reason ─────────────────────────────────────────
+  const focusReason = useMemo(() => {
+    if (!focusSubject) return "";
+    if (focusParam === focusSubject) return "Priorizado pelo seu plano de ataque";
+    return "Maior oportunidade de evolução";
+  }, [focusSubject, focusParam]);
+
+  // ─── Filtering ────────────────────────────────────────────
   const filtered = useMemo(() => {
     return missions.filter((m) => {
       if (filter === "pending") return m.status !== "completed";
@@ -216,79 +285,55 @@ const Study = () => {
   const completedCount = filtered.filter((m) => m.status === "completed").length;
   const totalCount = filtered.length;
 
-  // ─── Group by day ──────────────────────────────────────────
-  const grouped = useMemo(() => {
-    const overdue: Mission[] = [];
-    const byDate: Record<string, Mission[]> = {};
+  // ─── Today's missions — prioritized ───────────────────────
+  const todayMissions = useMemo(() => {
+    const today = missions.filter(m => m.date === todayStr);
+    const overdue = missions.filter(m => m.date < todayStr && m.status === "pending");
+    const all = [...overdue, ...today];
 
-    for (const m of filtered) {
-      if (m.date < todayStr && m.status === "pending") {
-        overdue.push(m);
-      } else {
-        if (!byDate[m.date]) byDate[m.date] = [];
-        byDate[m.date].push(m);
+    // Sort: focus subject pending first, then pending, then completed
+    return [...all].sort((a, b) => {
+      if (a.status === "completed" && b.status !== "completed") return 1;
+      if (b.status === "completed" && a.status !== "completed") return -1;
+      if (a.status !== "completed" && b.status !== "completed" && focusSubject) {
+        const aFocus = a.subject === focusSubject ? 0 : 1;
+        const bFocus = b.subject === focusSubject ? 0 : 1;
+        if (aFocus !== bFocus) return aFocus - bFocus;
       }
-    }
+      return 0;
+    });
+  }, [missions, todayStr, focusSubject]);
 
-    // Sort within each day: pending first, then completed, preserving original order
+  const todayCompleted = todayMissions.filter(m => m.status === "completed").length;
+  const todayTotal = todayMissions.length;
+  const todayPending = todayTotal - todayCompleted;
+  const todayPct = todayTotal > 0 ? (todayCompleted / todayTotal) * 100 : 0;
+  const todayTimeTotal = todayMissions.reduce((s, m) => s + (m.estimated_minutes ?? 15), 0);
+  const todayTimeRemaining = todayMissions
+    .filter(m => m.status !== "completed")
+    .reduce((s, m) => s + (m.estimated_minutes ?? 15), 0);
+
+  const nextMission = todayMissions.find(m => m.status !== "completed");
+
+  // ─── Weekly agenda (future only, not today) ───────────────
+  const weeklyAgenda = useMemo(() => {
+    const future = filtered.filter(m => m.date > todayStr);
+    const byDate: Record<string, Mission[]> = {};
+    for (const m of future) {
+      if (!byDate[m.date]) byDate[m.date] = [];
+      byDate[m.date].push(m);
+    }
     for (const date of Object.keys(byDate)) {
       const pending = byDate[date].filter(m => m.status !== "completed");
       const done = byDate[date].filter(m => m.status === "completed");
       byDate[date] = [...pending, ...done];
     }
-
-    const sortedDates = Object.keys(byDate).sort();
-    const sections: { label: string; date: string | null; missions: Mission[] }[] = [];
-
-    if (overdue.length > 0) {
-      sections.push({ label: "Atrasadas", date: null, missions: overdue });
-    }
-
-    for (const date of sortedDates) {
-      sections.push({ label: formatDateHeader(date), date, missions: byDate[date] });
-    }
-
-    // If "Hoje" section doesn't exist, inject it
-    const hasTodaySection = sortedDates.includes(todayStr);
-    if (!hasTodaySection && filter !== "completed") {
-      const insertIdx = sections.findIndex(s => s.label !== "Atrasadas");
-      sections.splice(insertIdx === -1 ? sections.length : insertIdx, 0, {
-        label: "Hoje",
-        date: todayStr,
-        missions: [],
-      });
-    }
-
-    // Remove empty sections (except "Hoje" which shows "sem missões")
-    return sections.filter(s => s.missions.length > 0 || s.label === "Hoje");
-  }, [filtered, todayStr, filter]);
-
-  // ─── "Continuar de onde parei" — first pending today, else first overdue ───
-  const continueCard = useMemo(() => {
-    // First pending from today
-    const todayPending = missions.find(m => m.date === todayStr && m.status !== "completed");
-    if (todayPending) return todayPending;
-    // First overdue
-    return missions.find(m => m.date < todayStr && m.status === "pending") || null;
-  }, [missions, todayStr]);
-
-  // ─── Today's progress bar data ────────────────────────────
-  const todayProgress = useMemo(() => {
-    const todayMissions = missions.filter(m => m.date === todayStr);
-    if (todayMissions.length === 0) return null;
-    const done = todayMissions.filter(m => m.status === "completed");
-    const totalMin = todayMissions.reduce((s, m) => s + (m.estimated_minutes ?? 15), 0);
-    const doneMin = done.reduce((s, m) => s + (m.estimated_minutes ?? 15), 0);
-    const hasMinuteData = todayMissions.some(m => m.estimated_minutes != null);
-    return {
-      completed: done.length,
-      total: todayMissions.length,
-      doneMin,
-      totalMin,
-      hasMinuteData,
-      pct: (done.length / todayMissions.length) * 100,
-    };
-  }, [missions, todayStr]);
+    return Object.keys(byDate).sort().map(date => ({
+      label: formatDateHeader(date),
+      date,
+      missions: byDate[date],
+    }));
+  }, [filtered, todayStr]);
 
   // ─── All-week completion check ────────────────────────────
   const allWeekDone = missions.length > 0 && missions.every(m => m.status === "completed");
@@ -316,7 +361,7 @@ const Study = () => {
         </div>
       </header>
 
-      <main className="max-w-[640px] mx-auto px-4 py-6">
+      <main className="max-w-[640px] mx-auto px-4 py-5">
         {/* ─── Empty: no missions at all ─── */}
         {missions.length === 0 ? (
           <div className="text-center py-16 animate-fade-in">
@@ -344,14 +389,107 @@ const Study = () => {
             </Link>
           </div>
         ) : (
-          <>
-            {/* ─── Filters ─── */}
-            <div className="flex gap-2 mb-6 animate-fade-in">
+          <div className="space-y-6 animate-fade-in">
+
+            {/* ═══════════════════════════════════════════════════
+                BLOCO 1 — HERO DA SESSÃO DE HOJE
+                ═══════════════════════════════════════════════════ */}
+            {todayTotal > 0 && (
+              <div className="bg-foreground rounded-2xl p-5 text-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium text-white/50 uppercase tracking-wider">Sessão de hoje</p>
+                    {focusSubject ? (
+                      <h1 className="text-xl font-bold mt-1 leading-tight">Foco: {focusSubject}</h1>
+                    ) : (
+                      <h1 className="text-xl font-bold mt-1 leading-tight">{todayPending} {todayPending === 1 ? "missão" : "missões"} pendentes</h1>
+                    )}
+                    {focusReason && (
+                      <p className="text-xs text-white/50 mt-0.5">{focusReason}</p>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-2xl font-bold leading-none">{todayTimeRemaining}<span className="text-sm font-medium text-white/50">min</span></p>
+                    <p className="text-[10px] text-white/40 mt-0.5">{todayPending} restantes</p>
+                  </div>
+                </div>
+
+                {/* Progress */}
+                <div className="mt-4">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] text-white/50">{todayCompleted}/{todayTotal} concluídas</span>
+                    <span className="text-[11px] text-white/50">{Math.round(todayPct)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-white rounded-full transition-all duration-500"
+                      style={{ width: `${todayPct}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* CTA */}
+                {nextMission && (
+                  <Link
+                    to={`/mission/${nextMission.mission_type}/${nextMission.id}`}
+                    className="mt-4 flex items-center justify-center gap-2 w-full py-2.5 bg-white text-foreground rounded-xl text-sm font-bold hover:bg-white/90 transition-colors"
+                  >
+                    <Play className="h-4 w-4" />
+                    {todayCompleted === 0 ? "Começar sessão" : "Continuar sessão"}
+                  </Link>
+                )}
+              </div>
+            )}
+
+            {/* ═══════════════════════════════════════════════════
+                BLOCO 2 — MISSÕES PRIORIZADAS DE HOJE
+                ═══════════════════════════════════════════════════ */}
+            {todayMissions.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {todayMissions.some(m => m.date < todayStr) ? "Hoje + atrasadas" : "Hoje"}
+                  </h2>
+                  {todayMissions.some(m => m.estimated_minutes != null) && (
+                    <span className="text-[10px] text-muted-foreground">
+                      {todayMissions.filter(m => m.status === "completed").reduce((s, m) => s + (m.estimated_minutes ?? 15), 0)} de {todayTimeTotal} min
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  {todayMissions.map((m, i) => {
+                    const pendingIdx = todayMissions.filter((x, xi) => xi < i && x.status !== "completed").length;
+                    return (
+                      <PriorityMissionCard
+                        key={m.id}
+                        mission={m}
+                        rationale={getMissionRationale(m, focusSubject, pendingIdx)}
+                        isPrimary={pendingIdx === 0 && m.status !== "completed"}
+                        isNextRecommended={m.id === nextMission?.id}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* No missions today but have future */}
+            {todayTotal === 0 && weeklyAgenda.length > 0 && (
+              <div className="bg-gray-50 rounded-2xl p-5 text-center">
+                <p className="text-sm text-muted-foreground">Hoje — sem missões planejadas</p>
+              </div>
+            )}
+
+            {/* ═══════════════════════════════════════════════════
+                FILTERS (between today and weekly)
+                ═══════════════════════════════════════════════════ */}
+            <div className="flex gap-2">
               {(["all", "pending", "completed"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
-                  className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  className={`px-3.5 py-1.5 rounded-full text-[11px] font-medium transition-all ${
                     filter === f
                       ? "bg-foreground text-white"
                       : "bg-white border border-gray-200 text-foreground hover:border-gray-400"
@@ -362,120 +500,56 @@ const Study = () => {
               ))}
             </div>
 
-            {/* ─── "Continuar de onde parei" ─── */}
-            {continueCard && filter !== "completed" && (
-              <Link
-                to={`/mission/${continueCard.mission_type}/${continueCard.id}`}
-                className="block mb-6 p-4 bg-foreground rounded-2xl hover:bg-foreground/90 transition-colors animate-fade-in"
-              >
-                <p className="text-xs text-white/60 font-medium">Próxima</p>
-                <div className="flex items-center justify-between mt-1">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white truncate">
-                      {continueCard.subject} — {MISSION_TYPE_LABELS[continueCard.mission_type] || continueCard.mission_type}
-                    </p>
-                    {showableSubtopic(continueCard.subtopic) && (
-                      <p className="text-xs text-white/60 truncate mt-0.5">
-                        {showableSubtopic(continueCard.subtopic)}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-white/60 shrink-0 ml-3">
-                    <Clock className="h-3 w-3" />
-                    <span>{continueCard.estimated_minutes ?? 15} min</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-center gap-2 mt-3 text-sm font-semibold text-white">
-                  Continuar estudo
-                  <ArrowRight className="h-4 w-4" />
-                </div>
-              </Link>
-            )}
-
-            {/* ─── Filter empty states ─── */}
+            {/* Filter empty states */}
             {filtered.length === 0 && filter === "pending" && (
-              <div className="text-center py-12 animate-fade-in">
+              <div className="text-center py-8">
                 <p className="text-sm text-muted-foreground">Tudo feito por hoje! 🎉</p>
               </div>
             )}
             {filtered.length === 0 && filter === "completed" && (
-              <div className="text-center py-12 animate-fade-in">
+              <div className="text-center py-8">
                 <p className="text-sm text-muted-foreground">Nenhuma missão concluída ainda. Que tal começar?</p>
               </div>
             )}
 
-            {/* ─── Grouped by day ─── */}
-            <div className="space-y-6">
-              {grouped.map((section, sIdx) => {
-                const isOverdue = section.label === "Atrasadas";
-                const isTodaySection = section.label === "Hoje";
+            {/* ═══════════════════════════════════════════════════
+                BLOCO 3 — AGENDA DA SEMANA (compact, secondary)
+                ═══════════════════════════════════════════════════ */}
+            {weeklyAgenda.length > 0 && (
+              <div>
+                <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Agenda da semana
+                </h2>
+                <div className="bg-gray-50/80 rounded-2xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+                  {weeklyAgenda.map((section) => {
+                    const sectionCompleted = section.missions.filter(m => m.status === "completed").length;
+                    const sectionTime = section.missions.reduce((s, m) => s + (m.estimated_minutes ?? 15), 0);
 
-                return (
-                  <div key={section.label + sIdx} className="animate-fade-in" style={{ animationDelay: `${sIdx * 0.03}s` }}>
-                    {/* Section header */}
-                    <div className="flex items-center gap-3 mb-3">
-                      {isOverdue && <AlertTriangle className="h-4 w-4 text-amber-500" />}
-                      <h3 className={`text-xs font-semibold uppercase tracking-wider ${
-                        isOverdue ? "text-amber-500" : "text-muted-foreground"
-                      }`}>
-                        {section.label}
-                      </h3>
-
-                      {/* Today's progress bar inline */}
-                      {isTodaySection && todayProgress && todayProgress.total > 0 && (
-                        <span className="text-xs text-muted-foreground ml-auto shrink-0">
-                          {todayProgress.completed}/{todayProgress.total} feitas
-                          {todayProgress.hasMinuteData && ` · ${todayProgress.doneMin} de ${todayProgress.totalMin} min`}
-                        </span>
-                      )}
-
-                      {!isTodaySection && <div className="flex-1 h-px bg-gray-100" />}
-                    </div>
-
-                    {/* Today: progress bar */}
-                    {isTodaySection && todayProgress && todayProgress.total > 0 && (
-                      <div className="mb-3">
-                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-foreground rounded-full transition-all duration-500"
-                            style={{ width: `${todayProgress.pct}%` }}
-                          />
+                    return (
+                      <div key={section.date} className="px-3 py-2.5">
+                        {/* Day header */}
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-semibold text-foreground">{section.label}</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {sectionCompleted}/{section.missions.length}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{sectionTime}m</span>
+                        </div>
+                        {/* Compact rows */}
+                        <div className="-mx-1">
+                          {section.missions.map(m => (
+                            <CompactMissionRow key={m.id} mission={m} />
+                          ))}
                         </div>
                       </div>
-                    )}
-
-                    {/* Missions or empty */}
-                    {section.missions.length === 0 ? (
-                      <p className="text-sm text-muted-foreground pl-1">Hoje — sem missões planejadas</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {section.missions.map((mission) => {
-                          // isNextRecommended = first pending mission of today's section
-                          const isNext = isTodaySection
-                            && mission.status !== "completed"
-                            && mission.id === section.missions.find(m => m.status !== "completed")?.id;
-
-                          return (
-                            <MissionCard
-                              key={mission.id}
-                              id={mission.id}
-                              subject={mission.subject}
-                              subtopic={mission.subtopic}
-                              missionType={mission.mission_type}
-                              status={mission.status}
-                              estimatedMinutes={mission.estimated_minutes}
-                              score={mission.score}
-                              isNextRecommended={isNext}
-                            />
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </main>
       <BottomNav />

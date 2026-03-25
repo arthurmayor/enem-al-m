@@ -115,7 +115,7 @@ serve(async (req) => {
       throw new Error("ANTHROPIC_API_KEY is not set");
     }
 
-    const { message, chatHistory, userContext } = await req.json();
+    const { message, chatHistory, userContext, questionContext } = await req.json();
 
     // ─── Fetch real context if userId provided ────────────────────
     let enrichedContext = "";
@@ -153,17 +153,41 @@ serve(async (req) => {
       }
     }
 
+    // ─── Question context injection (mission-native tutor) ──────
+    let questionContextBlock = "";
+    if (questionContext && questionContext.is_question_mode) {
+      questionContextBlock =
+        "\n\nQUESTAO ATUAL DO ALUNO:\n" +
+        "Materia: " + (questionContext.subject || "Nao informada") + "\n" +
+        "Subtopico: " + (questionContext.subtopic || "Nao informado") + "\n" +
+        "Enunciado: " + (questionContext.question_text || "Nao disponivel") + "\n" +
+        "Alternativas:\n" + (questionContext.options || []).join("\n") + "\n" +
+        (questionContext.selected_answer
+          ? "O aluno selecionou: " + questionContext.selected_answer + "\n"
+          : "") +
+        "\nREGRA ESPECIAL — MODO QUESTAO:\n" +
+        "O aluno esta resolvendo uma questao agora. NAO de a resposta " +
+        "direta. Guie o raciocinio passo a passo. Pergunte o que ele " +
+        "ja tentou ou o que esta em duvida. De pistas progressivas, " +
+        "nao a solucao. Se ele insistir, de UMA dica conceitual sem " +
+        "revelar a alternativa correta.";
+    }
+
+    // Use questionContext.subject when available, otherwise fallback
+    const currentSubject = questionContext?.subject || userContext?.current_subject || "Geral";
+
     const systemPrompt = "Voce eh um tutor paciente e encorajador ajudando um estudante brasileiro a se preparar para vestibulares.\n\n" +
       "PERFIL DO ALUNO:\n" +
       "- Nome: " + (userContext.name || "Estudante") + "\n" +
       "- Idade: " + (userContext.age || "Nao informada") + "\n" +
       "- Serie: " + (userContext.school_year || "Nao informada") + "\n" +
       "- Objetivo: " + (userContext.education_goal || "ENEM") + "\n" +
-      "- Materia atual: " + (userContext.current_subject || "Geral") + "\n" +
+      "- Materia atual: " + currentSubject + "\n" +
       "- Nivel de proficiencia: " + (userContext.proficiency_level || "Nao avaliado") + "\n\n" +
       "ULTIMOS ERROS DO ALUNO:\n" +
       (userContext.recent_errors ? JSON.stringify(userContext.recent_errors) : "Nenhum registrado") +
-      enrichedContext + "\n\n" +
+      enrichedContext +
+      questionContextBlock + "\n\n" +
       "REGRAS:\n" +
       "1. Explique conceitos passo a passo com exemplos do dia a dia\n" +
       "2. Use analogias e linguagem acessivel\n" +

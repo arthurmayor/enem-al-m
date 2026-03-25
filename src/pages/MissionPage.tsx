@@ -1,12 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Sparkles, Send, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/trackEvent";
 import { MISSION_STATUSES } from "@/lib/constants";
+
+interface TutorMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}
 
 interface Question { id: string; subject: string; subtopic: string; difficulty: number; difficulty_elo?: number; question_text: string; options: { label: string; text: string; is_correct: boolean }[]; explanation: string; }
 interface MissionData { id: string; subject: string; subtopic: string; mission_type: string; status: string; payload?: Record<string, unknown>; question_ids?: string[]; score?: number | null; }
@@ -307,6 +313,14 @@ const MissionPage = () => {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState(false);
 
+  // ─── Tutor panel state (Sprint 6) ──────────────────────────────
+  const [showTutor, setShowTutor] = useState(false);
+  const [tutorMessages, setTutorMessages] = useState<TutorMessage[]>([]);
+  const [tutorInput, setTutorInput] = useState("");
+  const [tutorLoading, setTutorLoading] = useState(false);
+  const tutorScrollMobileRef = useRef<HTMLDivElement>(null);
+  const tutorScrollDesktopRef = useRef<HTMLDivElement>(null);
+
   // Calibration answers collector (Change 1)
   const calibrationAnswers = useRef<AnswerForCalibration[]>([]);
 
@@ -458,6 +472,86 @@ const MissionPage = () => {
     };
   }, [user, id, completed, mission, score.total]);
 
+  // ─── Tutor: clear chat when question changes ───────────────────
+  const prevIndexRef = useRef(currentIndex);
+  useEffect(() => {
+    if (currentIndex !== prevIndexRef.current) {
+      setTutorMessages([]);
+      prevIndexRef.current = currentIndex;
+    }
+  }, [currentIndex]);
+
+  // ─── Tutor: auto-scroll on new messages ───────────────────────
+  useEffect(() => {
+    if (tutorScrollMobileRef.current) {
+      tutorScrollMobileRef.current.scrollTop = tutorScrollMobileRef.current.scrollHeight;
+    }
+    if (tutorScrollDesktopRef.current) {
+      tutorScrollDesktopRef.current.scrollTop = tutorScrollDesktopRef.current.scrollHeight;
+    }
+  }, [tutorMessages]);
+
+  // ─── Tutor: telemetry for open/close ──────────────────────────
+  const openTutor = useCallback(() => {
+    setShowTutor(true);
+    if (user) {
+      trackEvent("tutor_opened", {
+        subject: mission?.subject,
+        mission_type: mission?.mission_type,
+      }, user.id);
+    }
+  }, [user, mission]);
+
+  const closeTutor = useCallback(() => {
+    setShowTutor(false);
+    if (user) {
+      trackEvent("tutor_closed", {}, user.id);
+    }
+  }, [user]);
+
+  // ─── Tutor: send message ──────────────────────────────────────
+  const sendTutorMessage = useCallback(async (text: string) => {
+    if (!text.trim() || !user) return;
+    const userMsg: TutorMessage = { id: crypto.randomUUID(), role: "user", content: text.trim() };
+    setTutorMessages(prev => [...prev, userMsg]);
+    setTutorInput("");
+    setTutorLoading(true);
+
+    trackEvent("tutor_message_sent", {
+      subject: currentQuestion?.subject || mission?.subject,
+    }, user.id);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-tutor", {
+        body: {
+          message: text.trim(),
+          chatHistory: tutorMessages.map(m => ({ role: m.role, message: m.content })),
+          userContext: {
+            userId: user.id,
+            name: "Estudante",
+            current_subject: currentQuestion?.subject || mission?.subject || "Geral",
+          },
+          questionContext: {
+            question_text: currentQuestion?.question_text,
+            options: currentQuestion?.options?.map(o => `${o.label}. ${o.text}`),
+            subject: currentQuestion?.subject,
+            subtopic: currentQuestion?.subtopic,
+            selected_answer: selectedOption || null,
+            is_question_mode: true,
+          },
+        },
+      });
+      if (error || !data?.reply) throw new Error("Falha na resposta do tutor");
+      const assistantMsg: TutorMessage = { id: crypto.randomUUID(), role: "assistant", content: data.reply };
+      setTutorMessages(prev => [...prev, assistantMsg]);
+    } catch {
+      const errorMsg: TutorMessage = { id: crypto.randomUUID(), role: "assistant", content: "Desculpe, não consegui responder agora. Tente novamente." };
+      setTutorMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setTutorLoading(false);
+    }
+  }, [user, currentQuestion, mission, selectedOption, tutorMessages]);
+
   const currentQuestion = questions[currentIndex];
 
   const handleAnswer = useCallback(async (optionLabel: string) => {
@@ -470,8 +564,16 @@ const MissionPage = () => {
     scoreRef.current = { correct: newCorrect, total: newTotal };
     setScore({ correct: newCorrect, total: newTotal });
 
+    // Error taxonomy (Sprint 6)
+    let errorType: string | null = null;
+    if (!correct) {
+      if (responseTime < 15) errorType = "distracao";
+      else if (responseTime > 60) errorType = "conceitual";
+      else errorType = "nao_classificado";
+    }
+
     if (!currentQuestion.id.startsWith("mock")) {
-      await supabase.from("answer_history").insert({ user_id: user.id, question_id: currentQuestion.id, selected_option: optionLabel, is_correct: correct, response_time_seconds: responseTime, subtopic: currentQuestion.subtopic || mission?.subtopic || "geral", context: "practice" });
+      await supabase.from("answer_history").insert({ user_id: user.id, question_id: currentQuestion.id, selected_option: optionLabel, is_correct: correct, response_time_seconds: responseTime, subtopic: currentQuestion.subtopic || mission?.subtopic || "geral", error_type: errorType, context: "practice" });
     }
 
     trackEvent("question_answered", {
@@ -671,7 +773,7 @@ const MissionPage = () => {
   // ─── Questions render ──────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className={`min-h-screen bg-white transition-all duration-300 ${showTutor ? "lg:mr-[380px]" : ""}`}>
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="flex items-center justify-between h-14">
@@ -722,8 +824,138 @@ const MissionPage = () => {
               <p className="text-sm text-foreground leading-relaxed">{currentQuestion.explanation}</p>
             </div>
           )}
+
+          {/* Tutor help button */}
+          {!showTutor && (
+            <button
+              onClick={openTutor}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mt-3"
+            >
+              <Sparkles className="h-4 w-4" />
+              Pedir ajuda ao Tutor
+            </button>
+          )}
         </div>
       </main>
+
+      {/* ─── Tutor panel (Sprint 6) ──────────────────────────────── */}
+      {showTutor && (
+        <>
+          {/* Mobile: fullscreen overlay */}
+          <div className="fixed inset-0 z-50 bg-white flex flex-col lg:hidden">
+            <div className="flex items-center justify-between px-4 h-14 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-foreground" />
+                <span className="text-sm font-semibold text-foreground">Tutor IA</span>
+              </div>
+              <button onClick={closeTutor} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div ref={tutorScrollMobileRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {tutorMessages.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center mt-8">
+                  Pergunte algo sobre esta questão. O tutor vai guiar seu raciocínio sem dar a resposta.
+                </p>
+              )}
+              {tutorMessages.map(msg => (
+                <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-foreground text-white"
+                      : "bg-gray-100 text-foreground"
+                  }`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {tutorLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 rounded-2xl px-4 py-2.5 text-sm text-muted-foreground">
+                    Pensando...
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="border-t border-gray-100 px-4 py-3">
+              <form onSubmit={e => { e.preventDefault(); sendTutorMessage(tutorInput); }} className="flex gap-2">
+                <input
+                  type="text"
+                  value={tutorInput}
+                  onChange={e => setTutorInput(e.target.value)}
+                  placeholder="Sua dúvida..."
+                  className="flex-1 px-4 py-2.5 rounded-full border border-gray-200 text-sm focus:outline-none focus:border-gray-400"
+                  disabled={tutorLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={tutorLoading || !tutorInput.trim()}
+                  className="h-10 w-10 rounded-full bg-foreground text-white flex items-center justify-center disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Desktop: side panel */}
+          <div className="hidden lg:flex fixed top-0 right-0 w-[380px] h-screen border-l border-gray-100 bg-white flex-col z-50">
+            <div className="flex items-center justify-between px-4 h-14 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-foreground" />
+                <span className="text-sm font-semibold text-foreground">Tutor IA</span>
+              </div>
+              <button onClick={closeTutor} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div ref={tutorScrollDesktopRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {tutorMessages.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center mt-8">
+                  Pergunte algo sobre esta questão. O tutor vai guiar seu raciocínio sem dar a resposta.
+                </p>
+              )}
+              {tutorMessages.map(msg => (
+                <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    msg.role === "user"
+                      ? "bg-foreground text-white"
+                      : "bg-gray-100 text-foreground"
+                  }`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+              {tutorLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 rounded-2xl px-4 py-2.5 text-sm text-muted-foreground">
+                    Pensando...
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="border-t border-gray-100 px-4 py-3">
+              <form onSubmit={e => { e.preventDefault(); sendTutorMessage(tutorInput); }} className="flex gap-2">
+                <input
+                  type="text"
+                  value={tutorInput}
+                  onChange={e => setTutorInput(e.target.value)}
+                  placeholder="Sua dúvida..."
+                  className="flex-1 px-4 py-2.5 rounded-full border border-gray-200 text-sm focus:outline-none focus:border-gray-400"
+                  disabled={tutorLoading}
+                />
+                <button
+                  type="submit"
+                  disabled={tutorLoading || !tutorInput.trim()}
+                  className="h-10 w-10 rounded-full bg-foreground text-white flex items-center justify-center disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </form>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

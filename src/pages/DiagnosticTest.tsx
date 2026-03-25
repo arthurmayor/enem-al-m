@@ -832,7 +832,7 @@ const DiagnosticTest = () => {
         proficiencies: prof,
         priority_areas: priorities,
         raw_answers: rawAnswersRef.current,
-      });
+      } as any);
     } catch (err) {
       console.warn("Could not save diagnostic_results (table may not exist yet):", err);
     }

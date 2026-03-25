@@ -189,7 +189,7 @@ const Performance = () => {
             cutoff_mean: ec.cutoff_mean ?? 55,
             cutoff_sd: 5,
             total_questions: ec.total_questions ?? 90,
-            subject_distribution: ec.subject_distribution as Record<string, SubjectDistEntry> | null,
+            subject_distribution: ec.subject_distribution as unknown as Record<string, SubjectDistEntry> | null,
           });
         }
       }

@@ -48,6 +48,12 @@
     --shadow-elevated: 0 10px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.04);
     --gradient-primary: hsl(0 0% 7%);
     --gradient-cta: hsl(0 0% 7%);
+
+    /* Layout tokens */
+    --sidebar-width: 248px;
+    --sidebar-compact: 64px;
+    --content-max: 1280px;
+    --right-rail: 320px;
   }
 
   .dark {
@@ -86,7 +92,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-bg-app text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
     letter-spacing: -0.01em;
   }

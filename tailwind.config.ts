@@ -74,6 +74,36 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        // Design System v2 — Cátedra palette
+        "bg-app": "#FCFAF7",
+        "bg-sidebar": "#F5F0E8",
+        "bg-card": "#FFFDF9",
+        "ink-strong": "#171717",
+        "ink": "#2A2A2A",
+        "ink-soft": "#6B665E",
+        "ink-muted": "#A39E99",
+        brand: {
+          50: "#FFFBEB",
+          100: "#FEF3C7",
+          500: "#D97706",
+          600: "#B45309",
+        },
+        line: "#E7DFD4",
+        "line-light": "#F0EBE5",
+        // Matérias
+        "mat-port": "#7C3AED",
+        "mat-math": "#2563EB",
+        "mat-hist": "#C2410C",
+        "mat-geo": "#059669",
+        "mat-bio": "#0F766E",
+        "mat-fis": "#4338CA",
+        "mat-quim": "#DB2777",
+        "mat-ing": "#0891B2",
+        "mat-fil": "#CA8A04",
+        // Signals
+        "signal-info": "#2563EB",
+        "signal-ok": "#059669",
+        "signal-error": "#DC2626",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -81,11 +111,15 @@ export default {
         sm: "calc(var(--radius) - 4px)",
         xl: "1rem",
         "2xl": "1.25rem",
+        card: "16px",
+        input: "10px",
       },
       boxShadow: {
         rest: "var(--shadow-rest)",
         interactive: "var(--shadow-interactive)",
         elevated: "var(--shadow-elevated)",
+        card: "0 1px 2px rgba(0,0,0,0.04)",
+        "card-hover": "0 4px 12px rgba(0,0,0,0.06)",
       },
       keyframes: {
         "accordion-down": {

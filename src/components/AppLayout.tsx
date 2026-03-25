@@ -140,7 +140,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
       )}
 
       {/* Main content area */}
-      <main className="flex-1 md:ml-16 lg:ml-60 min-h-screen">
+      <main className="flex-1 md:ml-16 lg:ml-60 min-h-screen bg-bg-app">
         {children}
       </main>
     </div>

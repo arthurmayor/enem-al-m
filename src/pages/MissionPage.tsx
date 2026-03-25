@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/trackEvent";
 import { MISSION_STATUSES } from "@/lib/constants";
+import SubjectBadge from "@/components/ui/SubjectBadge";
+import ProgressBar from "@/components/ui/ProgressBar";
+import { getSubjectColor } from "@/lib/subjectColors";
 
 interface TutorMessage {
   id: string;
@@ -703,7 +706,7 @@ const MissionPage = () => {
 
   // ─── Renders ───────────────────────────────────────────────────────────────
 
-  if (loading) { return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>); }
+  if (loading) { return (<div className="min-h-screen bg-bg-app flex items-center justify-center"><div className="h-8 w-8 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" /></div>); }
 
   if (completed) {
     // Use in-memory score if just finished, or stored score if revisiting
@@ -712,18 +715,22 @@ const MissionPage = () => {
       : (mission?.score ?? 0);
     const isSummary = mission && SUMMARY_TYPES.includes(mission.mission_type);
     const hasScore = score.total > 0 || mission?.score != null;
-    const scoreColor = finalPercent >= 70 ? "text-success bg-success/10" : finalPercent >= 40 ? "text-warning bg-warning/10" : "text-destructive bg-destructive/10";
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="text-center max-w-sm animate-fade-in">
-          <CheckCircle2 className="h-16 w-16 text-foreground mx-auto mb-4" />
-          <h1 className="text-2xl font-semibold text-foreground">Missão Concluída!</h1>
-          {!isSummary && hasScore && (<div className={`mt-4 inline-flex items-center justify-center h-20 w-20 rounded-full ${scoreColor} text-2xl font-semibold`}>{finalPercent}%</div>)}
-          <p className="text-sm text-muted-foreground mt-4">{mission?.subject} — {mission?.subtopic}</p>
-          {!isSummary && score.total > 0 && (<p className="text-sm text-muted-foreground mt-1">{score.correct} de {score.total} corretas</p>)}
-          <div className="mt-8 flex gap-3 justify-center">
-            <Link to="/dashboard" className="px-6 py-2.5 rounded-full bg-foreground text-white text-sm font-medium hover:bg-foreground/90 transition-all">Voltar ao Dashboard</Link>
-            <Link to="/study" className="px-6 py-2.5 rounded-full bg-white border border-gray-200 text-foreground text-sm font-medium hover:shadow-md transition-all">Mais Missões</Link>
+      <div className="min-h-screen bg-bg-app flex items-center justify-center px-4">
+        <div className="bg-bg-card rounded-card shadow-card p-8 text-center max-w-sm animate-fade-in">
+          <CheckCircle2 className="h-12 w-12 text-signal-ok mx-auto mb-4" />
+          <h1 className="text-xl font-semibold text-ink-strong">Missão concluída</h1>
+          {!isSummary && hasScore && (
+            <p className="text-3xl font-bold text-ink-strong mt-2">Score: {finalPercent}%</p>
+          )}
+          {mission && <div className="mt-3"><SubjectBadge subject={mission.subject} /></div>}
+          <p className="text-sm text-ink-soft mt-2">{mission?.subtopic}</p>
+          {!isSummary && score.total > 0 && (
+            <p className="text-sm text-ink-soft mt-1">{score.correct} de {score.total} corretas</p>
+          )}
+          <div className="mt-6 flex flex-col gap-3">
+            <Link to="/dashboard" className="px-6 py-3 rounded-input bg-ink-strong text-white text-sm font-medium hover:opacity-90 transition-opacity">Voltar ao Dashboard</Link>
+            <Link to="/study" className="px-6 py-3 rounded-input bg-bg-app border border-line-light text-ink-strong text-sm font-medium hover:shadow-card transition-shadow">Mais Missões</Link>
           </div>
         </div>
       </div>
@@ -734,44 +741,46 @@ const MissionPage = () => {
 
   if (mission && SUMMARY_TYPES.includes(mission.mission_type)) {
     return (
-      <div className="min-h-screen bg-white">
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+      <div className="min-h-screen bg-bg-app">
+        <header className="sticky top-0 z-40 bg-bg-app/80 backdrop-blur-xl border-b border-line-light">
           <div className="container mx-auto px-4 max-w-3xl">
             <div className="flex items-center justify-between h-14">
-              <Link to="/dashboard" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
-              <span className="text-sm font-semibold text-foreground">Resumo</span>
-              <span className="text-xs font-medium px-3 py-1 rounded-full bg-gray-100 text-foreground">{mission.subject}</span>
+              <Link to="/dashboard" className="text-ink-soft hover:text-ink-strong"><ArrowLeft className="h-5 w-5" /></Link>
+              <span className="text-sm font-semibold text-ink-strong">Resumo</span>
+              <SubjectBadge subject={mission.subject} />
             </div>
           </div>
         </header>
 
         <main className="container mx-auto px-4 py-8 max-w-3xl">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">{mission.subtopic}</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-ink-soft mb-2">{mission.subtopic}</p>
 
           {summaryLoading && (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-muted-foreground">Gerando resumo...</p>
+              <div className="h-8 w-8 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-ink-soft">Gerando resumo...</p>
             </div>
           )}
 
           {summaryError && (
             <div className="flex flex-col items-center justify-center py-16 gap-4 text-center">
-              <p className="text-base font-medium text-foreground">Não foi possível gerar o resumo.</p>
-              <p className="text-sm text-muted-foreground">Que tal conversar com o Tutor IA sobre esse assunto?</p>
+              <p className="text-base font-medium text-ink-strong">Não foi possível gerar o resumo.</p>
+              <p className="text-sm text-ink-soft">Que tal conversar com o Tutor IA sobre esse assunto?</p>
               <Button onClick={() => navigate("/ai-tutor")}>Abrir Tutor IA</Button>
             </div>
           )}
 
           {summaryContent && (
             <div className="animate-fade-in">
-              <div className="prose prose-sm max-w-none text-foreground leading-relaxed whitespace-pre-wrap">
-                {summaryContent}
+              <div className="bg-bg-card rounded-card p-6 border border-line-light shadow-card">
+                <div className="prose prose-sm max-w-none text-ink leading-relaxed whitespace-pre-wrap">
+                  {summaryContent}
+                </div>
               </div>
               <div className="mt-10 flex justify-center">
                 <button
                   onClick={completeSummaryMission}
-                  className="px-8 py-3 rounded-full bg-foreground text-white text-sm font-semibold hover:bg-foreground/90 transition-all"
+                  className="px-8 py-3 rounded-input bg-ink-strong text-white text-sm font-semibold hover:opacity-90 transition-opacity"
                 >
                   Entendi, concluir missão
                 </button>
@@ -787,15 +796,15 @@ const MissionPage = () => {
 
   if (questions.length === 0) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="flex flex-col items-center justify-center min-h-[300px] gap-4 px-6 text-center">
-          <p className="text-lg font-medium text-foreground">
+      <div className="min-h-screen bg-bg-app flex items-center justify-center px-4">
+        <div className="bg-bg-card rounded-card shadow-card p-8 text-center max-w-sm">
+          <p className="text-lg font-medium text-ink-strong">
             Estamos preparando questões para este tópico
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-ink-soft mt-2">
             Enquanto isso, que tal conversar com o Tutor IA sobre {mission?.subject || "este assunto"}?
           </p>
-          <div className="flex gap-3">
+          <div className="flex gap-3 justify-center mt-6">
             <Button variant="outline" onClick={() => navigate(-1)}>
               ← Voltar
             </Button>
@@ -810,189 +819,178 @@ const MissionPage = () => {
 
   // ─── Questions render ──────────────────────────────────────────────────────
 
+  const tutorSuggestions = ["Não entendi o enunciado", "Me dê uma dica", "Explique o conceito"];
+
+  const tutorChatContent = (scrollRef: React.RefObject<HTMLDivElement | null>) => (
+    <>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+        {tutorMessages.length === 0 ? (
+          <div className="flex flex-col gap-2 mt-4">
+            {tutorSuggestions.map((text) => (
+              <button
+                key={text}
+                onClick={() => sendTutorMessage(text)}
+                className="border border-line rounded-lg p-3 text-sm text-ink text-left cursor-pointer hover:bg-bg-app hover:border-ink-soft transition-colors"
+              >
+                {text}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <>
+            {tutorMessages.map(msg => (
+              <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] rounded-lg px-4 py-2.5 text-sm leading-relaxed ${
+                  msg.role === "user"
+                    ? "ml-8 bg-bg-app text-ink"
+                    : "mr-8 bg-white border border-line-light text-ink"
+                }`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {tutorLoading && (
+              <div className="flex justify-start">
+                <div className="mr-8 bg-white border border-line-light rounded-lg px-4 py-2.5 text-sm text-ink-soft">
+                  Pensando...
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+      <div className="border-t border-line-light p-3">
+        <form onSubmit={e => { e.preventDefault(); sendTutorMessage(tutorInput); }} className="flex gap-2">
+          <input
+            type="text"
+            value={tutorInput}
+            onChange={e => setTutorInput(e.target.value)}
+            placeholder="Sua dúvida..."
+            className="flex-1 px-4 py-2.5 rounded-input border border-line-light text-sm text-ink focus:outline-none focus:border-ink-soft"
+            disabled={tutorLoading}
+          />
+          <button
+            type="submit"
+            disabled={tutorLoading || !tutorInput.trim()}
+            className="h-10 w-10 rounded-input bg-ink-strong text-white flex items-center justify-center disabled:opacity-50"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </form>
+      </div>
+    </>
+  );
+
   return (
-    <div className={`min-h-screen bg-white transition-all duration-300 ${showTutor ? "lg:mr-[380px]" : ""}`}>
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-        <div className="container mx-auto px-4 max-w-3xl">
-          <div className="flex items-center justify-between h-14">
-            <Link to="/dashboard" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
-            <span className="text-sm font-semibold text-foreground">{currentIndex + 1} de {questions.length}</span>
-            <span className="text-xs font-medium px-3 py-1 rounded-full bg-gray-100 text-foreground">{mission?.subject}</span>
-          </div>
-          <div className="h-1.5 bg-gray-100 rounded-full -mt-1 mb-1"><div className="h-1.5 bg-foreground rounded-full transition-all duration-500" style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }} /></div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 max-w-3xl">
-        <div className="animate-fade-in" key={currentIndex}>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2">{mission?.subtopic}</p>
-          <p className="text-lg font-semibold text-foreground leading-relaxed">{currentQuestion.question_text}</p>
-
-          <div className="mt-8 space-y-3">
-            {currentQuestion.options.map((option) => {
-              const isSelected = selectedOption === option.label;
-              const showResult = selectedOption !== null;
-              const isCorrect = option.is_correct;
-
-              let optionClasses = "w-full p-4 rounded-2xl text-left transition-all duration-200 flex items-start gap-3 ";
-              if (showResult) {
-                if (isCorrect) optionClasses += "bg-success/10 shadow-[inset_0_0_0_2px_hsl(var(--success))]";
-                else if (isSelected && !isCorrect) optionClasses += "bg-destructive/10 shadow-[inset_0_0_0_2px_hsl(var(--destructive))]";
-                else optionClasses += "bg-white opacity-50";
-              } else {
-                optionClasses += "bg-white border border-gray-200 hover:border-gray-400 hover:shadow-md cursor-pointer";
-              }
-
-              return (
-                <button key={option.label} onClick={() => handleAnswer(option.label)} disabled={!!selectedOption} className={optionClasses}>
-                  <span className={`h-8 w-8 shrink-0 rounded-xl flex items-center justify-center text-sm font-semibold ${
-                    showResult && isCorrect ? "bg-success text-success-foreground" :
-                    showResult && isSelected ? "bg-destructive text-destructive-foreground" :
-                    "bg-gray-100 text-muted-foreground"
-                  }`}>{option.label}</span>
-                  <span className="text-sm text-foreground pt-1">{option.text}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {selectedOption && currentQuestion.explanation && (
-            <div className="mt-6 p-4 bg-gray-50 rounded-2xl animate-fade-in">
-              <p className="text-xs font-semibold text-foreground mb-1">Explicação</p>
-              <p className="text-sm text-foreground leading-relaxed">{currentQuestion.explanation}</p>
+    <div className="min-h-screen bg-bg-app">
+      {/* ─── Desktop split view ─── */}
+      <div className="flex flex-row">
+        {/* ─── Question column ─── */}
+        <div className={`flex-1 flex flex-col min-h-screen transition-all duration-300 ${showTutor ? "lg:mr-0" : ""}`}>
+          {/* Header */}
+          <header className="sticky top-0 z-40 bg-bg-app/80 backdrop-blur-xl border-b border-line-light shrink-0">
+            <div className="px-4 lg:px-8 max-w-3xl mx-auto">
+              <div className="flex items-center justify-between h-14">
+                <div className="flex items-center gap-3">
+                  <Link to="/study" className="text-ink-soft hover:text-ink-strong"><ArrowLeft className="h-5 w-5" /></Link>
+                  <SubjectBadge subject={mission?.subject || ""} />
+                  <span className="text-sm text-ink hidden sm:inline">{mission?.subtopic}</span>
+                </div>
+                <span className="text-sm text-ink-soft">Questão {currentIndex + 1} de {questions.length}</span>
+              </div>
+              <div className="pb-2">
+                <ProgressBar value={((currentIndex + 1) / questions.length) * 100} size="sm" color={getSubjectColor(mission?.subject || "")} />
+              </div>
             </div>
-          )}
+          </header>
 
-          {/* Tutor help button */}
-          {!showTutor && (
-            <button
-              onClick={openTutor}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mt-3"
-            >
-              <Sparkles className="h-4 w-4" />
-              Pedir ajuda ao Tutor
-            </button>
-          )}
+          {/* Question content */}
+          <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+            <div className="max-w-3xl mx-auto animate-fade-in" key={currentIndex}>
+              <div className="bg-bg-card rounded-card p-6 border border-line-light shadow-card">
+                <p className="text-base text-ink leading-relaxed mb-6">{currentQuestion.question_text}</p>
+
+                <div className="space-y-3">
+                  {currentQuestion.options.map((option) => {
+                    const isSelected = selectedOption === option.label;
+                    const showResult = selectedOption !== null;
+                    const isCorrect = option.is_correct;
+
+                    let optionClasses = "w-full p-4 rounded-input text-left transition-all duration-200 flex items-start gap-3 ";
+                    if (showResult) {
+                      if (isCorrect) optionClasses += "border-2 border-signal-ok bg-green-50";
+                      else if (isSelected && !isCorrect) optionClasses += "border-2 border-signal-error bg-red-50";
+                      else optionClasses += "border border-line-light bg-bg-card opacity-50";
+                    } else {
+                      optionClasses += "border border-line-light hover:border-ink-soft cursor-pointer";
+                    }
+
+                    return (
+                      <button key={option.label} onClick={() => handleAnswer(option.label)} disabled={!!selectedOption} className={optionClasses}>
+                        <span className={`h-8 w-8 shrink-0 rounded-lg flex items-center justify-center text-sm font-semibold ${
+                          showResult && isCorrect ? "bg-signal-ok text-white" :
+                          showResult && isSelected ? "bg-signal-error text-white" :
+                          "bg-bg-app text-ink-soft"
+                        }`}>{option.label}</span>
+                        <span className="text-sm text-ink pt-1">{option.text}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedOption && currentQuestion.explanation && (
+                  <div className="mt-6 p-4 bg-bg-app rounded-card animate-fade-in border border-line-light">
+                    <p className="text-xs font-semibold text-ink-strong mb-1">Explicação</p>
+                    <p className="text-sm text-ink leading-relaxed">{currentQuestion.explanation}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Tutor help button (when panel closed) */}
+              {!showTutor && (
+                <button
+                  onClick={openTutor}
+                  className="flex items-center gap-2 text-sm text-ink-soft hover:text-ink-strong transition-colors mt-4"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Pedir ajuda
+                </button>
+              )}
+            </div>
+          </div>
         </div>
-      </main>
 
-      {/* ─── Tutor panel (Sprint 6) ──────────────────────────────── */}
+        {/* ─── Desktop tutor side panel (>=1024px) ─── */}
+        {showTutor && (
+          <div className="hidden lg:flex w-80 border-l border-line-light bg-white flex-col h-screen sticky top-0">
+            <div className="flex items-center justify-between p-4 border-b border-line-light shrink-0">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-brand-500" />
+                <span className="text-sm font-medium text-ink-strong">Tutor IA</span>
+              </div>
+              <button onClick={closeTutor} className="text-ink-soft hover:text-ink-strong">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {tutorChatContent(tutorScrollDesktopRef)}
+          </div>
+        )}
+      </div>
+
+      {/* ─── Mobile tutor overlay (<1024px) ─── */}
       {showTutor && (
-        <>
-          {/* Mobile: fullscreen overlay */}
-          <div className="fixed inset-0 z-50 bg-white flex flex-col lg:hidden">
-            <div className="flex items-center justify-between px-4 h-14 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-foreground" />
-                <span className="text-sm font-semibold text-foreground">Tutor IA</span>
-              </div>
-              <button onClick={closeTutor} className="text-muted-foreground hover:text-foreground">
-                <X className="h-5 w-5" />
-              </button>
+        <div className="fixed inset-0 z-50 bg-white flex flex-col lg:hidden">
+          <div className="flex items-center justify-between px-4 h-14 border-b border-line-light shrink-0">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-brand-500" />
+              <span className="text-sm font-medium text-ink-strong">Tutor IA</span>
             </div>
-            <div ref={tutorScrollMobileRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-              {tutorMessages.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center mt-8">
-                  Pergunte algo sobre esta questão. O tutor vai guiar seu raciocínio sem dar a resposta.
-                </p>
-              )}
-              {tutorMessages.map(msg => (
-                <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-foreground text-white"
-                      : "bg-gray-100 text-foreground"
-                  }`}>
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-              {tutorLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-2xl px-4 py-2.5 text-sm text-muted-foreground">
-                    Pensando...
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="border-t border-gray-100 px-4 py-3">
-              <form onSubmit={e => { e.preventDefault(); sendTutorMessage(tutorInput); }} className="flex gap-2">
-                <input
-                  type="text"
-                  value={tutorInput}
-                  onChange={e => setTutorInput(e.target.value)}
-                  placeholder="Sua dúvida..."
-                  className="flex-1 px-4 py-2.5 rounded-full border border-gray-200 text-sm focus:outline-none focus:border-gray-400"
-                  disabled={tutorLoading}
-                />
-                <button
-                  type="submit"
-                  disabled={tutorLoading || !tutorInput.trim()}
-                  className="h-10 w-10 rounded-full bg-foreground text-white flex items-center justify-center disabled:opacity-50"
-                >
-                  <Send className="h-4 w-4" />
-                </button>
-              </form>
-            </div>
+            <button onClick={closeTutor} className="text-ink-soft hover:text-ink-strong">
+              <X className="h-5 w-5" />
+            </button>
           </div>
-
-          {/* Desktop: side panel */}
-          <div className="hidden lg:flex fixed top-0 right-0 w-[380px] h-screen border-l border-gray-100 bg-white flex-col z-50">
-            <div className="flex items-center justify-between px-4 h-14 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-foreground" />
-                <span className="text-sm font-semibold text-foreground">Tutor IA</span>
-              </div>
-              <button onClick={closeTutor} className="text-muted-foreground hover:text-foreground">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div ref={tutorScrollDesktopRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-              {tutorMessages.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center mt-8">
-                  Pergunte algo sobre esta questão. O tutor vai guiar seu raciocínio sem dar a resposta.
-                </p>
-              )}
-              {tutorMessages.map(msg => (
-                <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-foreground text-white"
-                      : "bg-gray-100 text-foreground"
-                  }`}>
-                    {msg.content}
-                  </div>
-                </div>
-              ))}
-              {tutorLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-2xl px-4 py-2.5 text-sm text-muted-foreground">
-                    Pensando...
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="border-t border-gray-100 px-4 py-3">
-              <form onSubmit={e => { e.preventDefault(); sendTutorMessage(tutorInput); }} className="flex gap-2">
-                <input
-                  type="text"
-                  value={tutorInput}
-                  onChange={e => setTutorInput(e.target.value)}
-                  placeholder="Sua dúvida..."
-                  className="flex-1 px-4 py-2.5 rounded-full border border-gray-200 text-sm focus:outline-none focus:border-gray-400"
-                  disabled={tutorLoading}
-                />
-                <button
-                  type="submit"
-                  disabled={tutorLoading || !tutorInput.trim()}
-                  className="h-10 w-10 rounded-full bg-foreground text-white flex items-center justify-center disabled:opacity-50"
-                >
-                  <Send className="h-4 w-4" />
-                </button>
-              </form>
-            </div>
-          </div>
-        </>
+          {tutorChatContent(tutorScrollMobileRef)}
+        </div>
       )}
     </div>
   );

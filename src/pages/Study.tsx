@@ -253,11 +253,10 @@ const Study = () => {
   const todayStr = getSaoPauloTodayStr();
 
   // ─── Determine focus subject (from param or auto-detect) ───
+  // Always honor focusParam when present — even if no mission exists for it today.
+  // This ensures /desempenho → /study?focus=Matemática always shows Matemática as focus.
   const focusSubject = useMemo(() => {
-    if (focusParam) {
-      const hasMatch = missions.some(m => m.subject === focusParam && m.date === todayStr && m.status !== "completed");
-      if (hasMatch) return focusParam;
-    }
+    if (focusParam) return focusParam;
     // Auto: most common pending subject today
     const todayPending = missions.filter(m => m.date === todayStr && m.status !== "completed");
     if (todayPending.length === 0) return null;
@@ -266,10 +265,16 @@ const Study = () => {
     return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
   }, [missions, todayStr, focusParam]);
 
+  // Does the focus subject have a pending mission today?
+  const focusHasMission = useMemo(() => {
+    if (!focusSubject) return false;
+    return missions.some(m => m.subject === focusSubject && (m.date === todayStr || (m.date < todayStr && m.status === "pending")) && m.status !== "completed");
+  }, [missions, todayStr, focusSubject]);
+
   // ─── Focus reason ─────────────────────────────────────────
   const focusReason = useMemo(() => {
     if (!focusSubject) return "";
-    if (focusParam === focusSubject) return "Priorizado pelo seu plano de ataque";
+    if (focusParam) return "Priorizado pelo seu plano de ataque";
     return "Maior oportunidade de evolução";
   }, [focusSubject, focusParam]);
 
@@ -393,8 +398,9 @@ const Study = () => {
 
             {/* ═══════════════════════════════════════════════════
                 BLOCO 1 — HERO DA SESSÃO DE HOJE
+                Show when: there are today missions, OR focusParam was passed
                 ═══════════════════════════════════════════════════ */}
-            {todayTotal > 0 && (
+            {(todayTotal > 0 || focusParam) && (
               <div className="bg-foreground rounded-2xl p-5 text-white">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -408,27 +414,31 @@ const Study = () => {
                       <p className="text-xs text-white/50 mt-0.5">{focusReason}</p>
                     )}
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-2xl font-bold leading-none">{todayTimeRemaining}<span className="text-sm font-medium text-white/50">min</span></p>
-                    <p className="text-[10px] text-white/40 mt-0.5">{todayPending} restantes</p>
-                  </div>
+                  {todayTotal > 0 && (
+                    <div className="text-right shrink-0">
+                      <p className="text-2xl font-bold leading-none">{todayTimeRemaining}<span className="text-sm font-medium text-white/50">min</span></p>
+                      <p className="text-[10px] text-white/40 mt-0.5">{todayPending} restantes</p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Progress */}
-                <div className="mt-4">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] text-white/50">{todayCompleted}/{todayTotal} concluídas</span>
-                    <span className="text-[11px] text-white/50">{Math.round(todayPct)}%</span>
+                {/* Progress — only when there are today missions */}
+                {todayTotal > 0 && (
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] text-white/50">{todayCompleted}/{todayTotal} concluídas</span>
+                      <span className="text-[11px] text-white/50">{Math.round(todayPct)}%</span>
+                    </div>
+                    <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-white rounded-full transition-all duration-500"
+                        style={{ width: `${todayPct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-white rounded-full transition-all duration-500"
-                      style={{ width: `${todayPct}%` }}
-                    />
-                  </div>
-                </div>
+                )}
 
-                {/* CTA */}
+                {/* CTA — next mission if available */}
                 {nextMission && (
                   <Link
                     to={`/mission/${nextMission.mission_type}/${nextMission.id}`}
@@ -440,6 +450,51 @@ const Study = () => {
                 )}
               </div>
             )}
+
+            {/* ═══════════════════════════════════════════════════
+                FALLBACK — Focus subject has no mission today
+                Shows a practice card when user came from /desempenho
+                but there's no matching mission for that subject.
+                ═══════════════════════════════════════════════════ */}
+            {focusParam && !focusHasMission && (() => {
+              // Try to find any pending mission for this subject in the plan
+              const anyPendingForSubject = missions.find(
+                m => m.subject === focusParam && m.status !== "completed"
+              );
+              return (
+                <div className="bg-white rounded-2xl border border-foreground/10 p-4">
+                  <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Prática recomendada</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Praticar {focusParam}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {anyPendingForSubject
+                          ? `${MISSION_TYPE_LABELS[anyPendingForSubject.mission_type] || anyPendingForSubject.mission_type} · ${anyPendingForSubject.estimated_minutes ?? 15} min`
+                          : "Sem missões programadas para hoje nesta matéria"
+                        }
+                      </p>
+                    </div>
+                    {anyPendingForSubject ? (
+                      <Link
+                        to={`/mission/${anyPendingForSubject.mission_type}/${anyPendingForSubject.id}`}
+                        className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 bg-foreground text-white rounded-xl text-xs font-semibold hover:bg-foreground/90 transition-colors"
+                      >
+                        Praticar
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    ) : (
+                      <Link
+                        to="/exams"
+                        className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-foreground rounded-xl text-xs font-semibold hover:bg-gray-200 transition-colors"
+                      >
+                        Simulado
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* ═══════════════════════════════════════════════════
                 BLOCO 2 — MISSÕES PRIORIZADAS DE HOJE

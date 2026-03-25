@@ -71,7 +71,7 @@ const ExamSession = () => {
       ]);
       const seen = new Set<string>();
       const allQuestions: Question[] = [];
-      for (const q of [...(diagData || []), ...(questData || [])] as Question[]) {
+      for (const q of [...(diagData || []), ...(questData || [])] as unknown as Question[]) {
         if (!seen.has(q.id)) { seen.add(q.id); allQuestions.push(q); }
       }
 

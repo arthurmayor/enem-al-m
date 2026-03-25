@@ -276,7 +276,7 @@ async function fetchQuestionsByIds(ids: string[]): Promise<Question[]> {
     supabase.from("diagnostic_questions").select("*").in("id", ids),
     supabase.from("questions").select("*").in("id", ids),
   ]);
-  const allQuestions = [...(dq || []), ...(q || [])] as Question[];
+  const allQuestions = [...(dq || []), ...(q || [])] as unknown as Question[];
   // Preserve original ID order
   const byId = new Map(allQuestions.map(q => [q.id, q]));
   return ids.map(id => byId.get(id)).filter((q): q is Question => q != null);

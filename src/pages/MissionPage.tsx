@@ -312,7 +312,7 @@ const MissionPage = () => {
       // Track mission_opened
       if (!openedRef.current) {
         openedRef.current = true;
-        trackEvent("mission_opened", {
+        trackEvent("mission_started", {
           type: missionData?.mission_type,
           subject: missionData?.subject,
           mission_id: id,
@@ -419,6 +419,14 @@ const MissionPage = () => {
     if (!currentQuestion.id.startsWith("mock")) {
       await supabase.from("answer_history").insert({ user_id: user.id, question_id: currentQuestion.id, selected_option: optionLabel, is_correct: correct, response_time_seconds: responseTime, context: "practice" });
     }
+
+    trackEvent("question_answered", {
+      mission_id: id,
+      question_id: currentQuestion.id,
+      subject: currentQuestion.subject,
+      is_correct: correct,
+      response_time: responseTime,
+    }, user.id);
 
     // Collect for calibration (Change 1)
     if (mission && CALIBRATION_TYPES.includes(mission.mission_type)) {

@@ -4,6 +4,7 @@ import { BookOpen, Clock, ChevronRight, ChevronDown, CheckCircle2, ArrowRight, P
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
+import { MISSION_TYPE_LABELS } from "@/lib/constants";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -35,23 +36,6 @@ interface SpacedReviewInfo {
   subtopic: string;
   interval_days: number;
 }
-
-// ─── Label mapper (single source of truth) ──────────────────────
-
-const MISSION_TYPE_LABELS: Record<string, string> = {
-  questions: "Questões",
-  error_review: "Revisão de erros",
-  short_summary: "Resumo",
-  spaced_review: "Revisão espaçada",
-  mixed_block: "Bloco misto",
-  reading_work: "Leitura",
-  writing_outline: "Planejamento de redação",
-  writing_partial: "Redação parcial",
-  writing_full: "Redação completa",
-  summary: "Resumo",
-  flashcards: "Flashcards",
-  review: "Revisão de erros",
-};
 
 // ─── Mission rationale (data-aware) ─────────────────────────────
 

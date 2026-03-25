@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
 import { toast } from "sonner";
+import { trackEvent } from "@/lib/trackEvent";
+import { MISSION_TYPE_LABELS } from "@/lib/constants";
 
 interface Profile {
   name: string;
@@ -25,21 +27,7 @@ interface Mission {
   estimated_minutes?: number;
 }
 
-const missionTypeLabels: Record<string, string> = {
-  questions: "Questões",
-  error_review: "Revisão de erros",
-  short_summary: "Resumo",
-  spaced_review: "Revisão",
-  mixed_block: "Bloco misto",
-  reading_work: "Leitura",
-  writing_outline: "Planejamento de redação",
-  writing_partial: "Redação parcial",
-  writing_full: "Redação completa",
-  // Legacy
-  summary: "Resumo",
-  flashcards: "Flashcards",
-  review: "Revisão de erros",
-};
+const missionTypeLabels = MISSION_TYPE_LABELS;
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -55,6 +43,7 @@ const Dashboard = () => {
 
   async function regeneratePlan(userId: string) {
     setRegenerating(true);
+    trackEvent("replan_triggered", {}, userId);
     try {
       // Fetch latest diagnostic + profile for plan generation
       const [{ data: latestEstimate }, { data: profileData }, { data: latestPlan }] = await Promise.all([
@@ -179,6 +168,7 @@ const Dashboard = () => {
         await supabase.from("daily_missions").insert(missionsToInsert);
       }
 
+      trackEvent("replan_applied", { week: newWeek, missions: missionsToInsert.length }, userId);
       toast.success("Novo plano semanal gerado!");
       // Reload page data
       window.location.reload();
@@ -201,6 +191,8 @@ const Dashboard = () => {
         .eq("id", user.id)
         .single();
       if (profileData) setProfile(profileData);
+
+      trackEvent("dashboard_loaded", {}, user.id);
 
       const today = new Date().toISOString().split("T")[0];
       const { data: missionsData } = await supabase

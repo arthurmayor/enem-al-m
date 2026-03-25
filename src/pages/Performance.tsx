@@ -376,7 +376,7 @@ const Performance = () => {
     // Priority 1: Gargalo — focus on worst subject (details in gargalo card)
     if (reliableSubjects.length > 0 && reliableSubjects[0].pct < 50) {
       const w = reliableSubjects[0];
-      items.push({ text: `Focar em ${w.subject} — seu maior gargalo`, to: "/study" });
+      items.push({ text: `Focar em ${w.subject} — seu maior gargalo`, to: `/study?focus=${encodeURIComponent(w.subject)}` });
     }
 
     // Priority 2: Destrave — unlock estimate requirements
@@ -528,7 +528,7 @@ const Performance = () => {
                         <p className="text-[10px] text-muted-foreground">
                           {worstArea.total < MIN_FOR_CONFIDENT ? "poucas respostas" : `últimas ${worstArea.total} questões`}
                         </p>
-                        <Link to="/study" className="mt-1.5 inline-flex items-center gap-1 px-3 py-1.5 bg-foreground text-white rounded-full text-[11px] font-medium hover:opacity-90 transition-opacity">
+                        <Link to={`/study?focus=${encodeURIComponent(worstArea.label)}`} className="mt-1.5 inline-flex items-center gap-1 px-3 py-1.5 bg-foreground text-white rounded-full text-[11px] font-medium hover:opacity-90 transition-opacity">
                           Praticar {worstArea.label}
                         </Link>
                       </div>

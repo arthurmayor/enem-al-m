@@ -12,15 +12,31 @@ const Ranking = () => {
   const { user } = useAuth();
   const [rankings, setRankings] = useState<RankUser[]>([]);
   const [category, setCategory] = useState<RankCategory>("xp");
+  const [courseFilter, setCourseFilter] = useState<"mine" | "all">("mine");
+  const [myExamConfigId, setMyExamConfigId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [myRank, setMyRank] = useState<number | null>(null);
   const [myProfile, setMyProfile] = useState<RankUser | null>(null);
+
+  // Fetch user's exam_config_id once
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("exam_config_id").eq("id", user.id).single()
+      .then(({ data }) => {
+        if (data?.exam_config_id) setMyExamConfigId(data.exam_config_id);
+        else setCourseFilter("all"); // No course set, default to all
+      });
+  }, [user]);
 
   useEffect(() => {
     const fetchRanking = async () => {
       setLoading(true);
       const orderCol = category === "xp" ? "total_xp" : category === "streak" ? "current_streak" : "missions_completed";
-      const { data } = await supabase.from("profiles").select("id, name, city_state, education_goal, total_xp, current_streak, missions_completed").order(orderCol, { ascending: false }).gt(orderCol, 0).limit(50);
+      let query = supabase.from("profiles").select("id, name, city_state, education_goal, total_xp, current_streak, missions_completed").order(orderCol, { ascending: false }).gt(orderCol, 0).limit(50);
+      if (courseFilter === "mine" && myExamConfigId) {
+        query = query.eq("exam_config_id", myExamConfigId);
+      }
+      const { data } = await query;
       if (data) {
         setRankings(data);
         if (user) {
@@ -32,7 +48,7 @@ const Ranking = () => {
       setLoading(false);
     };
     fetchRanking();
-  }, [user, category]);
+  }, [user, category, courseFilter, myExamConfigId]);
 
   const getCategoryValue = (r: RankUser) => {
     if (category === "xp") return `${r.total_xp || 0} XP`;
@@ -72,6 +88,20 @@ const Ranking = () => {
               </div>
               <Star className="h-6 w-6 text-foreground" />
             </div>
+          </div>
+        )}
+
+        {/* Course filter */}
+        {myExamConfigId && (
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => setCourseFilter("mine")}
+              className={`flex-1 py-2 rounded-full text-xs font-medium transition-all ${
+                courseFilter === "mine" ? "bg-foreground text-white" : "bg-white border border-gray-200 text-foreground hover:border-gray-400"
+              }`}>Meu curso</button>
+            <button onClick={() => setCourseFilter("all")}
+              className={`flex-1 py-2 rounded-full text-xs font-medium transition-all ${
+                courseFilter === "all" ? "bg-foreground text-white" : "bg-white border border-gray-200 text-foreground hover:border-gray-400"
+              }`}>Geral</button>
           </div>
         )}
 

@@ -40,13 +40,14 @@ const ExamSession = () => {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const config = EXAM_CONFIGS[examId || ""] || EXAM_CONFIGS["enem-rapido"];
+  const fallbackConfig = EXAM_CONFIGS[examId || ""] || EXAM_CONFIGS["enem-rapido"];
 
+  const [config, setConfig] = useState(fallbackConfig);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
-  const [timeLeft, setTimeLeft] = useState(config.durationMinutes * 60);
+  const [timeLeft, setTimeLeft] = useState(fallbackConfig.durationMinutes * 60);
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<{ score: number; correct: number; total: number; perSubject: PerSubjectScore[]; cutoffPercent?: number } | null>(null);
@@ -55,6 +56,26 @@ const ExamSession = () => {
   useEffect(() => {
     if (!user) return;
     const loadQuestions = async () => {
+      // Try to fetch config from DB, fallback to hardcoded
+      if (examId) {
+        const { data: dbConfig } = await supabase
+          .from("exam_configs")
+          .select("exam_slug, exam_name, total_questions, subject_distribution")
+          .eq("exam_slug", examId)
+          .eq("is_active", true)
+          .limit(1)
+          .single();
+        if (dbConfig) {
+          const dbMapped = {
+            name: dbConfig.exam_name,
+            questionCount: dbConfig.total_questions,
+            durationMinutes: Math.round(dbConfig.total_questions * 3),
+            examType: dbConfig.exam_name,
+          };
+          setConfig(dbMapped);
+          setTimeLeft(dbMapped.durationMinutes * 60);
+        }
+      }
       // Fetch questions recently answered (72h dedup)
       const since72h = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
       const { data: recentAnswers } = await supabase

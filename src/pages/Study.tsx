@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { BookOpen, Clock, ChevronRight, CheckCircle2, ArrowRight, AlertTriangle, Play, Target, Zap } from "lucide-react";
+import { BookOpen, Clock, ChevronRight, CheckCircle2, ArrowRight, Play } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -16,6 +16,24 @@ interface Mission {
   date: string;
   estimated_minutes: number | null;
   score: number | null;
+}
+
+interface SubjectProficiency {
+  subject: string;
+  score: number; // 0–1
+  pct: number;   // 0–100
+}
+
+interface ExamConfigInfo {
+  course_name: string | null;
+  phase2_subjects: string[];
+  cutoff_mean: number;
+}
+
+interface SpacedReviewInfo {
+  subject: string;
+  subtopic: string;
+  interval_days: number;
 }
 
 // ─── Label mapper (single source of truth) ──────────────────────
@@ -35,14 +53,47 @@ const MISSION_TYPE_LABELS: Record<string, string> = {
   review: "Revisão de erros",
 };
 
-// ─── Mission rationale labels ───────────────────────────────────
+// ─── Mission rationale (data-aware) ─────────────────────────────
 
-function getMissionRationale(m: Mission, focusSubject: string | null, idx: number): string | null {
-  if (idx === 0 && m.subject === focusSubject) return "Maior impacto agora";
-  if (m.mission_type === "error_review" || m.mission_type === "review") return "Corrigir erros recentes";
-  if (m.mission_type === "spaced_review") return "Revisão espaçada";
-  if (idx === 0) return "Importante para seu objetivo";
-  return null;
+function getMissionRationale(
+  m: Mission,
+  proficiencies: Record<string, SubjectProficiency>,
+  phase2Subjects: string[],
+  spacedReviews: SpacedReviewInfo[],
+  courseName: string | null,
+): string | null {
+  const prof = proficiencies[m.subject];
+  const isPhase2 = phase2Subjects.includes(m.subject);
+
+  switch (m.mission_type) {
+    case "questions":
+    case "mixed_block": {
+      if (prof && prof.pct < 40) return `Área fraca — ${prof.pct}% de proficiência`;
+      if (isPhase2 && courseName) return `Essencial para 2ª fase de ${courseName}`;
+      if (isPhase2) return "Essencial para 2ª fase";
+      if (prof && prof.pct > 70) return "Manutenção — manter nível";
+      if (prof) return `${prof.pct}% de proficiência`;
+      return null;
+    }
+    case "spaced_review": {
+      const sr = spacedReviews.find(r => r.subject === m.subject && (m.subtopic ? r.subtopic === m.subtopic : true));
+      if (sr) return `Revisão programada — última vez há ${sr.interval_days} dia${sr.interval_days !== 1 ? "s" : ""}`;
+      return "Revisão programada";
+    }
+    case "error_review":
+    case "review":
+      return "Corrigir erros recentes nesta matéria";
+    case "short_summary":
+    case "summary":
+    case "reading_work":
+      return "Reforço teórico — consolidar conceitos";
+    case "writing_outline":
+    case "writing_partial":
+    case "writing_full":
+      return "Prática de redação";
+    default:
+      return null;
+  }
 }
 
 // ─── Date helpers (America/Sao_Paulo) ───────────────────────────
@@ -221,9 +272,15 @@ const Study = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
 
+  // Real data for intelligence
+  const [proficiencies, setProficiencies] = useState<Record<string, SubjectProficiency>>({});
+  const [examConfig, setExamConfig] = useState<ExamConfigInfo | null>(null);
+  const [spacedReviews, setSpacedReviews] = useState<SpacedReviewInfo[]>([]);
+
   useEffect(() => {
     if (!user) return;
-    const fetchMissions = async () => {
+    const fetchAll = async () => {
+      // 1. Active plan for date range
       const { data: activePlan } = await supabase
         .from("study_plans")
         .select("id, start_date, end_date")
@@ -236,34 +293,100 @@ const Study = () => {
       const startDate = (activePlan as any)?.start_date || new Date().toISOString().split("T")[0];
       const endDate = (activePlan as any)?.end_date || new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
 
-      const { data } = await supabase
-        .from("daily_missions")
-        .select("id, subject, subtopic, mission_type, status, date, estimated_minutes, score")
-        .eq("user_id", user.id)
-        .gte("date", startDate)
-        .lte("date", endDate)
-        .order("date", { ascending: true });
+      // 2. Parallel fetches: missions + proficiency + profile + spaced reviews
+      const [missionRes, profRes, profileRes, spacedRes] = await Promise.all([
+        supabase
+          .from("daily_missions")
+          .select("id, subject, subtopic, mission_type, status, date, estimated_minutes, score")
+          .eq("user_id", user.id)
+          .gte("date", startDate)
+          .lte("date", endDate)
+          .order("date", { ascending: true }),
+        supabase
+          .from("proficiency_scores")
+          .select("subject, score")
+          .eq("user_id", user.id)
+          .order("measured_at", { ascending: false }),
+        supabase
+          .from("profiles")
+          .select("exam_config_id")
+          .eq("id", user.id)
+          .single(),
+        supabase
+          .from("spaced_review_queue")
+          .select("subject, subtopic, interval_days")
+          .eq("user_id", user.id),
+      ]);
 
-      if (data) setMissions(data as Mission[]);
+      if (missionRes.data) setMissions(missionRes.data as Mission[]);
+
+      // Build per-subject proficiency map (latest score per subject)
+      if (profRes.data) {
+        const map: Record<string, SubjectProficiency> = {};
+        for (const row of profRes.data) {
+          if (!map[row.subject]) {
+            const score = row.score ?? 0;
+            map[row.subject] = { subject: row.subject, score, pct: Math.round(score * 100) };
+          }
+        }
+        setProficiencies(map);
+      }
+
+      // Spaced reviews
+      if (spacedRes.data) {
+        setSpacedReviews(spacedRes.data as SpacedReviewInfo[]);
+      }
+
+      // Exam config (course name, phase2_subjects, cutoff)
+      const examConfigId = (profileRes.data as any)?.exam_config_id;
+      if (examConfigId) {
+        const { data: ec } = await supabase
+          .from("exam_configs")
+          .select("course_name, phase2_subjects, cutoff_mean")
+          .eq("id", examConfigId)
+          .single();
+        if (ec) {
+          setExamConfig({
+            course_name: (ec as any).course_name || null,
+            phase2_subjects: (ec as any).phase2_subjects || [],
+            cutoff_mean: (ec as any).cutoff_mean ?? 55,
+          });
+        }
+      }
+
       setLoading(false);
     };
-    fetchMissions();
+    fetchAll();
   }, [user]);
 
   const todayStr = getSaoPauloTodayStr();
 
-  // ─── Determine focus subject (from param or auto-detect) ───
-  // Always honor focusParam when present — even if no mission exists for it today.
-  // This ensures /desempenho → /study?focus=Matemática always shows Matemática as focus.
+  // ─── Determine focus subject (from param, or weakest phase2, or weakest overall) ───
   const focusSubject = useMemo(() => {
+    // 1. Query param always wins
     if (focusParam) return focusParam;
-    // Auto: most common pending subject today
-    const todayPending = missions.filter(m => m.date === todayStr && m.status !== "completed");
-    if (todayPending.length === 0) return null;
-    const counts: Record<string, number> = {};
-    for (const m of todayPending) counts[m.subject] = (counts[m.subject] || 0) + 1;
-    return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-  }, [missions, todayStr, focusParam]);
+
+    // 2. Weakest subject among phase2_subjects that has a pending mission today
+    const todayPendingSubjects = new Set(
+      missions.filter(m => (m.date === todayStr || (m.date < todayStr && m.status === "pending")) && m.status !== "completed").map(m => m.subject)
+    );
+    if (todayPendingSubjects.size === 0) return null;
+
+    const phase2 = examConfig?.phase2_subjects || [];
+    if (phase2.length > 0) {
+      const phase2Pending = phase2
+        .filter(s => todayPendingSubjects.has(s))
+        .map(s => ({ subject: s, pct: proficiencies[s]?.pct ?? 50 }))
+        .sort((a, b) => a.pct - b.pct);
+      if (phase2Pending.length > 0) return phase2Pending[0].subject;
+    }
+
+    // 3. Weakest subject overall that has a pending mission today
+    const allPending = [...todayPendingSubjects]
+      .map(s => ({ subject: s, pct: proficiencies[s]?.pct ?? 50 }))
+      .sort((a, b) => a.pct - b.pct);
+    return allPending[0]?.subject || null;
+  }, [missions, todayStr, focusParam, examConfig, proficiencies]);
 
   // Does the focus subject have a pending mission today?
   const focusHasMission = useMemo(() => {
@@ -271,12 +394,18 @@ const Study = () => {
     return missions.some(m => m.subject === focusSubject && (m.date === todayStr || (m.date < todayStr && m.status === "pending")) && m.status !== "completed");
   }, [missions, todayStr, focusSubject]);
 
-  // ─── Focus reason ─────────────────────────────────────────
+  // ─── Focus reason (real data) ────────────────────────────
   const focusReason = useMemo(() => {
     if (!focusSubject) return "";
     if (focusParam) return "Priorizado pelo seu plano de ataque";
+    const prof = proficiencies[focusSubject];
+    const isPhase2 = examConfig?.phase2_subjects?.includes(focusSubject);
+    if (isPhase2 && examConfig?.course_name) return `Essencial para 2ª fase de ${examConfig.course_name}`;
+    if (isPhase2) return "Essencial para 2ª fase";
+    if (prof && prof.pct < 40) return `Área mais fraca — ${prof.pct}% de proficiência`;
+    if (prof) return `${prof.pct}% de proficiência — maior oportunidade de evolução`;
     return "Maior oportunidade de evolução";
-  }, [focusSubject, focusParam]);
+  }, [focusSubject, focusParam, proficiencies, examConfig]);
 
   // ─── Filtering ────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -406,7 +535,15 @@ const Study = () => {
                   <div className="min-w-0">
                     <p className="text-[11px] font-medium text-white/50 uppercase tracking-wider">Sessão de hoje</p>
                     {focusSubject ? (
-                      <h1 className="text-xl font-bold mt-1 leading-tight">Foco: {focusSubject}</h1>
+                      <>
+                        <h1 className="text-xl font-bold mt-1 leading-tight">Foco: {focusSubject}</h1>
+                        {/* Score line when proficiency data exists */}
+                        {proficiencies[focusSubject] && (
+                          <p className="text-sm font-semibold text-white/80 mt-0.5">
+                            {proficiencies[focusSubject].pct}% de proficiência
+                          </p>
+                        )}
+                      </>
                     ) : (
                       <h1 className="text-xl font-bold mt-1 leading-tight">{todayPending} {todayPending === 1 ? "missão" : "missões"} pendentes</h1>
                     )}
@@ -519,7 +656,7 @@ const Study = () => {
                       <PriorityMissionCard
                         key={m.id}
                         mission={m}
-                        rationale={getMissionRationale(m, focusSubject, pendingIdx)}
+                        rationale={getMissionRationale(m, proficiencies, examConfig?.phase2_subjects || [], spacedReviews, examConfig?.course_name || null)}
                         isPrimary={pendingIdx === 0 && m.status !== "completed"}
                         isNextRecommended={m.id === nextMission?.id}
                       />

@@ -126,8 +126,24 @@ async function generateAndSavePlan(
   if (invokeError) throw new Error(invokeError.message);
   if (plan?.error) throw new Error(plan.error);
 
-  await supabase.from("daily_missions").delete().eq("user_id", userId);
-  await supabase.from("study_plans").delete().eq("user_id", userId);
+  // Supersede existing active plan (if any) instead of deleting
+  const { data: existingPlan } = await supabase
+    .from("study_plans")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("is_current", true)
+    .limit(1);
+  if (existingPlan && existingPlan.length > 0) {
+    await supabase.from("study_plans")
+      .update({ status: "superseded", is_current: false } as any)
+      .eq("user_id", userId)
+      .eq("is_current", true);
+    // Supersede old pending missions (preserve history)
+    await supabase.from("daily_missions")
+      .update({ status: "superseded" } as any)
+      .eq("user_id", userId)
+      .eq("status", "pending");
+  }
 
   const { data: savedPlan, error: planError } = await supabase
     .from("study_plans")

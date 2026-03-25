@@ -41,3 +41,10 @@ export const MISSION_STATUSES = {
 } as const;
 
 export type MissionStatus = (typeof MISSION_STATUSES)[keyof typeof MISSION_STATUSES];
+
+export const PLAN_STATUSES = {
+  ACTIVE: "active",
+  SUPERSEDED: "superseded",
+} as const;
+
+export type PlanStatus = (typeof PLAN_STATUSES)[keyof typeof PLAN_STATUSES];

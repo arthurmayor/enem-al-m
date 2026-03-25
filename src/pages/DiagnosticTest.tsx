@@ -433,7 +433,7 @@ const DiagnosticTest = () => {
         return;
       }
 
-      const examConf = config as ExamConfig;
+      const examConf = config as unknown as ExamConfig;
       setExamConfig(examConf);
 
       // 3. Get diagnostic questions

@@ -254,7 +254,7 @@ const Study = () => {
 
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "pending" | "completed">("all");
+  const [filter, setFilter] = useState<"all" | typeof MISSION_STATUSES.PENDING | typeof MISSION_STATUSES.COMPLETED>("all");
   const [agendaOpen, setAgendaOpen] = useState(false);
 
   // Real data for intelligence
@@ -395,8 +395,8 @@ const Study = () => {
   // ─── Filtering ────────────────────────────────────────────
   const filtered = useMemo(() => {
     return missions.filter((m) => {
-      if (filter === "pending") return m.status !== MISSION_STATUSES.COMPLETED;
-      if (filter === "completed") return m.status === MISSION_STATUSES.COMPLETED;
+      if (filter === MISSION_STATUSES.PENDING) return m.status !== MISSION_STATUSES.COMPLETED;
+      if (filter === MISSION_STATUSES.COMPLETED) return m.status === MISSION_STATUSES.COMPLETED;
       return true;
     });
   }, [missions, filter]);
@@ -691,7 +691,7 @@ const Study = () => {
                 FILTERS (between today and weekly)
                 ═══════════════════════════════════════════════════ */}
             <div className="flex gap-2">
-              {(["all", "pending", "completed"] as const).map((f) => (
+              {(["all", MISSION_STATUSES.PENDING, MISSION_STATUSES.COMPLETED] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
@@ -701,18 +701,18 @@ const Study = () => {
                       : "bg-white border border-gray-200 text-foreground hover:border-gray-400"
                   }`}
                 >
-                  {f === "all" ? "Todas" : f === "pending" ? "Pendentes" : "Concluídas"}
+                  {f === "all" ? "Todas" : f === MISSION_STATUSES.PENDING ? "Pendentes" : "Concluídas"}
                 </button>
               ))}
             </div>
 
             {/* Filter empty states */}
-            {filtered.length === 0 && filter === "pending" && (
+            {filtered.length === 0 && filter === MISSION_STATUSES.PENDING && (
               <div className="text-center py-8">
                 <p className="text-sm text-muted-foreground">Tudo feito por hoje! 🎉</p>
               </div>
             )}
-            {filtered.length === 0 && filter === "completed" && (
+            {filtered.length === 0 && filter === MISSION_STATUSES.COMPLETED && (
               <div className="text-center py-8">
                 <p className="text-sm text-muted-foreground">Nenhuma missão concluída ainda. Que tal começar?</p>
               </div>

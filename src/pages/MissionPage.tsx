@@ -522,6 +522,8 @@ const MissionPage = () => {
     }, user.id);
 
     const startTime = Date.now();
+    let timedOut = false;
+
     // Show slow-response hint after 15s
     const slowTimer = setTimeout(() => {
       setTutorMessages(prev => {
@@ -532,6 +534,17 @@ const MissionPage = () => {
         return prev;
       });
     }, 15000);
+
+    // Hard timeout after 30s
+    const hardTimer = setTimeout(() => {
+      timedOut = true;
+      clearTimeout(slowTimer);
+      setTutorMessages(prev => [
+        ...prev.filter(m => m.id !== "slow-hint"),
+        { id: "timeout", role: "assistant" as const, content: "Desculpe, o tutor demorou demais. Tente novamente." },
+      ]);
+      setTutorLoading(false);
+    }, 30000);
 
     try {
       const { data, error } = await supabase.functions.invoke("ai-tutor", {
@@ -554,6 +567,9 @@ const MissionPage = () => {
         },
       });
       clearTimeout(slowTimer);
+      clearTimeout(hardTimer);
+      if (timedOut) return; // Response arrived after hard timeout — discard
+
       const elapsed = Date.now() - startTime;
       trackEvent("tutor_response_time", { elapsed_ms: elapsed }, user.id);
 
@@ -564,11 +580,13 @@ const MissionPage = () => {
       setTutorMessages(prev => [...prev, assistantMsg]);
     } catch {
       clearTimeout(slowTimer);
+      clearTimeout(hardTimer);
+      if (timedOut) return;
       setTutorMessages(prev => prev.filter(m => m.id !== "slow-hint"));
       const errorMsg: TutorMessage = { id: crypto.randomUUID(), role: "assistant", content: "Desculpe, não consegui responder agora. Tente novamente." };
       setTutorMessages(prev => [...prev, errorMsg]);
     } finally {
-      setTutorLoading(false);
+      if (!timedOut) setTutorLoading(false);
     }
   }, [user, currentQuestion, mission, selectedOption, tutorMessages]);
 

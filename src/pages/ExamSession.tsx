@@ -56,7 +56,8 @@ const ExamSession = () => {
   useEffect(() => {
     if (!user) return;
     const loadQuestions = async () => {
-      // Try to fetch config from DB, fallback to hardcoded
+      // Resolve config: try DB first, then fallback to hardcoded
+      let resolvedConfig = fallbackConfig;
       if (examId) {
         const { data: dbConfig } = await supabase
           .from("exam_configs")
@@ -66,16 +67,16 @@ const ExamSession = () => {
           .limit(1)
           .single();
         if (dbConfig) {
-          const dbMapped = {
+          resolvedConfig = {
             name: dbConfig.exam_name,
             questionCount: dbConfig.total_questions,
             durationMinutes: Math.round(dbConfig.total_questions * 3),
             examType: dbConfig.exam_name,
           };
-          setConfig(dbMapped);
-          setTimeLeft(dbMapped.durationMinutes * 60);
         }
       }
+      setConfig(resolvedConfig);
+      setTimeLeft(resolvedConfig.durationMinutes * 60);
       // Fetch questions recently answered (72h dedup)
       const since72h = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
       const { data: recentAnswers } = await supabase
@@ -99,7 +100,7 @@ const ExamSession = () => {
       if (allQuestions.length > 0) {
         // Separate into fresh and recent
         const fresh = allQuestions.filter((q: Question) => !recentIds.has(q.id));
-        const pool = fresh.length >= config.questionCount ? fresh : allQuestions;
+        const pool = fresh.length >= resolvedConfig.questionCount ? fresh : allQuestions;
 
         const bySubject: Record<string, Question[]> = {};
         (pool as Question[]).forEach((q) => {
@@ -133,7 +134,7 @@ const ExamSession = () => {
           // Generic round-robin distribution
           const subjects = Object.keys(bySubject);
           let idx = 0;
-          while (picked.length < config.questionCount && idx < 500) {
+          while (picked.length < resolvedConfig.questionCount && idx < 500) {
             const subj = subjects[idx % subjects.length];
             const subjPool = bySubject[subj];
             if (subjPool && subjPool.length > 0) picked.push(subjPool.shift()!);

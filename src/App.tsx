@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import AppLayout from "@/components/AppLayout";
 
 // Lazy-loaded pages — each becomes its own chunk
 const Landing = lazy(() => import("./pages/Landing"));
@@ -44,23 +45,27 @@ const App = () => (
         <AuthProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
+              {/* Public / auth / onboarding — no sidebar */}
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
               <Route path="/registro" element={<Register />} />
               <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
-              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/diagnostic/intro" element={<ProtectedRoute><DiagnosticIntro /></ProtectedRoute>} />
               <Route path="/diagnostic/test" element={<ProtectedRoute><DiagnosticTest /></ProtectedRoute>} />
               <Route path="/diagnostic/loading" element={<ProtectedRoute><DiagnosticLoading /></ProtectedRoute>} />
               <Route path="/diagnostic/results" element={<ProtectedRoute><DiagnosticResults /></ProtectedRoute>} />
-              <Route path="/tutor" element={<ProtectedRoute><AiTutor /></ProtectedRoute>} />
-              <Route path="/desempenho" element={<ProtectedRoute><Performance /></ProtectedRoute>} />
-              <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-              <Route path="/study" element={<ProtectedRoute><Study /></ProtectedRoute>} />
-              <Route path="/exams" element={<ProtectedRoute><Exams /></ProtectedRoute>} />
-              <Route path="/exam/:examId" element={<ProtectedRoute><ExamSession /></ProtectedRoute>} />
-              <Route path="/mission/:type/:id" element={<ProtectedRoute><MissionPage /></ProtectedRoute>} />
-              <Route path="/ranking" element={<ProtectedRoute><Ranking /></ProtectedRoute>} />
+
+              {/* App pages — wrapped with AppLayout sidebar */}
+              <Route path="/dashboard" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
+              <Route path="/study" element={<ProtectedRoute><AppLayout><Study /></AppLayout></ProtectedRoute>} />
+              <Route path="/exams" element={<ProtectedRoute><AppLayout><Exams /></AppLayout></ProtectedRoute>} />
+              <Route path="/exam/:examId" element={<ProtectedRoute><AppLayout><ExamSession /></AppLayout></ProtectedRoute>} />
+              <Route path="/desempenho" element={<ProtectedRoute><AppLayout><Performance /></AppLayout></ProtectedRoute>} />
+              <Route path="/tutor" element={<ProtectedRoute><AppLayout><AiTutor /></AppLayout></ProtectedRoute>} />
+              <Route path="/perfil" element={<ProtectedRoute><AppLayout><Profile /></AppLayout></ProtectedRoute>} />
+              <Route path="/mission/:type/:id" element={<ProtectedRoute><AppLayout><MissionPage /></AppLayout></ProtectedRoute>} />
+              <Route path="/ranking" element={<ProtectedRoute><AppLayout><Ranking /></AppLayout></ProtectedRoute>} />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

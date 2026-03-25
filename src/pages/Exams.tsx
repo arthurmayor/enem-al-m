@@ -6,27 +6,56 @@ import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
 
 interface ExamResult { id: string; exam_name: string; score_percent: number; correct_answers: number; total_questions: number; created_at: string; }
+interface ExamOption { id: string; name: string; desc: string; questions: number; duration: string; highlight?: boolean; }
 
-const examOptions = [
+const FALLBACK_EXAM_OPTIONS: ExamOption[] = [
   { id: "fuvest-mini", name: "Mini Simulado Fuvest", desc: "25 questões em ~75 min — distribuição proporcional", questions: 25, duration: "1h15", highlight: true },
   { id: "enem-rapido", name: "ENEM Rápido", desc: "30 questões em 1h30", questions: 30, duration: "1h30" },
   { id: "fuvest", name: "Fuvest 1ª Fase", desc: "45 questões em 2h30", questions: 45, duration: "2h30" },
   { id: "unicamp", name: "Unicamp", desc: "36 questões em 2h", questions: 36, duration: "2h" },
 ];
 
+function formatDuration(totalQuestions: number): string {
+  const mins = Math.round(totalQuestions * 3);
+  if (mins >= 60) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return m > 0 ? `${h}h${m.toString().padStart(2, "0")}` : `${h}h`;
+  }
+  return `${mins}min`;
+}
+
 const Exams = () => {
   const { user } = useAuth();
   const [history, setHistory] = useState<ExamResult[]>([]);
   const [questionCount, setQuestionCount] = useState(0);
+  const [examOptions, setExamOptions] = useState<ExamOption[]>(FALLBACK_EXAM_OPTIONS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
     const fetchData = async () => {
-      const { data: results } = await supabase.from("exam_results").select("id, exam_name, score_percent, correct_answers, total_questions, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10);
+      const [{ data: results }, { count }, { data: dbConfigs }] = await Promise.all([
+        supabase.from("exam_results").select("id, exam_name, score_percent, correct_answers, total_questions, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
+        supabase.from("questions").select("id", { count: "exact", head: true }),
+        supabase.from("exam_configs").select("exam_slug, exam_name, course_name, total_questions, subject_distribution").eq("is_active", true),
+      ]);
       if (results) setHistory(results);
-      const { count } = await supabase.from("questions").select("id", { count: "exact", head: true });
       setQuestionCount(count || 0);
+
+      // Use DB configs if available, otherwise keep fallback
+      if (dbConfigs && dbConfigs.length > 0) {
+        const mapped: ExamOption[] = dbConfigs.map((ec, i) => ({
+          id: ec.exam_slug,
+          name: ec.exam_name + (ec.course_name ? ` — ${ec.course_name}` : ""),
+          desc: `${ec.total_questions} questões em ${formatDuration(ec.total_questions)}`,
+          questions: ec.total_questions,
+          duration: formatDuration(ec.total_questions),
+          highlight: i === 0,
+        }));
+        setExamOptions(mapped);
+      }
+
       setLoading(false);
     };
     fetchData();

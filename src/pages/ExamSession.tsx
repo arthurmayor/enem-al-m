@@ -40,13 +40,14 @@ const ExamSession = () => {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const config = EXAM_CONFIGS[examId || ""] || EXAM_CONFIGS["enem-rapido"];
+  const fallbackConfig = EXAM_CONFIGS[examId || ""] || EXAM_CONFIGS["enem-rapido"];
 
+  const [config, setConfig] = useState(fallbackConfig);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
-  const [timeLeft, setTimeLeft] = useState(config.durationMinutes * 60);
+  const [timeLeft, setTimeLeft] = useState(fallbackConfig.durationMinutes * 60);
   const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [results, setResults] = useState<{ score: number; correct: number; total: number; perSubject: PerSubjectScore[]; cutoffPercent?: number } | null>(null);
@@ -55,6 +56,27 @@ const ExamSession = () => {
   useEffect(() => {
     if (!user) return;
     const loadQuestions = async () => {
+      // Resolve config: try DB first, then fallback to hardcoded
+      let resolvedConfig = fallbackConfig;
+      if (examId) {
+        const { data: dbConfig } = await supabase
+          .from("exam_configs")
+          .select("exam_slug, exam_name, total_questions, subject_distribution")
+          .eq("exam_slug", examId)
+          .eq("is_active", true)
+          .limit(1)
+          .single();
+        if (dbConfig) {
+          resolvedConfig = {
+            name: dbConfig.exam_name,
+            questionCount: dbConfig.total_questions,
+            durationMinutes: Math.round(dbConfig.total_questions * 3),
+            examType: dbConfig.exam_name,
+          };
+        }
+      }
+      setConfig(resolvedConfig);
+      setTimeLeft(resolvedConfig.durationMinutes * 60);
       // Fetch questions recently answered (72h dedup)
       const since72h = new Date(Date.now() - 72 * 3600 * 1000).toISOString();
       const { data: recentAnswers } = await supabase
@@ -78,7 +100,7 @@ const ExamSession = () => {
       if (allQuestions.length > 0) {
         // Separate into fresh and recent
         const fresh = allQuestions.filter((q: Question) => !recentIds.has(q.id));
-        const pool = fresh.length >= config.questionCount ? fresh : allQuestions;
+        const pool = fresh.length >= resolvedConfig.questionCount ? fresh : allQuestions;
 
         const bySubject: Record<string, Question[]> = {};
         (pool as Question[]).forEach((q) => {
@@ -112,7 +134,7 @@ const ExamSession = () => {
           // Generic round-robin distribution
           const subjects = Object.keys(bySubject);
           let idx = 0;
-          while (picked.length < config.questionCount && idx < 500) {
+          while (picked.length < resolvedConfig.questionCount && idx < 500) {
             const subj = subjects[idx % subjects.length];
             const subjPool = bySubject[subj];
             if (subjPool && subjPool.length > 0) picked.push(subjPool.shift()!);

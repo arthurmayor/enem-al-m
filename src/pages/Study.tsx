@@ -4,7 +4,7 @@ import { BookOpen, Clock, ChevronRight, ChevronDown, CheckCircle2, ArrowRight, P
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
-import { MISSION_TYPE_LABELS } from "@/lib/constants";
+import { MISSION_TYPE_LABELS, MISSION_STATUSES } from "@/lib/constants";
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -114,7 +114,7 @@ function showableSubtopic(subtopic: string | null | undefined): string | null {
 // ─── CompactMissionRow (for weekly agenda) ──────────────────────
 
 const CompactMissionRow = ({ mission }: { mission: Mission }) => {
-  const completed = mission.status === "completed";
+  const completed = mission.status === MISSION_STATUSES.COMPLETED;
   const minutes = mission.estimated_minutes ?? 15;
   const typeLabel = MISSION_TYPE_LABELS[mission.mission_type] || mission.mission_type;
 
@@ -164,7 +164,7 @@ interface PriorityCardProps {
 }
 
 const PriorityMissionCard = ({ mission, rationale, isPrimary, isNextRecommended }: PriorityCardProps) => {
-  const completed = mission.status === "completed";
+  const completed = mission.status === MISSION_STATUSES.COMPLETED;
   const minutes = mission.estimated_minutes ?? 15;
   const typeLabel = MISSION_TYPE_LABELS[mission.mission_type] || mission.mission_type;
   const visibleSubtopic = showableSubtopic(mission.subtopic);
@@ -353,7 +353,7 @@ const Study = () => {
 
     // 2. Weakest subject among phase2_subjects that has a pending mission today
     const todayPendingSubjects = new Set(
-      missions.filter(m => (m.date === todayStr || (m.date < todayStr && m.status === "pending")) && m.status !== "completed").map(m => m.subject)
+      missions.filter(m => (m.date === todayStr || (m.date < todayStr && m.status === MISSION_STATUSES.PENDING)) && m.status !== MISSION_STATUSES.COMPLETED).map(m => m.subject)
     );
     if (todayPendingSubjects.size === 0) return null;
 
@@ -376,7 +376,7 @@ const Study = () => {
   // Does the focus subject have a pending mission today?
   const focusHasMission = useMemo(() => {
     if (!focusSubject) return false;
-    return missions.some(m => m.subject === focusSubject && (m.date === todayStr || (m.date < todayStr && m.status === "pending")) && m.status !== "completed");
+    return missions.some(m => m.subject === focusSubject && (m.date === todayStr || (m.date < todayStr && m.status === MISSION_STATUSES.PENDING)) && m.status !== MISSION_STATUSES.COMPLETED);
   }, [missions, todayStr, focusSubject]);
 
   // ─── Focus reason (real data) ────────────────────────────
@@ -395,26 +395,26 @@ const Study = () => {
   // ─── Filtering ────────────────────────────────────────────
   const filtered = useMemo(() => {
     return missions.filter((m) => {
-      if (filter === "pending") return m.status !== "completed";
-      if (filter === "completed") return m.status === "completed";
+      if (filter === "pending") return m.status !== MISSION_STATUSES.COMPLETED;
+      if (filter === "completed") return m.status === MISSION_STATUSES.COMPLETED;
       return true;
     });
   }, [missions, filter]);
 
-  const completedCount = filtered.filter((m) => m.status === "completed").length;
+  const completedCount = filtered.filter((m) => m.status === MISSION_STATUSES.COMPLETED).length;
   const totalCount = filtered.length;
 
   // ─── Today's missions — prioritized ───────────────────────
   const todayMissions = useMemo(() => {
     const today = missions.filter(m => m.date === todayStr);
-    const overdue = missions.filter(m => m.date < todayStr && m.status === "pending");
+    const overdue = missions.filter(m => m.date < todayStr && m.status === MISSION_STATUSES.PENDING);
     const all = [...overdue, ...today];
 
     // Sort: focus subject pending first, then pending, then completed
     return [...all].sort((a, b) => {
-      if (a.status === "completed" && b.status !== "completed") return 1;
-      if (b.status === "completed" && a.status !== "completed") return -1;
-      if (a.status !== "completed" && b.status !== "completed" && focusSubject) {
+      if (a.status === MISSION_STATUSES.COMPLETED && b.status !== MISSION_STATUSES.COMPLETED) return 1;
+      if (b.status === MISSION_STATUSES.COMPLETED && a.status !== MISSION_STATUSES.COMPLETED) return -1;
+      if (a.status !== MISSION_STATUSES.COMPLETED && b.status !== MISSION_STATUSES.COMPLETED && focusSubject) {
         const aFocus = a.subject === focusSubject ? 0 : 1;
         const bFocus = b.subject === focusSubject ? 0 : 1;
         if (aFocus !== bFocus) return aFocus - bFocus;
@@ -423,16 +423,16 @@ const Study = () => {
     });
   }, [missions, todayStr, focusSubject]);
 
-  const todayCompleted = todayMissions.filter(m => m.status === "completed").length;
+  const todayCompleted = todayMissions.filter(m => m.status === MISSION_STATUSES.COMPLETED).length;
   const todayTotal = todayMissions.length;
   const todayPending = todayTotal - todayCompleted;
   const todayPct = todayTotal > 0 ? (todayCompleted / todayTotal) * 100 : 0;
   const todayTimeTotal = todayMissions.reduce((s, m) => s + (m.estimated_minutes ?? 15), 0);
   const todayTimeRemaining = todayMissions
-    .filter(m => m.status !== "completed")
+    .filter(m => m.status !== MISSION_STATUSES.COMPLETED)
     .reduce((s, m) => s + (m.estimated_minutes ?? 15), 0);
 
-  const nextMission = todayMissions.find(m => m.status !== "completed");
+  const nextMission = todayMissions.find(m => m.status !== MISSION_STATUSES.COMPLETED);
 
   // ─── Weekly agenda (future only, not today) ───────────────
   const weeklyAgenda = useMemo(() => {
@@ -443,8 +443,8 @@ const Study = () => {
       byDate[m.date].push(m);
     }
     for (const date of Object.keys(byDate)) {
-      const pending = byDate[date].filter(m => m.status !== "completed");
-      const done = byDate[date].filter(m => m.status === "completed");
+      const pending = byDate[date].filter(m => m.status !== MISSION_STATUSES.COMPLETED);
+      const done = byDate[date].filter(m => m.status === MISSION_STATUSES.COMPLETED);
       byDate[date] = [...pending, ...done];
     }
     return Object.keys(byDate).sort().map(date => ({
@@ -455,7 +455,7 @@ const Study = () => {
   }, [filtered, todayStr]);
 
   // ─── All-week completion check ────────────────────────────
-  const allWeekDone = missions.length > 0 && missions.every(m => m.status === "completed");
+  const allWeekDone = missions.length > 0 && missions.every(m => m.status === MISSION_STATUSES.COMPLETED);
 
   if (loading) {
     return (
@@ -610,7 +610,7 @@ const Study = () => {
             {focusParam && !focusHasMission && (() => {
               // Try to find any pending mission for this subject in the plan
               const anyPendingForSubject = missions.find(
-                m => m.subject === focusParam && m.status !== "completed"
+                m => m.subject === focusParam && m.status !== MISSION_STATUSES.COMPLETED
               );
               return (
                 <div className="bg-white rounded-2xl border border-foreground/10 p-4">
@@ -658,20 +658,20 @@ const Study = () => {
                   </h2>
                   {todayMissions.some(m => m.estimated_minutes != null) && (
                     <span className="text-[10px] text-muted-foreground">
-                      {todayMissions.filter(m => m.status === "completed").reduce((s, m) => s + (m.estimated_minutes ?? 15), 0)} de {todayTimeTotal} min
+                      {todayMissions.filter(m => m.status === MISSION_STATUSES.COMPLETED).reduce((s, m) => s + (m.estimated_minutes ?? 15), 0)} de {todayTimeTotal} min
                     </span>
                   )}
                 </div>
 
                 <div className="space-y-2">
                   {todayMissions.map((m, i) => {
-                    const pendingIdx = todayMissions.filter((x, xi) => xi < i && x.status !== "completed").length;
+                    const pendingIdx = todayMissions.filter((x, xi) => xi < i && x.status !== MISSION_STATUSES.COMPLETED).length;
                     return (
                       <PriorityMissionCard
                         key={m.id}
                         mission={m}
                         rationale={getMissionRationale(m, proficiencies, examConfig?.phase2_subjects || [], spacedReviews, examConfig?.course_name || null)}
-                        isPrimary={pendingIdx === 0 && m.status !== "completed"}
+                        isPrimary={pendingIdx === 0 && m.status !== MISSION_STATUSES.COMPLETED}
                         isNextRecommended={m.id === nextMission?.id}
                       />
                     );
@@ -723,7 +723,7 @@ const Study = () => {
                 ═══════════════════════════════════════════════════ */}
             {weeklyAgenda.length > 0 && (() => {
               const weekTotal = weeklyAgenda.reduce((s, sec) => s + sec.missions.length, 0);
-              const weekDone = weeklyAgenda.reduce((s, sec) => s + sec.missions.filter(m => m.status === "completed").length, 0);
+              const weekDone = weeklyAgenda.reduce((s, sec) => s + sec.missions.filter(m => m.status === MISSION_STATUSES.COMPLETED).length, 0);
               return (
                 <div className="bg-gray-50/80 rounded-2xl border border-gray-100 overflow-hidden">
                   <button
@@ -738,7 +738,7 @@ const Study = () => {
                   {agendaOpen && (
                     <div className="divide-y divide-gray-100 border-t border-gray-100">
                       {weeklyAgenda.map((section) => {
-                        const sectionCompleted = section.missions.filter(m => m.status === "completed").length;
+                        const sectionCompleted = section.missions.filter(m => m.status === MISSION_STATUSES.COMPLETED).length;
                         const sectionTime = section.missions.reduce((s, m) => s + (m.estimated_minutes ?? 15), 0);
                         return (
                           <div key={section.date} className="px-3 py-2.5">

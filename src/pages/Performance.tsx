@@ -12,7 +12,7 @@ import {
   type Proficiency,
   type SubjectDistEntry,
 } from "@/lib/scoring";
-import { ALL_SUBJECTS } from "@/lib/constants";
+import { ALL_SUBJECTS, MISSION_STATUSES, PLAN_STATUSES } from "@/lib/constants";
 
 interface ProficiencyRow { subject: string; subtopic: string; score: number; measured_at: string; source: string; }
 interface MissionRow { status: string; score: number | null; date: string; }
@@ -147,7 +147,7 @@ const Performance = () => {
       const distinctSubjects = new Set((profData || []).map(p => p.subject));
       setSubjectsCovered(distinctSubjects.size);
 
-      const { count: supersededCount } = await supabase.from("study_plans").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "superseded");
+      const { count: supersededCount } = await supabase.from("study_plans").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", PLAN_STATUSES.SUPERSEDED);
       setPlanUpdates(supersededCount || 0);
 
       const { data: allAnswers } = await supabase.from("answer_history").select("created_at").eq("user_id", user.id);
@@ -226,7 +226,7 @@ const Performance = () => {
   // course cutoff for a statistically grounded probability.
   // ─────────────────────────────────────────────────────────────────────────────
 
-  const weekCompletedMissions = missions.filter((m) => m.status === "completed").length;
+  const weekCompletedMissions = missions.filter((m) => m.status === MISSION_STATUSES.COMPLETED).length;
   const weekTotalMissions = missions.length;
   const weekAnswers = recentAnswers.filter(a => {
     const d = new Date(a.created_at);

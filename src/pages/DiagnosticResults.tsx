@@ -113,7 +113,7 @@ async function generateAndSavePlan(
 ) {
   const { data: profile } = await supabase
     .from("profiles")
-    .select("name, education_goal, desired_course, exam_date, hours_per_day, study_days, self_declared_blocks")
+    .select("name, education_goal, desired_course, exam_date, hours_per_day, study_days, available_days, self_declared_blocks")
     .eq("id", userId)
     .single();
   const userProfile = {

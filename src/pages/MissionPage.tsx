@@ -6,9 +6,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/trackEvent";
+import { MISSION_STATUSES } from "@/lib/constants";
 
 interface Question { id: string; subject: string; subtopic: string; difficulty: number; difficulty_elo?: number; question_text: string; options: { label: string; text: string; is_correct: boolean }[]; explanation: string; }
-interface MissionData { id: string; subject: string; subtopic: string; mission_type: string; status: string; payload?: Record<string, unknown>; }
+interface MissionData { id: string; subject: string; subtopic: string; mission_type: string; status: string; payload?: Record<string, unknown>; question_ids?: string[]; score?: number | null; }
 
 const CALIBRATION_TYPES = ["questions", "error_review", "spaced_review"];
 const SUMMARY_TYPES = ["short_summary", "resumos"];
@@ -268,6 +269,19 @@ async function fetchMissionQuestions(
   return [];
 }
 
+// ─── Fetch questions by IDs (for mission resume) ────────────────────────────
+
+async function fetchQuestionsByIds(ids: string[]): Promise<Question[]> {
+  const [{ data: dq }, { data: q }] = await Promise.all([
+    supabase.from("diagnostic_questions").select("*").in("id", ids),
+    supabase.from("questions").select("*").in("id", ids),
+  ]);
+  const allQuestions = [...(dq || []), ...(q || [])] as Question[];
+  // Preserve original ID order
+  const byId = new Map(allQuestions.map(q => [q.id, q]));
+  return ids.map(id => byId.get(id)).filter((q): q is Question => q != null);
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 const MissionPage = () => {
@@ -300,49 +314,65 @@ const MissionPage = () => {
     const loadMission = async () => {
       const { data: missionData } = await supabase
         .from("daily_missions")
-        .select("id, subject, subtopic, mission_type, status, payload")
+        .select("id, subject, subtopic, mission_type, status, payload, question_ids, score")
         .eq("id", id)
         .single();
 
-      if (missionData) {
+      if (!missionData) { setLoading(false); return; }
+
+      const status = missionData.status as string;
+      const missionType = missionData.mission_type || "";
+      const questionIds = (missionData as any).question_ids as string[] | null;
+
+      // ─── COMPLETED: show result, block re-execution ────────────────
+      if (status === MISSION_STATUSES[2] /* completed */) {
         setMission(missionData as MissionData);
-        if (missionData.status === "completed") { setCompleted(true); setLoading(false); return; }
+        setCompleted(true);
+        setLoading(false);
+        return;
       }
 
-      // Track mission_opened
+      // ─── PENDING → IN_PROGRESS transition ─────────────────────────
+      if (status === MISSION_STATUSES[0] /* pending */) {
+        await supabase.from("daily_missions")
+          .update({ status: "in_progress" })
+          .eq("id", id);
+        missionData.status = "in_progress";
+      }
+
+      setMission(missionData as MissionData);
+
+      // Track mission_started
       if (!openedRef.current) {
         openedRef.current = true;
         trackEvent("mission_started", {
-          type: missionData?.mission_type,
-          subject: missionData?.subject,
+          type: missionType,
+          subject: missionData.subject,
           mission_id: id,
         }, user.id);
       }
 
-      const missionType = missionData?.mission_type || "";
-
       // ─── Summary missions: check cache or call AI ─────────────────
       if (SUMMARY_TYPES.includes(missionType)) {
-        const payload = (missionData?.payload || {}) as Record<string, unknown>;
+        const payload = (missionData.payload || {}) as Record<string, unknown>;
         if (payload.cached_content && typeof payload.cached_content === "string") {
           setSummaryContent(payload.cached_content);
           setLoading(false);
           return;
         }
-        // Call ai-tutor edge function for summary
         setSummaryLoading(true);
         setLoading(false);
         try {
           const { data, error } = await supabase.functions.invoke("ai-tutor", {
             body: {
-              message: `Gere um resumo claro e didático sobre "${missionData?.subtopic}" da matéria ${missionData?.subject}. Use tópicos, exemplos e linguagem acessível para um estudante de vestibular. Máximo 800 palavras.`,
+              message: `Gere um resumo claro e didático sobre "${missionData.subtopic}" da matéria ${missionData.subject}. Use tópicos, exemplos e linguagem acessível para um estudante de vestibular. Máximo 800 palavras.`,
               chatHistory: [],
               userContext: {
                 name: "",
                 age: null,
                 school_year: "",
                 education_goal: "",
-                current_subject: missionData?.subject || "",
+                current_subject: missionData.subject || "",
                 proficiency_level: "intermediário",
                 recent_errors: [],
               },
@@ -351,13 +381,11 @@ const MissionPage = () => {
           if (error || !data?.reply) throw new Error("Falha na geração");
           const content = data.reply as string;
           setSummaryContent(content);
-          // Cache no payload da mission
           const { error: rpcErr } = await supabase.rpc("jsonb_set_mission_cache", { mission_id: id, content_val: content });
           if (rpcErr) {
-            // Fallback: update direto
             await supabase
               .from("daily_missions")
-              .update({ payload: { ...(missionData?.payload || {}), cached_content: content } })
+              .update({ payload: { ...(missionData.payload || {}), cached_content: content } })
               .eq("id", id);
           }
         } catch {
@@ -369,9 +397,25 @@ const MissionPage = () => {
       }
 
       // ─── Question-based missions ──────────────────────────────────
-      const subject = missionData?.subject || "";
-      const subtopic = missionData?.subtopic || "";
-      const selectedQuestions = await fetchMissionQuestions(user.id, subject, subtopic);
+      let selectedQuestions: Question[];
+
+      if (status !== MISSION_STATUSES[0] /* was already in_progress */ && questionIds && questionIds.length > 0) {
+        // RESUME: fetch bound questions by ID, preserving order
+        selectedQuestions = await fetchQuestionsByIds(questionIds);
+      } else {
+        // NEW mission (was pending) or legacy mission without question_ids
+        const subject = missionData.subject || "";
+        const subtopic = missionData.subtopic || "";
+        selectedQuestions = await fetchMissionQuestions(user.id, subject, subtopic);
+
+        // Bind question IDs to mission for deterministic resume
+        if (selectedQuestions.length > 0) {
+          await supabase.from("daily_missions")
+            .update({ question_ids: selectedQuestions.map(q => q.id) })
+            .eq("id", id);
+        }
+      }
+
       setQuestions(selectedQuestions);
       setLoading(false);
       setQuestionStartTime(Date.now());
@@ -446,7 +490,7 @@ const MissionPage = () => {
   const finishMission = async () => {
     if (!user || !id) return;
     const finalScore = Math.round(((score.correct + (currentQuestion?.options.find((o) => o.label === selectedOption)?.is_correct ? 1 : 0)) / (score.total + 1)) * 100);
-    await supabase.from("daily_missions").update({ status: "completed", score: finalScore }).eq("id", id);
+    await supabase.from("daily_missions").update({ status: "completed", score: finalScore, completed_at: new Date().toISOString() }).eq("id", id);
     setCompleted(true);
 
     // Track mission_completed (Change 4)
@@ -489,7 +533,7 @@ const MissionPage = () => {
 
   const completeSummaryMission = async () => {
     if (!user || !id) return;
-    await supabase.from("daily_missions").update({ status: "completed", score: 100 }).eq("id", id);
+    await supabase.from("daily_missions").update({ status: "completed", score: 100, completed_at: new Date().toISOString() }).eq("id", id);
     setCompleted(true);
     trackEvent("mission_completed", { type: mission?.mission_type, subject: mission?.subject, score: 100, mission_id: id }, user.id);
 
@@ -510,15 +554,19 @@ const MissionPage = () => {
   if (loading) { return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>); }
 
   if (completed) {
-    const finalPercent = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0;
+    // Use in-memory score if just finished, or stored score if revisiting
+    const finalPercent = score.total > 0
+      ? Math.round((score.correct / score.total) * 100)
+      : (mission?.score ?? 0);
     const isSummary = mission && SUMMARY_TYPES.includes(mission.mission_type);
+    const hasScore = score.total > 0 || (mission?.score != null && mission.score > 0);
     const scoreColor = finalPercent >= 70 ? "text-success bg-success/10" : finalPercent >= 40 ? "text-warning bg-warning/10" : "text-destructive bg-destructive/10";
     return (
       <div className="min-h-screen bg-white flex items-center justify-center px-4">
         <div className="text-center max-w-sm animate-fade-in">
           <CheckCircle2 className="h-16 w-16 text-foreground mx-auto mb-4" />
           <h1 className="text-2xl font-semibold text-foreground">Missão Concluída!</h1>
-          {!isSummary && score.total > 0 && (<div className={`mt-4 inline-flex items-center justify-center h-20 w-20 rounded-full ${scoreColor} text-2xl font-semibold`}>{finalPercent}%</div>)}
+          {!isSummary && hasScore && (<div className={`mt-4 inline-flex items-center justify-center h-20 w-20 rounded-full ${scoreColor} text-2xl font-semibold`}>{finalPercent}%</div>)}
           <p className="text-sm text-muted-foreground mt-4">{mission?.subject} — {mission?.subtopic}</p>
           {!isSummary && score.total > 0 && (<p className="text-sm text-muted-foreground mt-1">{score.correct} de {score.total} corretas</p>)}
           <div className="mt-8 flex gap-3 justify-center">

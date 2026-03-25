@@ -559,6 +559,7 @@ const DiagnosticTest = () => {
           selected_option: optionLabel,
           is_correct: correct,
           response_time_seconds: responseTime,
+          subtopic: q.subtopic || "geral",
           context: "diagnostic",
         });
       }

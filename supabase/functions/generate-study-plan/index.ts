@@ -566,7 +566,7 @@ serve(async (req) => {
       userProfile?.self_declared_blocks || {};
 
     const hpd: number = userProfile?.hours_per_day || 1;
-    const sd = userProfile?.study_days;
+    const sd = userProfile?.available_days || userProfile?.study_days;
     const numDays: number =
       typeof sd === "number"
         ? sd

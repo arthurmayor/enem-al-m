@@ -7,7 +7,7 @@ import BottomNav from "@/components/BottomNav";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/trackEvent";
 import { MISSION_TYPE_LABELS, MISSION_STATUSES, PLAN_STATUSES } from "@/lib/constants";
-import { deduplicateProficiencies, diagnosticToProfArray, buildPlannerInput } from "@/lib/plannerInput";
+import { deduplicateProficiencies, diagnosticToProfArray, buildPlannerInput, calculateBand } from "@/lib/plannerInput";
 
 interface Profile {
   name: string;
@@ -76,6 +76,11 @@ const Dashboard = () => {
           .single();
         const proficiencies = latestEstimate?.proficiencies || {};
         profArray = diagnosticToProfArray(proficiencies as Record<string, { elo?: number; score?: number }>);
+        // Extract originalBand from diagnostic proficiency averages
+        if (profArray.length > 0) {
+          const avgScore = profArray.reduce((s, p) => s + p.score, 0) / profArray.length;
+          originalBand = calculateBand(avgScore);
+        }
       }
 
       // Get exam config

@@ -113,12 +113,22 @@ async function generateAndSavePlan(
 ) {
   const { data: profile } = await supabase
     .from("profiles")
-    .select("name, education_goal, desired_course, exam_date, hours_per_day, study_days, self_declared_blocks")
+    .select("name, education_goal, desired_course, exam_date, hours_per_day, study_days, available_days, self_declared_blocks")
     .eq("id", userId)
     .single();
+  // available_days is the primary source; study_days is the legacy fallback
+  const profileData = profile as Record<string, unknown> | null;
+  const numDays = Array.isArray(profileData?.available_days)
+    ? (profileData.available_days as unknown[]).length
+    : Array.isArray(profileData?.study_days)
+      ? (profileData.study_days as unknown[]).length
+      : typeof profileData?.study_days === "number"
+        ? (profileData.study_days as number)
+        : 5;
   const userProfile = {
     ...(profile || {}),
-    self_declared_blocks: (profile as Record<string, unknown>)?.self_declared_blocks || {},
+    study_days: numDays,
+    self_declared_blocks: profileData?.self_declared_blocks || {},
   };
 
   const { data: plan, error: invokeError } = await supabase.functions.invoke("generate-study-plan", {

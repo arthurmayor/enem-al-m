@@ -42,10 +42,10 @@ const StepSelfAssessment = ({ selfDeclaredBlocks, onChange }: Props) => {
   return (
     <div className="animate-fade-in space-y-8">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground leading-tight">
+        <h2 className="text-2xl font-semibold text-ink-strong leading-tight">
           Como você se sente nessas áreas?
         </h2>
-        <p className="text-sm text-muted-foreground mt-2">
+        <p className="text-sm text-ink-soft mt-2">
           É uma percepção inicial. Vamos calibrar isso no diagnóstico.
         </p>
       </div>
@@ -57,17 +57,17 @@ const StepSelfAssessment = ({ selfDeclaredBlocks, onChange }: Props) => {
           return (
             <div
               key={block.key}
-              className={`rounded-2xl border p-5 transition-all ${
+              className={`rounded-card border p-5 transition-all ${
                 selected
-                  ? "border-foreground/20 bg-secondary/40"
-                  : "border-border bg-background"
+                  ? "border-brand-500/20 bg-brand-50"
+                  : "border-line bg-bg-app"
               }`}
             >
               <div className="flex items-center gap-3 mb-4">
-                <Icon className="h-4.5 w-4.5 text-muted-foreground" />
+                <Icon className="h-4.5 w-4.5 text-ink-soft" />
                 <div>
-                  <p className="text-sm font-semibold text-foreground">{block.label}</p>
-                  <p className="text-xs text-muted-foreground">{block.description}</p>
+                  <p className="text-sm font-semibold text-ink-strong">{block.label}</p>
+                  <p className="text-xs text-ink-muted">{block.description}</p>
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -75,10 +75,10 @@ const StepSelfAssessment = ({ selfDeclaredBlocks, onChange }: Props) => {
                   <button
                     key={level.value}
                     onClick={() => onChange(block.key, level.value)}
-                    className={`h-9 rounded-lg text-xs font-medium transition-all border ${
+                    className={`h-9 rounded-input text-xs font-medium transition-all border ${
                       selected === level.value
-                        ? "bg-foreground text-primary-foreground border-foreground"
-                        : "bg-background text-foreground border-border hover:border-foreground/20"
+                        ? "bg-ink-strong text-white border-ink-strong"
+                        : "bg-bg-card text-ink border-line hover:border-ink-soft"
                     }`}
                   >
                     {level.label}

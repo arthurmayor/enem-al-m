@@ -512,6 +512,8 @@ const MissionPage = () => {
     }
   }, [user]);
 
+  const currentQuestion = questions[currentIndex];
+
   // ─── Tutor: send message ──────────────────────────────────────
   const sendTutorMessage = useCallback(async (text: string) => {
     if (!text.trim() || !user) return;
@@ -592,8 +594,6 @@ const MissionPage = () => {
       if (!timedOut) setTutorLoading(false);
     }
   }, [user, currentQuestion, mission, selectedOption, tutorMessages]);
-
-  const currentQuestion = questions[currentIndex];
 
   const handleAnswer = useCallback(async (optionLabel: string) => {
     if (selectedOption || !currentQuestion || !user) return;

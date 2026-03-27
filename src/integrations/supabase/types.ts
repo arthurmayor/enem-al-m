@@ -53,6 +53,7 @@ export type Database = {
         Row: {
           context: string | null
           created_at: string | null
+          error_type: string | null
           id: string
           is_correct: boolean
           question_id: string | null
@@ -63,6 +64,7 @@ export type Database = {
         Insert: {
           context?: string | null
           created_at?: string | null
+          error_type?: string | null
           id?: string
           is_correct: boolean
           question_id?: string | null
@@ -73,6 +75,7 @@ export type Database = {
         Update: {
           context?: string | null
           created_at?: string | null
+          error_type?: string | null
           id?: string
           is_correct?: boolean
           question_id?: string | null

@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, ArrowLeft, Sparkles } from "lucide-react";
-import { Link } from "react-router-dom";
+import { ArrowUp, Sparkles } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +19,7 @@ const AiTutor = () => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [userName, setUserName] = useState("Estudante");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -27,7 +27,11 @@ const AiTutor = () => {
   useEffect(() => {
     if (!user) { setHistoryLoaded(true); return; }
     const loadHistory = async () => {
-      const { data, error } = await supabase.from("chat_history").select("id, role, message, created_at").eq("user_id", user.id).order("created_at", { ascending: true });
+      const [{ data, error }, { data: profile }] = await Promise.all([
+        supabase.from("chat_history").select("id, role, message, created_at").eq("user_id", user.id).order("created_at", { ascending: true }),
+        supabase.from("profiles").select("name").eq("id", user.id).single(),
+      ]);
+      if (profile?.name) setUserName(profile.name);
       if (!error && data?.length) {
         setMessages(data.map((row: { id: string; role: string; message: string }) => ({ id: row.id, role: row.role as "user" | "assistant", content: row.message })));
       }
@@ -62,61 +66,41 @@ const AiTutor = () => {
   };
 
   if (!historyLoaded && user) {
-    return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>);
+    return (
+      <div className="min-h-screen bg-bg-app flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col pb-16">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-        <div className="container mx-auto flex h-14 items-center gap-3 px-4 max-w-3xl">
-          <Link to="/dashboard" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
-          <div className="h-7 w-7 rounded-lg bg-gray-100 flex items-center justify-center">
-            <Sparkles className="h-3.5 w-3.5 text-foreground" />
-          </div>
-          <span className="text-base font-semibold text-foreground">Tutor IA</span>
+    <div className="min-h-screen bg-bg-app flex flex-col pb-24 md:pb-0">
+      {/* Header */}
+      <header className="flex items-center gap-3 mb-2 animate-fade-in">
+        <div className="h-8 w-8 rounded-lg bg-brand-100 flex items-center justify-center">
+          <Sparkles className="h-4 w-4 text-brand-500" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-ink-strong">Tutor IA</h1>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 max-w-3xl mx-auto w-full">
-        <div className="space-y-4">
-          {messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-              <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                msg.role === "user"
-                  ? "bg-foreground text-white rounded-br-md"
-                  : "bg-gray-100 text-foreground rounded-bl-md"
-              }`}>
-                {msg.role === "assistant" && (
-                  <div className="flex items-center gap-1 mb-1.5">
-                    <Sparkles className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-[10px] font-medium text-muted-foreground">IA</span>
-                  </div>
-                )}
-                {msg.content}
-              </div>
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
-                <div className="flex gap-1">
-                  <div className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <div className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <div className="h-2 w-2 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
-
+      {/* Welcome card (only when no real messages) */}
       {messages.length <= 1 && (
-        <div className="px-4 pb-2 max-w-3xl mx-auto w-full">
-          <div className="flex gap-2 overflow-x-auto pb-2">
+        <div className="bg-bg-card rounded-card border border-line-light shadow-card p-6 mb-4 animate-fade-in">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-10 w-10 rounded-xl bg-brand-100 flex items-center justify-center">
+              <Sparkles className="h-5 w-5 text-brand-500" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-ink-strong">Olá, {userName}!</p>
+              <p className="text-xs text-ink-soft">Como posso te ajudar hoje?</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
             {quickActions.map((action) => (
               <button key={action} onClick={() => sendMessage(action)}
-                className="shrink-0 px-4 py-2 rounded-full bg-white border border-gray-200 text-xs font-medium text-foreground hover:shadow-md hover:border-gray-400 transition-all">
+                className="px-3 py-1.5 rounded-input bg-bg-app border border-line-light text-xs font-medium text-ink hover:border-brand-500 hover:text-brand-500 transition-all">
                 {action}
               </button>
             ))}
@@ -124,14 +108,48 @@ const AiTutor = () => {
         </div>
       )}
 
-      <div className="sticky bottom-16 bg-white border-t border-gray-100 px-4 py-3">
+      {/* Chat area */}
+      <div className="flex-1 overflow-y-auto space-y-3 animate-fade-in">
+        {messages.map((msg) => (
+          <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[85%] md:max-w-[70%] rounded-card px-4 py-3 text-sm leading-relaxed ${
+              msg.role === "user"
+                ? "ml-12 bg-brand-500 text-white rounded-br-sm"
+                : "mr-12 bg-bg-card border border-line-light shadow-card rounded-bl-sm"
+            }`}>
+              {msg.role === "assistant" && (
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Sparkles className="h-3 w-3 text-brand-500" />
+                  <span className="text-[10px] font-semibold text-brand-500">Tutor IA</span>
+                </div>
+              )}
+              <span className={msg.role === "user" ? "text-white" : "text-ink"}>{msg.content}</span>
+            </div>
+          </div>
+        ))}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-bg-card border border-line-light rounded-card rounded-bl-sm px-4 py-3 shadow-card">
+              <div className="flex gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-ink-muted animate-bounce" style={{ animationDelay: "0ms" }} />
+                <div className="h-2 w-2 rounded-full bg-ink-muted animate-bounce" style={{ animationDelay: "150ms" }} />
+                <div className="h-2 w-2 rounded-full bg-ink-muted animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input bar */}
+      <div className="sticky bottom-16 md:bottom-0 bg-bg-app border-t border-line-light px-4 py-3 mt-4">
         <div className="max-w-3xl mx-auto flex gap-2">
           <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
             placeholder="Tire sua dúvida..."
-            className="flex-1 h-11 px-4 rounded-full bg-gray-50 border border-gray-200 text-foreground text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-gray-200 focus:border-foreground transition-all" />
+            className="flex-1 h-11 px-4 rounded-input bg-bg-card border border-line-light text-ink text-sm placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all" />
           <button onClick={() => sendMessage(input)} disabled={!input.trim() || isLoading}
-            className="h-11 w-11 rounded-full bg-foreground text-white flex items-center justify-center hover:bg-foreground/90 active:scale-[0.95] transition-all disabled:opacity-40">
-            <Send className="h-4 w-4" />
+            className="h-11 w-11 rounded-input bg-brand-500 text-white flex items-center justify-center hover:bg-brand-600 active:scale-[0.95] transition-all disabled:opacity-40">
+            <ArrowUp className="h-4 w-4" />
           </button>
         </div>
       </div>

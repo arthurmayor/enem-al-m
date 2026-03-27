@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import { Trophy, Medal, ArrowLeft, Crown, Star } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -56,104 +55,114 @@ const Ranking = () => {
     return `${r.missions_completed || 0} missões`;
   };
 
-  const getMedalIcon = (i: number) => {
-    if (i === 0) return <Crown className="h-5 w-5 text-foreground" />;
-    if (i === 1) return <Medal className="h-5 w-5 text-muted-foreground" />;
-    if (i === 2) return <Medal className="h-5 w-5 text-muted-foreground/60" />;
-    return <span className="text-sm font-semibold text-muted-foreground w-5 text-center">{i + 1}</span>;
+  const getMedal = (i: number) => {
+    if (i === 0) return "🥇";
+    if (i === 1) return "🥈";
+    if (i === 2) return "🥉";
+    return `${i + 1}`;
   };
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-        <div className="container mx-auto flex h-14 items-center gap-3 px-4 max-w-3xl">
-          <Link to="/dashboard" className="text-muted-foreground hover:text-foreground"><ArrowLeft className="h-5 w-5" /></Link>
-          <Trophy className="h-5 w-5 text-foreground" />
-          <span className="text-base font-semibold text-foreground">Ranking</span>
+    <div className="min-h-screen bg-bg-app pb-24 md:pb-0">
+      {/* Header */}
+      <header className="flex items-center gap-3 mb-6 animate-fade-in">
+        <div className="h-8 w-8 rounded-lg bg-brand-100 flex items-center justify-center">
+          <Trophy className="h-4 w-4 text-brand-500" />
         </div>
+        <h1 className="text-2xl font-bold text-ink-strong">Ranking</h1>
       </header>
 
-      <main className="container mx-auto px-4 py-6 max-w-3xl">
-        {myProfile && myRank && (
-          <div className="p-5 bg-gray-50 rounded-2xl mb-6 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-2xl bg-foreground flex items-center justify-center text-white text-lg font-semibold">
-                  {myProfile.name?.charAt(0) || "?"}
-                </div>
-                <div>
-                  <p className="font-semibold text-foreground">Você está em #{myRank}</p>
-                  <p className="text-xs text-muted-foreground">{getCategoryValue(myProfile)}</p>
-                </div>
-              </div>
-              <Star className="h-6 w-6 text-foreground" />
+      {/* My position card */}
+      {myProfile && myRank && (
+        <div className="bg-brand-50 border border-brand-500/20 rounded-card p-5 mb-6 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-xl bg-brand-500 flex items-center justify-center text-white text-lg font-bold">
+              {myProfile.name?.charAt(0) || "?"}
             </div>
+            <div className="flex-1">
+              <p className="font-semibold text-ink-strong">Você está em #{myRank}</p>
+              <p className="text-xs text-ink-soft">{getCategoryValue(myProfile)}</p>
+            </div>
+            <span className="text-2xl">{getMedal(myRank - 1)}</span>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Course filter */}
-        {myExamConfigId && (
-          <div className="flex gap-2 mb-4">
-            <button onClick={() => setCourseFilter("mine")}
-              className={`flex-1 py-2 rounded-full text-xs font-medium transition-all ${
-                courseFilter === "mine" ? "bg-foreground text-white" : "bg-white border border-gray-200 text-foreground hover:border-gray-400"
-              }`}>Meu curso</button>
-            <button onClick={() => setCourseFilter("all")}
-              className={`flex-1 py-2 rounded-full text-xs font-medium transition-all ${
-                courseFilter === "all" ? "bg-foreground text-white" : "bg-white border border-gray-200 text-foreground hover:border-gray-400"
-              }`}>Geral</button>
-          </div>
-        )}
-
-        <div className="flex gap-2 mb-6">
+      {/* Course filter */}
+      {myExamConfigId && (
+        <div className="bg-bg-app rounded-lg p-1 inline-flex gap-1 border border-line-light mb-3">
           {([
-            { id: "xp" as const, label: "XP Total" },
-            { id: "streak" as const, label: "Sequência" },
-            { id: "missions" as const, label: "Missões" },
-          ]).map(c => (
-            <button key={c.id} onClick={() => setCategory(c.id)}
-              className={`flex-1 py-2.5 rounded-full text-xs font-medium transition-all ${
-                category === c.id ? "bg-foreground text-white" : "bg-white border border-gray-200 text-foreground hover:border-gray-400"
-              }`}>{c.label}</button>
+            { id: "mine" as const, label: "Meu curso" },
+            { id: "all" as const, label: "Geral" },
+          ]).map((f) => (
+            <button key={f.id} onClick={() => setCourseFilter(f.id)}
+              className={`px-3 py-1.5 text-sm rounded-md transition-all ${
+                courseFilter === f.id
+                  ? "bg-white shadow-card text-ink-strong font-medium"
+                  : "text-ink-soft hover:text-ink-strong"
+              }`}>{f.label}</button>
           ))}
         </div>
+      )}
 
-        {loading ? (
-          <div className="flex justify-center py-12"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>
-        ) : rankings.length === 0 ? (
-          <div className="text-center py-12">
-            <Trophy className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">Nenhum aluno no ranking ainda. Complete missões para aparecer!</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {rankings.map((r, i) => {
-              const isMe = r.id === user?.id;
-              return (
-                <div key={r.id}
-                  className={`flex items-center gap-3 p-4 rounded-2xl transition-all animate-fade-in ${
-                    isMe ? "bg-gray-50 border border-gray-200" : "bg-white border border-gray-100"
-                  } ${i < 3 ? "py-5" : ""}`}
-                  style={{ animationDelay: `${i * 0.02}s` }}>
-                  <div className="w-8 flex justify-center shrink-0">{getMedalIcon(i)}</div>
-                  <div className="h-9 w-9 rounded-xl bg-foreground flex items-center justify-center text-white text-sm font-semibold shrink-0">
-                    {r.name?.charAt(0) || "?"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-semibold truncate text-foreground`}>
-                      {r.name || "Estudante"} {isMe && "(você)"}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground truncate">
-                      {r.education_goal?.toUpperCase() || ""} {r.city_state ? `— ${r.city_state}` : ""}
-                    </p>
-                  </div>
-                  <span className={`text-sm font-semibold shrink-0 text-foreground`}>{getCategoryValue(r)}</span>
+      {/* Category filter */}
+      <div className="bg-bg-app rounded-lg p-1 inline-flex gap-1 border border-line-light mb-6">
+        {([
+          { id: "xp" as const, label: "XP Total" },
+          { id: "streak" as const, label: "Sequência" },
+          { id: "missions" as const, label: "Missões" },
+        ]).map((c) => (
+          <button key={c.id} onClick={() => setCategory(c.id)}
+            className={`px-3 py-1.5 text-sm rounded-md transition-all ${
+              category === c.id
+                ? "bg-white shadow-card text-ink-strong font-medium"
+                : "text-ink-soft hover:text-ink-strong"
+            }`}>{c.label}</button>
+        ))}
+      </div>
+
+      {/* List */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="h-8 w-8 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : rankings.length === 0 ? (
+        <div className="bg-bg-card rounded-card border border-line-light shadow-card p-8 text-center">
+          <Trophy className="h-10 w-10 text-ink-muted mx-auto mb-3" />
+          <p className="text-sm text-ink-soft">Nenhum aluno no ranking ainda. Complete missões para aparecer!</p>
+        </div>
+      ) : (
+        <div className="space-y-2 animate-fade-in">
+          {rankings.map((r, i) => {
+            const isMe = r.id === user?.id;
+            return (
+              <div key={r.id}
+                className={`flex items-center gap-3 p-4 rounded-card border transition-all ${
+                  isMe
+                    ? "bg-brand-50 border-brand-500/20"
+                    : "bg-bg-card border-line-light shadow-card"
+                } ${i < 3 ? "py-5" : ""}`}>
+                <div className="w-8 flex justify-center shrink-0 text-base font-semibold text-ink-soft">
+                  {getMedal(i)}
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </main>
+                <div className="h-9 w-9 rounded-xl bg-brand-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">
+                  {r.name?.charAt(0) || "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate text-ink-strong">
+                    {r.name || "Estudante"} {isMe && "(você)"}
+                  </p>
+                  <p className="text-[10px] text-ink-muted truncate">
+                    {r.education_goal?.toUpperCase() || ""} {r.city_state ? `— ${r.city_state}` : ""}
+                  </p>
+                </div>
+                <span className="text-sm font-semibold shrink-0 text-ink-strong">{getCategoryValue(r)}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <BottomNav />
     </div>
   );

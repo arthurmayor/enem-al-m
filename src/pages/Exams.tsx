@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FileText, Clock, ChevronRight } from "lucide-react";
+import { FileText, Clock, ChevronRight, Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -61,81 +61,98 @@ const Exams = () => {
     fetchData();
   }, [user]);
 
-  const getColor = (p: number) => p >= 70 ? "text-success bg-success/10" : p >= 40 ? "text-warning bg-warning/10" : "text-destructive bg-destructive/10";
+  const getColor = (p: number) => p >= 70 ? "text-signal-ok bg-signal-ok/10" : p >= 40 ? "text-brand-500 bg-brand-100" : "text-signal-error bg-signal-error/10";
 
-  if (loading) { return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>); }
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-bg-app flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-        <div className="container mx-auto flex h-14 items-center px-4 max-w-3xl">
-          <FileText className="h-5 w-5 text-foreground mr-2" />
-          <span className="text-base font-semibold text-foreground">Simulados</span>
+    <div className="min-h-screen bg-bg-app pb-24 md:pb-0">
+      {/* Header */}
+      <header className="flex items-center gap-3 mb-6 animate-fade-in">
+        <div className="h-8 w-8 rounded-lg bg-brand-100 flex items-center justify-center">
+          <FileText className="h-4 w-4 text-brand-500" />
         </div>
+        <h1 className="text-2xl font-bold text-ink-strong">Simulados</h1>
       </header>
 
-      <main className="container mx-auto px-4 py-6 max-w-3xl">
-        {questionCount < 30 && (
-          <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 mb-6 animate-fade-in">
-            <p className="text-sm text-muted-foreground font-medium">Banco com apenas {questionCount} questões. Importe mais questões para simulados completos.</p>
-          </div>
-        )}
-
-        <h2 className="text-base font-semibold text-foreground mb-4">Escolha um simulado</h2>
-        <div className="space-y-3">
-          {examOptions.map((exam, i) => {
-            const canTake = questionCount >= exam.questions;
-            const isHighlight = "highlight" in exam && exam.highlight;
-            return canTake ? (
-              <Link key={exam.id} to={`/exam/${exam.id}`}
-                className={`group flex items-center justify-between p-5 rounded-2xl border transition-all duration-300 animate-fade-in hover:shadow-md hover:-translate-y-0.5 ${isHighlight ? "bg-foreground/[0.03] border-foreground/20" : "bg-white border-gray-100"}`}
-                style={{ animationDelay: `${i * 0.05}s` }}>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-foreground">{exam.name}</h3>
-                    {isHighlight && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-foreground text-white">Recomendado</span>}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{exam.desc}</p>
-                  <div className="mt-2 flex items-center gap-3">
-                    <span className="flex items-center text-xs text-muted-foreground"><FileText className="h-3 w-3 mr-1" />{exam.questions}q</span>
-                    <span className="flex items-center text-xs text-muted-foreground"><Clock className="h-3 w-3 mr-1" />{exam.duration}</span>
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-              </Link>
-            ) : (
-              <div key={exam.id} className="flex items-center justify-between p-5 bg-gray-50 rounded-2xl animate-fade-in opacity-50" style={{ animationDelay: `${i * 0.05}s` }}>
-                <div>
-                  <h3 className="font-semibold text-foreground">{exam.name}</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">{exam.desc}</p>
-                  <div className="mt-2 flex items-center gap-3">
-                    <span className="flex items-center text-xs text-muted-foreground"><FileText className="h-3 w-3 mr-1" />{exam.questions}q</span>
-                    <span className="flex items-center text-xs text-muted-foreground"><Clock className="h-3 w-3 mr-1" />{exam.duration}</span>
-                  </div>
-                </div>
-                <span className="text-xs text-muted-foreground font-medium">Questões insuficientes</span>
-              </div>
-            );
-          })}
+      {questionCount < 30 && (
+        <div className="bg-signal-info/10 border border-signal-info/20 rounded-card p-4 mb-6 animate-fade-in">
+          <p className="text-sm font-medium text-signal-info">Banco com apenas {questionCount} questões. Importe mais questões para simulados completos.</p>
         </div>
+      )}
 
-        {history.length > 0 && (
-          <div className="mt-10 animate-fade-in" style={{ animationDelay: "0.3s" }}>
-            <h2 className="text-base font-semibold text-foreground mb-4">Histórico</h2>
-            <div className="space-y-2">
-              {history.map(r => (
-                <div key={r.id} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{r.exam_name}</p>
-                    <p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString("pt-BR")} • {r.correct_answers}/{r.total_questions} corretas</p>
+      {/* Exam grid */}
+      <h2 className="text-sm font-semibold text-ink-soft uppercase tracking-wider mb-4">Escolha um simulado</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+        {examOptions.map((exam) => {
+          const canTake = questionCount >= exam.questions;
+          const isHighlight = exam.highlight;
+
+          return canTake ? (
+            <Link key={exam.id} to={`/exam/${exam.id}`}
+              className={`group bg-bg-card rounded-card border shadow-card hover:shadow-card-hover transition-all p-5 ${
+                isHighlight ? "border-brand-500/30 ring-1 ring-brand-500/10" : "border-line-light"
+              }`}>
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-ink-strong text-sm">{exam.name}</h3>
+                    {isHighlight && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-500 text-white">Recomendado</span>
+                    )}
                   </div>
-                  <span className={`text-sm font-semibold px-3 py-1 rounded-full ${getColor(r.score_percent)}`}>{Math.round(r.score_percent)}%</span>
+                  <p className="text-xs text-ink-soft">{exam.desc}</p>
+                  <div className="mt-3 flex items-center gap-4">
+                    <span className="flex items-center text-xs text-ink-muted"><FileText className="h-3 w-3 mr-1" />{exam.questions}q</span>
+                    <span className="flex items-center text-xs text-ink-muted"><Clock className="h-3 w-3 mr-1" />{exam.duration}</span>
+                  </div>
                 </div>
-              ))}
+                <ChevronRight className="h-5 w-5 text-ink-muted group-hover:text-brand-500 transition-colors mt-1" />
+              </div>
+            </Link>
+          ) : (
+            <div key={exam.id}
+              className="bg-bg-card rounded-card border border-line-light p-5 opacity-50">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-ink-strong text-sm">{exam.name}</h3>
+                  <p className="text-xs text-ink-soft mt-1">{exam.desc}</p>
+                  <div className="mt-3 flex items-center gap-4">
+                    <span className="flex items-center text-xs text-ink-muted"><FileText className="h-3 w-3 mr-1" />{exam.questions}q</span>
+                    <span className="flex items-center text-xs text-ink-muted"><Clock className="h-3 w-3 mr-1" />{exam.duration}</span>
+                  </div>
+                </div>
+                <Lock className="h-4 w-4 text-ink-muted mt-1" />
+              </div>
             </div>
+          );
+        })}
+      </div>
+
+      {/* History */}
+      {history.length > 0 && (
+        <div className="animate-fade-in">
+          <h2 className="text-sm font-semibold text-ink-soft uppercase tracking-wider mb-4">Histórico</h2>
+          <div className="space-y-2">
+            {history.map(r => (
+              <div key={r.id} className="bg-bg-card rounded-card border border-line-light shadow-card p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-ink-strong">{r.exam_name}</p>
+                  <p className="text-xs text-ink-muted">{new Date(r.created_at).toLocaleDateString("pt-BR")} · {r.correct_answers}/{r.total_questions} corretas</p>
+                </div>
+                <span className={`text-sm font-semibold px-3 py-1 rounded-full ${getColor(r.score_percent)}`}>{Math.round(r.score_percent)}%</span>
+              </div>
+            ))}
           </div>
-        )}
-      </main>
+        </div>
+      )}
+
       <BottomNav />
     </div>
   );

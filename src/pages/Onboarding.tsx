@@ -116,28 +116,23 @@ const Onboarding = () => {
   );
 
   return (
-    <div className="min-h-screen bg-secondary/30 flex items-start justify-center px-4 py-8 sm:py-16">
-      <div className="w-full max-w-[480px] sm:max-w-[560px]">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-foreground flex items-center justify-center">
-              <BookOpen className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-semibold text-foreground tracking-tight">Cátedra</span>
+    <div className="min-h-screen bg-bg-app flex items-center justify-center p-4">
+      <div className="w-full max-w-lg">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-2.5 mb-8">
+          <div className="h-8 w-8 rounded-lg bg-brand-500 flex items-center justify-center">
+            <BookOpen className="h-4 w-4 text-white" />
           </div>
-          <span className="text-xs text-muted-foreground">
-            {step} de {TOTAL_STEPS}
-          </span>
+          <span className="text-lg font-semibold text-ink-strong tracking-tight">Cátedra</span>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress steps */}
         <div className="mb-8">
           <ProgressIndicator current={step} total={TOTAL_STEPS} />
         </div>
 
         {/* Main card */}
-        <div className="bg-card rounded-2xl border border-border shadow-rest p-6 sm:p-8">
+        <div className="bg-bg-card max-w-lg w-full mx-auto rounded-card shadow-card p-8 border border-line-light">
           {step === 1 && (
             <StepCourse
               selectedId={data.exam_config_id}
@@ -172,35 +167,40 @@ const Onboarding = () => {
           )}
 
           {/* Navigation */}
-          <div className="mt-8 flex gap-3">
-            {step > 1 && (
+          <div className="flex justify-between items-center mt-6">
+            {step > 1 ? (
               <button
                 onClick={handleBack}
-                className="flex-1 h-12 rounded-xl bg-background text-foreground text-sm font-medium border border-border hover:bg-secondary/60 transition-all"
+                className="bg-transparent text-ink-soft hover:text-ink text-sm font-medium transition-colors"
               >
-                Voltar
+                ← Voltar
               </button>
+            ) : (
+              <div />
             )}
             <button
               onClick={handleNext}
               disabled={!canProceed() || loading}
-              className="flex-1 h-12 rounded-xl bg-foreground text-primary-foreground text-sm font-medium hover:bg-foreground/90 active:scale-[0.98] transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2"
+              className="bg-ink-strong text-white rounded-input px-6 py-3 font-medium hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-40 flex items-center justify-center gap-2"
             >
               {loading ? (
-                <div className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : step === TOTAL_STEPS ? (
                 <>
                   Começar diagnóstico rápido
                   <ArrowRight className="h-4 w-4" />
                 </>
               ) : (
-                "Continuar"
+                <>
+                  Próximo
+                  <ArrowRight className="h-4 w-4" />
+                </>
               )}
             </button>
           </div>
 
           {step === TOTAL_STEPS && (
-            <p className="text-xs text-muted-foreground text-center mt-4">
+            <p className="text-xs text-ink-muted text-center mt-4">
               São apenas 8 questões para montar seu ponto de partida.
             </p>
           )}

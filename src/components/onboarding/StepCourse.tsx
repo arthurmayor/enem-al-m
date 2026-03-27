@@ -85,27 +85,27 @@ const StepCourse = ({ selectedId, courseLabel, onChange }: Props) => {
 
   return (
     <div className="animate-fade-in">
-      <div className="inline-flex items-center px-3 py-1 rounded-md bg-secondary text-muted-foreground text-xs font-medium tracking-wide mb-5">
+      <div className="inline-flex items-center px-3 py-1 rounded-md bg-brand-100 text-brand-500 text-xs font-medium tracking-wide mb-5">
         FUVEST
       </div>
 
-      <h2 className="text-2xl font-semibold text-foreground leading-tight">
+      <h2 className="text-2xl font-semibold text-ink-strong leading-tight">
         Qual curso você quer seguir?
       </h2>
-      <p className="text-sm text-muted-foreground mt-2">
+      <p className="text-sm text-ink-soft mt-2">
         Isso personaliza seu diagnóstico e seu plano inicial.
       </p>
 
       <div className="mt-8 relative">
         {selectedId ? (
-          <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/50">
-            <span className="text-sm font-medium text-foreground">{courseLabel}</span>
+          <div className="flex items-center justify-between p-4 rounded-input border border-line bg-bg-app">
+            <span className="text-sm font-medium text-ink-strong">{courseLabel}</span>
             <button
               onClick={() => {
                 onChange("", "");
                 setQuery("");
               }}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="text-xs text-ink-muted hover:text-ink transition-colors"
             >
               Alterar
             </button>
@@ -113,7 +113,7 @@ const StepCourse = ({ selectedId, courseLabel, onChange }: Props) => {
         ) : (
           <>
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
               <input
                 type="text"
                 value={query}
@@ -124,21 +124,21 @@ const StepCourse = ({ selectedId, courseLabel, onChange }: Props) => {
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setTimeout(() => setIsFocused(false), 200)}
                 placeholder="Buscar curso..."
-                className="w-full h-12 pl-11 pr-4 rounded-xl border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-foreground/30 transition-all"
+                className="w-full h-12 pl-11 pr-4 rounded-input bg-bg-app border border-line text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 transition-all"
               />
             </div>
 
             {showDropdown && (
-              <div className="absolute z-10 w-full mt-1.5 bg-card border border-border rounded-xl shadow-elevated max-h-56 overflow-y-auto">
+              <div className="absolute z-10 w-full mt-1.5 bg-bg-card border border-line-light rounded-input shadow-card max-h-56 overflow-y-auto">
                 {filtered.slice(0, 20).map((c) => (
                   <button
                     key={c.id}
                     onMouseDown={() => handleSelect(c)}
-                    className="w-full text-left px-4 py-3 text-sm text-foreground hover:bg-secondary/60 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                    className="w-full text-left px-4 py-3 text-sm text-ink hover:bg-bg-app transition-colors first:rounded-t-[10px] last:rounded-b-[10px]"
                   >
                     {c.course_name}
                     {c.campus && (
-                      <span className="text-muted-foreground"> — {c.campus}</span>
+                      <span className="text-ink-muted"> — {c.campus}</span>
                     )}
                   </button>
                 ))}
@@ -149,20 +149,20 @@ const StepCourse = ({ selectedId, courseLabel, onChange }: Props) => {
 
         {loading && (
           <div className="mt-4 flex justify-center">
-            <div className="h-5 w-5 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />
+            <div className="h-5 w-5 border-2 border-ink-muted border-t-ink-strong rounded-full animate-spin" />
           </div>
         )}
       </div>
 
       {!selectedId && !loading && (
         <div className="mt-6">
-          <p className="text-xs text-muted-foreground mb-3">Cursos populares</p>
+          <p className="text-xs text-ink-muted mb-3">Cursos populares</p>
           <div className="flex flex-wrap gap-2">
             {POPULAR_COURSES.map((name) => (
               <button
                 key={name}
                 onClick={() => handlePopular(name)}
-                className="px-3.5 py-2 rounded-lg border border-border bg-background text-xs font-medium text-foreground hover:bg-secondary/60 hover:border-foreground/10 transition-all"
+                className="px-3.5 py-2 rounded-input border border-line bg-bg-app text-xs font-medium text-ink hover:border-brand-500 hover:text-brand-500 transition-all"
               >
                 {name}
               </button>

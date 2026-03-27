@@ -4,6 +4,8 @@ import { Clock, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
+import EmptyState from "@/components/ui/EmptyState";
+import SubjectBadge from "@/components/ui/SubjectBadge";
 import {
   eloExpected, eloUpdate, getKFactor, expectedAccuracy,
   estimateScore, calculatePassProbability, getProbabilityBand, getLevel,
@@ -369,6 +371,14 @@ const DiagnosticTest = () => {
   const routerSessionIdRef = useRef<string | null>(null);
   const routerTiebreakerPoolRef = useRef<Question[]>([]);
   const [routerTotalQuestions, setRouterTotalQuestions] = useState(8);
+  const [fading, setFading] = useState(false);
+
+  // Fade transition when question changes
+  useEffect(() => {
+    setFading(true);
+    const t = setTimeout(() => setFading(false), 50);
+    return () => clearTimeout(t);
+  }, [currentIndex]);
 
   useEffect(() => {
     const interval = setInterval(() => setElapsedTime(Math.floor((Date.now() - startTime) / 1000)), 1000);
@@ -508,6 +518,7 @@ const DiagnosticTest = () => {
 
   const currentQuestion = questions[currentIndex];
   const currentSubject = currentQuestion?.subject || "";
+  const questionElapsed = Math.floor((Date.now() - questionStartTime) / 1000);
   const formatTime = (s: number) =>
     `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
@@ -893,69 +904,93 @@ const DiagnosticTest = () => {
 
   if (insufficientQuestions) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
-        <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold">Banco de questões em preparação</h2>
-        <p className="text-muted-foreground mt-2 max-w-md">
-          Estamos finalizando as questões do diagnóstico. Tente novamente em breve.
-        </p>
-        <Link to="/dashboard" className="mt-6 px-6 py-3 bg-foreground text-white rounded-xl font-medium">
-          Voltar ao Dashboard
-        </Link>
+      <div className="min-h-screen bg-bg-app flex items-center justify-center p-6">
+        <EmptyState
+          icon={BookOpen}
+          title="Banco de questões em preparação"
+          description="Estamos finalizando as questões do diagnóstico. Tente novamente em breve."
+          actionLabel="Voltar ao Dashboard"
+          onAction={() => navigate("/dashboard")}
+        />
       </div>
     );
   }
 
   if (loading || !currentQuestion) {
-    return (<div className="min-h-screen bg-white flex items-center justify-center"><div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" /></div>);
+    return (
+      <div className="min-h-screen bg-bg-app flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
+  const totalQ = mode === "router" ? routerTotalQuestions : TOTAL_QUESTIONS;
+  const progressPct = ((currentIndex + 1) / totalQ) * 100;
+
   return (
-    <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-        <div className="container mx-auto px-4 max-w-3xl">
-          <div className="flex items-center justify-between h-14">
-            <span className="text-sm font-semibold text-foreground">
-              Questão {currentIndex + 1} de {mode === "router" ? routerTotalQuestions : TOTAL_QUESTIONS}
-            </span>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-primary/5 text-primary">
-              {currentSubject}
-            </span>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              {formatTime(elapsedTime)}
-            </div>
-          </div>
-          {/* Progress bar */}
-          <div className="h-1 bg-muted rounded-full -mt-1 mb-1">
-            <div
-              className="h-1 bg-primary rounded-full transition-all duration-500"
-              style={{ width: `${((currentIndex + 1) / (mode === "router" ? routerTotalQuestions : TOTAL_QUESTIONS)) * 100}%` }}
-            />
+    <div className="min-h-screen bg-bg-app">
+      <div className="max-w-2xl mx-auto p-4 pt-6">
+        {/* Progress bar */}
+        <div className="h-1 bg-line rounded-full">
+          <div
+            className="h-1 bg-brand-500 rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+
+        {/* Header row */}
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-xs text-ink-muted">
+            Questão {currentIndex + 1} de {totalQ}
+          </span>
+          <SubjectBadge subject={currentSubject} />
+          <div className={`flex items-center gap-1 text-xs font-mono ${
+            questionElapsed > 60 ? "text-signal-error" : "text-ink-muted"
+          }`}>
+            <Clock className="h-3.5 w-3.5" />
+            {formatTime(elapsedTime)}
           </div>
         </div>
-      </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-3xl">
-        <div className="animate-fade-in" key={currentIndex}>
-          <p className="text-lg font-semibold text-foreground leading-relaxed">{currentQuestion.question_text}</p>
+        {/* Question card */}
+        <div
+          className={`bg-bg-card rounded-card p-6 border border-line-light shadow-card mt-4 transition-opacity duration-200 ${
+            fading ? "opacity-0" : "opacity-100"
+          }`}
+        >
+          <p className="text-base text-ink leading-relaxed mb-6">{currentQuestion.question_text}</p>
 
-          <div className="mt-8 space-y-3">
+          {/* Options */}
+          <div className="space-y-3">
             {currentQuestion.options.map((option) => {
               const isSelected = selectedOption === option.label;
               const showResult = selectedOption !== null;
               const isCorrect = option.is_correct;
 
-              let optionClasses =
-                "w-full p-4 rounded-xl text-left transition-all duration-200 flex items-start gap-3 ";
+              let containerClass =
+                "w-full border rounded-input p-4 transition-all duration-200 flex items-center gap-3 ";
+              let circleClass =
+                "w-7 h-7 rounded-full border flex items-center justify-center text-xs font-medium shrink-0 ";
+
               if (showResult) {
-                if (isCorrect)
-                  optionClasses += "bg-success/10 shadow-[inset_0_0_0_2px_hsl(var(--success))]";
-                else if (isSelected && !isCorrect)
-                  optionClasses += "bg-destructive/10 shadow-[inset_0_0_0_2px_hsl(var(--destructive))]";
-                else optionClasses += "bg-background opacity-50";
+                if (isCorrect) {
+                  containerClass += "border-signal-ok bg-signal-ok/10";
+                  circleClass += "bg-signal-ok text-white border-signal-ok";
+                } else if (isSelected && !isCorrect) {
+                  containerClass += "border-signal-error bg-signal-error/10";
+                  circleClass += "bg-signal-error text-white border-signal-error";
+                } else {
+                  containerClass += "border-line bg-bg-app opacity-50";
+                  circleClass += "border-line text-ink-muted";
+                }
               } else {
-                optionClasses += "bg-white border border-gray-200 hover:border-gray-400 hover:shadow-md cursor-pointer";
+                containerClass += "border-line cursor-pointer hover:border-ink-soft hover:bg-bg-app";
+                if (isSelected) {
+                  containerClass = "w-full border rounded-input p-4 transition-all duration-200 flex items-center gap-3 border-brand-500 bg-brand-50 cursor-pointer";
+                  circleClass += "bg-brand-500 text-white border-brand-500";
+                } else {
+                  circleClass += "border-line text-ink-muted";
+                }
               }
 
               return (
@@ -963,20 +998,10 @@ const DiagnosticTest = () => {
                   key={option.label}
                   onClick={() => handleAnswer(option.label)}
                   disabled={!!selectedOption}
-                  className={optionClasses}
+                  className={containerClass}
                 >
-                  <span
-                    className={`h-8 w-8 shrink-0 rounded-lg flex items-center justify-center text-sm font-bold ${
-                      showResult && isCorrect
-                        ? "bg-success text-success-foreground"
-                        : showResult && isSelected
-                          ? "bg-destructive text-destructive-foreground"
-                          : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    {option.label}
-                  </span>
-                  <span className="text-sm text-foreground pt-1">{option.text}</span>
+                  <span className={circleClass}>{option.label}</span>
+                  <span className="text-sm text-ink text-left">{option.text}</span>
                 </button>
               );
             })}
@@ -984,8 +1009,8 @@ const DiagnosticTest = () => {
 
           {/* Explanation after answering */}
           {selectedOption && currentQuestion.explanation && (
-            <div className="mt-4 p-4 bg-primary/5 rounded-xl border border-primary/10">
-              <p className="text-xs text-muted-foreground">{currentQuestion.explanation}</p>
+            <div className="mt-4 p-4 bg-signal-info/10 rounded-input border border-signal-info/20">
+              <p className="text-xs text-ink-soft">{currentQuestion.explanation}</p>
             </div>
           )}
 
@@ -995,14 +1020,14 @@ const DiagnosticTest = () => {
               <div
                 key={d}
                 className={`h-1.5 w-6 rounded-full transition-all ${
-                  d <= currentQuestion.difficulty_elo ? "bg-primary" : "bg-muted"
+                  d <= currentQuestion.difficulty_elo ? "bg-brand-500" : "bg-line"
                 }`}
               />
             ))}
-            <span className="ml-2 text-[10px] text-muted-foreground">Dificuldade</span>
+            <span className="ml-2 text-[10px] text-ink-muted">Dificuldade</span>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 };

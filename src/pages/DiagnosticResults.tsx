@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
 import { expectedAccuracy } from "@/lib/scoring";
 import { MISSION_STATUSES, PLAN_STATUSES } from "@/lib/constants";
+import SubjectBadge from "@/components/ui/SubjectBadge";
+import ProgressBar from "@/components/ui/ProgressBar";
+import { getSubjectColor } from "@/lib/subjectColors";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -236,6 +239,13 @@ const DiagnosticResults = () => {
   const [loading, setLoading] = useState(true);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [showAllSubjects, setShowAllSubjects] = useState(false);
+  const [barsLoaded, setBarsLoaded] = useState(false);
+
+  // Animate progress bars after mount
+  useEffect(() => {
+    const t = setTimeout(() => setBarsLoaded(true), 300);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     const state = location.state as (DiagnosticState & { mode?: string; routerResult?: RouterResultData }) | null;
@@ -345,8 +355,8 @@ const DiagnosticResults = () => {
   // ─── Loading ─────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center">
-        <div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-bg-app flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -354,10 +364,10 @@ const DiagnosticResults = () => {
   // ─── No data ─────────────────────────────────────────────────────────
   if (!routerData && !data?.proficiencies) {
     return (
-      <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center px-4">
+      <div className="min-h-screen bg-bg-app flex items-center justify-center px-4">
         <div className="text-center">
-          <p className="text-muted-foreground">Nenhum resultado encontrado.</p>
-          <Link to="/diagnostic/intro" className="mt-4 inline-block text-foreground font-semibold underline underline-offset-4">
+          <p className="text-ink-soft">Nenhum resultado encontrado.</p>
+          <Link to="/diagnostic/intro" className="mt-4 inline-block text-ink-strong font-semibold underline underline-offset-4">
             Fazer diagnóstico
           </Link>
         </div>
@@ -393,162 +403,114 @@ const DiagnosticResults = () => {
       })
     : [];
 
-  return (
-    <div className="min-h-screen bg-[#FAFAF9] pb-24">
-      {/* ─── Header ─────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 bg-[#FAFAF9]/80 backdrop-blur-xl border-b border-gray-100/60">
-        <div className="container mx-auto flex h-14 items-center justify-between px-5 max-w-lg">
-          <div className="flex items-center gap-2.5">
-            <div className="h-7 w-7 rounded-lg bg-foreground flex items-center justify-center">
-              <BookOpen className="h-3.5 w-3.5 text-white" />
-            </div>
-            <span className="text-[15px] font-semibold text-foreground tracking-tight">Cátedra</span>
-          </div>
-        </div>
-      </header>
+  // Derive weakest subject for insight card
+  const weakestSubject = data
+    ? Object.entries(data.proficiencies)
+        .sort((a, b) => a[1].elo - b[1].elo)[0]
+    : routerData
+      ? routerData.routerResult.bottlenecks[0]
+      : null;
+  const weakestName = Array.isArray(weakestSubject) ? weakestSubject[0] : (weakestSubject || "");
 
-      <main className="container mx-auto px-5 max-w-lg">
-        {/* ─── Subheader ────────────────────────────────────────────── */}
-        <div className="pt-8 pb-1 animate-fade-in">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+  return (
+    <div className="min-h-screen bg-bg-app pb-24">
+      <div className="max-w-3xl mx-auto p-4 pt-8">
+        {/* ─── Header ─────────────────────────────────────────────────── */}
+        <div className="text-center mb-2 animate-fade-in">
+          <p className="text-xs font-medium text-ink-muted uppercase tracking-widest mb-4">
             {examConfig.exam_name} — {examConfig.course_name}
           </p>
-          <p className="text-[13px] text-muted-foreground mt-1">Diagnóstico concluído</p>
+          <h1 className="text-2xl font-bold text-ink-strong">Resultado do diagnóstico</h1>
         </div>
+        <p className="text-sm text-ink-soft text-center mb-8 animate-fade-in">
+          Veja seu desempenho por matéria
+        </p>
 
-        {/* ─── Hero Card ────────────────────────────────────────────── */}
-        <div className="mt-6 bg-white rounded-2xl p-6 shadow-rest animate-fade-in" style={{ animationDelay: "0.06s" }}>
-          <h1 className="text-[22px] font-semibold text-foreground leading-snug">
-            Seu plano inicial está pronto
-          </h1>
-          <p className="text-[15px] text-muted-foreground mt-3 leading-relaxed">
-            Você começou bem em {humanizeStrengths(strengths)}.
-            {bottlenecks.length > 0 && (
-              <> Seu foco agora será {humanizeStrengths(bottlenecks)}.</>
-            )}
-          </p>
-          <div className="flex items-center gap-2 mt-4 text-[13px] text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" />
-            <span>Sessão de hoje: 25 min</span>
-          </div>
-          <button
-            onClick={handlePlan}
-            disabled={generatingPlan}
-            className="mt-6 w-full h-12 inline-flex items-center justify-center rounded-xl bg-foreground text-white text-[15px] font-semibold hover:bg-foreground/90 active:scale-[0.98] transition-all duration-200 disabled:opacity-60"
-          >
-            {generatingPlan ? (
-              <span className="flex items-center gap-2">
-                <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Gerando plano...
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5">
-                Ver meu plano
-                <ArrowRight className="h-4 w-4" />
-              </span>
-            )}
-          </button>
-        </div>
+        {/* ─── Subject grid (deep mode) ───────────────────────────────── */}
+        {sortedSubjects.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+            {sortedSubjects.map(([subject, prof]) => {
+              const isPhase2 = phase2Set.has(subject);
+              const dist = subjectDist[subject];
+              const accuracy = dist
+                ? Math.round(expectedAccuracy(prof.elo, dist.meanDiff, dist.sdDiff) * 100)
+                : Math.round((prof.correct / Math.max(1, prof.total)) * 100);
 
-        {/* ─── Foco da semana ───────────────────────────────────────── */}
-        <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.12s" }}>
-          <h2 className="text-[15px] font-semibold text-foreground mb-3">Foco da semana</h2>
-          <div className="space-y-2.5">
-            {bottlenecks.slice(0, 3).map((subject) => (
-              <div
-                key={subject}
-                className="flex items-center justify-between bg-white rounded-xl px-4 py-3.5 shadow-rest"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-2 w-2 rounded-full bg-foreground" />
-                  <span className="text-[14px] font-medium text-foreground">{subject}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">Reforçar primeiro</span>
-              </div>
-            ))}
-          </div>
-          {!showAllSubjects && sortedSubjects.length > 0 && (
-            <button
-              onClick={() => setShowAllSubjects(true)}
-              className="mt-3 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Ver todas as matérias
-            </button>
-          )}
-        </div>
-
-        {/* ─── All subjects (expandable, deep mode) ─────────────────── */}
-        {showAllSubjects && sortedSubjects.length > 0 && (
-          <div className="mt-4 animate-fade-in">
-            <div className="space-y-2">
-              {sortedSubjects.map(([subject, prof]) => {
-                const isPhase2 = phase2Set.has(subject);
-                const dist = subjectDist[subject];
-                const accuracy = dist
-                  ? Math.round(expectedAccuracy(prof.elo, dist.meanDiff, dist.sdDiff) * 100)
-                  : Math.round((prof.correct / Math.max(1, prof.total)) * 100);
-
-                return (
-                  <div key={subject} className="bg-white rounded-xl px-4 py-3.5 shadow-rest">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[14px] font-medium text-foreground">{subject}</span>
-                        {isPhase2 && (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-muted-foreground">
-                            2a fase
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {accuracy}% estimado
-                      </span>
-                    </div>
-                    <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-1.5 rounded-full bg-foreground/70 transition-all duration-700"
-                        style={{ width: `${accuracy}%` }}
-                      />
-                    </div>
+              return (
+                <div
+                  key={subject}
+                  className="bg-bg-card rounded-card p-4 border border-line-light shadow-card"
+                  style={{ borderTopWidth: "3px", borderTopColor: getSubjectColor(subject) }}
+                >
+                  <SubjectBadge subject={subject} />
+                  {isPhase2 && (
+                    <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-brand-100 text-brand-500">
+                      2a fase
+                    </span>
+                  )}
+                  <p className="text-2xl font-bold text-ink-strong mt-2">
+                    {barsLoaded ? accuracy : 0}%
+                  </p>
+                  <div className="mt-2">
+                    <ProgressBar value={barsLoaded ? accuracy : 0} />
                   </div>
-                );
-              })}
-            </div>
-            <button
-              onClick={() => setShowAllSubjects(false)}
-              className="mt-3 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Ocultar detalhes
-            </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* ─── Resumo do diagnóstico ────────────────────────────────── */}
-        <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.18s" }}>
-          <h2 className="text-[15px] font-semibold text-foreground mb-3">Resumo do diagnóstico</h2>
-          <div className="bg-white rounded-2xl p-5 shadow-rest space-y-3.5">
+        {/* ─── Router mode: bottleneck list ───────────────────────────── */}
+        {!data && routerData && (
+          <div className="space-y-3 animate-fade-in">
+            {bottlenecks.map((subject) => (
+              <div
+                key={subject}
+                className="bg-bg-card rounded-card p-4 border border-line-light shadow-card flex items-center justify-between"
+                style={{ borderLeftWidth: "3px", borderLeftColor: getSubjectColor(subject) }}
+              >
+                <SubjectBadge subject={subject} />
+                <span className="text-xs text-ink-muted">Reforçar primeiro</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ─── Weakest subject insight ────────────────────────────────── */}
+        {weakestName && (
+          <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card mt-6 animate-fade-in">
+            <p className="text-sm text-ink">
+              Sua maior alavanca é <strong className="text-ink-strong">{weakestName}</strong>. Foque nessa matéria para o maior impacto no seu resultado.
+            </p>
+          </div>
+        )}
+
+        {/* ─── Resumo do diagnóstico ──────────────────────────────────── */}
+        <div className="mt-6 animate-fade-in">
+          <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card space-y-3.5">
             <div className="flex items-start gap-3">
-              <div className="h-1.5 w-1.5 rounded-full bg-green-500 mt-2 shrink-0" />
-              <p className="text-[14px] text-foreground leading-relaxed">
-                <span className="font-medium">Melhor desempenho:</span>{" "}
-                <span className="text-muted-foreground">{humanizeStrengths(strengths)}</span>
+              <div className="h-1.5 w-1.5 rounded-full bg-signal-ok mt-2 shrink-0" />
+              <p className="text-sm text-ink leading-relaxed">
+                <span className="font-medium text-ink-strong">Melhor desempenho:</span>{" "}
+                <span className="text-ink-soft">{humanizeStrengths(strengths)}</span>
               </p>
             </div>
             <div className="flex items-start gap-3">
-              <div className="h-1.5 w-1.5 rounded-full bg-orange-400 mt-2 shrink-0" />
-              <p className="text-[14px] text-foreground leading-relaxed">
-                <span className="font-medium">Reforçar primeiro:</span>{" "}
-                <span className="text-muted-foreground">{humanizeStrengths(bottlenecks)}</span>
+              <div className="h-1.5 w-1.5 rounded-full bg-signal-error mt-2 shrink-0" />
+              <p className="text-sm text-ink leading-relaxed">
+                <span className="font-medium text-ink-strong">Reforçar primeiro:</span>{" "}
+                <span className="text-ink-soft">{humanizeStrengths(bottlenecks)}</span>
               </p>
             </div>
             <div className="flex items-start gap-3">
-              <div className="h-1.5 w-1.5 rounded-full bg-gray-300 mt-2 shrink-0" />
-              <p className="text-[14px] text-muted-foreground leading-relaxed">
+              <div className="h-1.5 w-1.5 rounded-full bg-line mt-2 shrink-0" />
+              <p className="text-sm text-ink-soft leading-relaxed">
                 Seu plano vai ficar mais preciso nas próximas sessões
               </p>
             </div>
             {data && (
-              <div className="pt-2 border-t border-gray-50 space-y-2">
-                <p className="text-[13px] text-muted-foreground">
+              <div className="pt-3 border-t border-line-light space-y-2">
+                <p className="text-xs text-ink-muted">
                   {totalCorrect} de {totalQuestions} acertos no diagnóstico
                   {data.estimatedScore > 0 && (
                     <> — nota estimada: {data.estimatedScore}/{data.examConfig.total_questions}</>
@@ -556,16 +518,16 @@ const DiagnosticResults = () => {
                 </p>
                 {data.probBand && (
                   <div
-                    className="flex items-center gap-2.5 rounded-lg px-3 py-2"
+                    className="flex items-center gap-2.5 rounded-input px-3 py-2"
                     style={{ backgroundColor: data.probBand.bgColor, border: `1px solid ${data.probBand.borderColor}` }}
                   >
                     <span
-                      className="text-[13px] font-semibold tabular-nums"
+                      className="text-xs font-semibold tabular-nums"
                       style={{ color: data.probBand.color }}
                     >
                       {data.probBand.band}
                     </span>
-                    <span className="text-[12px]" style={{ color: data.probBand.color }}>
+                    <span className="text-xs" style={{ color: data.probBand.color }}>
                       {data.probability < 0.10
                         ? "Posição inicial — muita evolução possível"
                         : data.probability < 0.25
@@ -574,7 +536,7 @@ const DiagnosticResults = () => {
                     </span>
                   </div>
                 )}
-                <p className="text-[11px] text-muted-foreground/70 leading-snug">
+                <p className="text-[11px] text-ink-muted leading-snug">
                   Estimativa atual com base no diagnóstico. Vai ficando mais precisa com o uso.
                 </p>
               </div>
@@ -582,8 +544,29 @@ const DiagnosticResults = () => {
           </div>
         </div>
 
+        {/* ─── CTA ────────────────────────────────────────────────────── */}
+        <div className="text-center mt-8">
+          <button
+            onClick={handlePlan}
+            disabled={generatingPlan}
+            className="bg-ink-strong text-white rounded-input px-8 py-4 text-base font-semibold hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-60 inline-flex items-center gap-2"
+          >
+            {generatingPlan ? (
+              <>
+                <span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Gerando plano...
+              </>
+            ) : (
+              <>
+                Gerar meu plano de estudos
+                <ArrowRight className="h-4 w-4" />
+              </>
+            )}
+          </button>
+        </div>
+
         <div className="mt-8 mb-4" />
-      </main>
+      </div>
 
       <BottomNav />
     </div>

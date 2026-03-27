@@ -31,26 +31,26 @@ const StepRoutine = ({
   return (
     <div className="animate-fade-in space-y-8">
       <div>
-        <h2 className="text-2xl font-semibold text-foreground leading-tight">
+        <h2 className="text-2xl font-semibold text-ink-strong leading-tight">
           Vamos montar sua rotina
         </h2>
-        <p className="text-sm text-muted-foreground mt-2">
+        <p className="text-sm text-ink-soft mt-2">
           Não precisa ser perfeito. Isso só ajuda a distribuir melhor seu plano de estudo.
         </p>
       </div>
 
       {/* Hours per day */}
       <div>
-        <label className="text-sm font-medium text-foreground">Quanto tempo por dia?</label>
+        <label className="text-sm font-medium text-ink-strong mb-1.5 block">Quanto tempo por dia?</label>
         <div className="mt-3 grid grid-cols-4 gap-2">
           {HOURS_OPTIONS.map((opt) => (
             <button
               key={opt.value}
               onClick={() => onChangeHours(opt.value)}
-              className={`h-12 rounded-xl text-sm font-medium transition-all border ${
+              className={`h-12 rounded-input text-sm font-medium transition-all border ${
                 hoursPerDay === opt.value
-                  ? "bg-foreground text-primary-foreground border-foreground"
-                  : "bg-background text-foreground border-border hover:border-foreground/20"
+                  ? "bg-ink-strong text-white border-ink-strong"
+                  : "bg-bg-app text-ink border-line hover:border-ink-soft"
               }`}
             >
               {opt.label}
@@ -61,7 +61,7 @@ const StepRoutine = ({
 
       {/* Available days */}
       <div>
-        <label className="text-sm font-medium text-foreground">Dias disponíveis</label>
+        <label className="text-sm font-medium text-ink-strong mb-1.5 block">Dias disponíveis</label>
         <div className="mt-3 flex gap-2 justify-center">
           {DAYS.map((day) => (
             <button
@@ -70,8 +70,8 @@ const StepRoutine = ({
               title={day.id}
               className={`h-10 w-10 rounded-full text-xs font-semibold transition-all border ${
                 availableDays.includes(day.id)
-                  ? "bg-foreground text-primary-foreground border-foreground"
-                  : "bg-background text-muted-foreground border-border hover:border-foreground/20"
+                  ? "bg-ink-strong text-white border-ink-strong"
+                  : "bg-bg-app text-ink-muted border-line hover:border-ink-soft"
               }`}
             >
               {day.label}

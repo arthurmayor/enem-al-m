@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { BookOpen, LogOut, ChevronRight, User, Clock, Calendar, Shield } from "lucide-react";
+import { LogOut, Zap, Flame, Target, FileText, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
+import StatCard from "@/components/ui/StatCard";
 
 interface ProfileData {
   name: string | null;
@@ -17,6 +18,13 @@ interface ProfileData {
   current_streak: number | null;
   missions_completed: number | null;
   exams_completed: number | null;
+  exam_config_id: string | null;
+  available_days: string[] | null;
+}
+
+interface ExamInfo {
+  exam_name: string;
+  course_name: string;
 }
 
 const Profile = () => {
@@ -24,13 +32,26 @@ const Profile = () => {
   const { user, signOut } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [totalAnswered, setTotalAnswered] = useState(0);
+  const [examInfo, setExamInfo] = useState<ExamInfo | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("name, education_goal, school_year, hours_per_day, exam_date, target_universities, total_xp, current_streak, missions_completed, exams_completed").eq("id", user.id).single().then(({ data }) => {
-      setProfile(data);
+    const load = async () => {
+      const [{ data: prof }, { count }] = await Promise.all([
+        supabase.from("profiles").select("name, education_goal, school_year, hours_per_day, exam_date, target_universities, total_xp, current_streak, missions_completed, exams_completed, exam_config_id, available_days").eq("id", user.id).single(),
+        supabase.from("answer_history").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+      ]);
+      setProfile(prof);
+      setTotalAnswered(count || 0);
+
+      if (prof?.exam_config_id) {
+        const { data: ec } = await supabase.from("exam_configs").select("exam_name, course_name").eq("id", prof.exam_config_id).single();
+        if (ec) setExamInfo(ec);
+      }
       setLoading(false);
-    });
+    };
+    load();
   }, [user]);
 
   const handleLogout = async () => {
@@ -40,82 +61,67 @@ const Profile = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="h-8 w-8 border-2 border-foreground border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-bg-app flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  const infoItems = [
-    { icon: BookOpen, label: "Objetivo", value: profile?.education_goal?.toUpperCase() || "—" },
-    { icon: User, label: "Série", value: profile?.school_year || "—" },
-    { icon: Clock, label: "Horas/dia", value: profile?.hours_per_day ? `${profile.hours_per_day}h` : "—" },
-    { icon: Calendar, label: "Data do exame", value: profile?.exam_date ? new Date(profile.exam_date as string).toLocaleDateString("pt-BR") : "—" },
-  ];
+  const daysCount = profile?.available_days?.length || 0;
 
   return (
-    <div className="min-h-screen bg-white pb-20">
-      <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-gray-100">
-        <div className="container mx-auto flex h-14 items-center px-4 max-w-3xl">
-          <span className="text-base font-semibold text-foreground">Perfil</span>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-6 max-w-3xl">
-        {/* User Info */}
-        <div className="flex items-center gap-4 animate-fade-in">
-          <div className="h-16 w-16 rounded-2xl bg-foreground flex items-center justify-center text-white text-xl font-semibold">
+    <div className="min-h-screen bg-bg-app pb-24 md:pb-0">
+      <div className="max-w-2xl mx-auto p-6">
+        {/* Avatar and name */}
+        <div className="flex items-center gap-4 mb-8 animate-fade-in">
+          <div className="w-16 h-16 rounded-full bg-brand-500 text-white flex items-center justify-center text-2xl font-bold">
             {profile?.name?.charAt(0) || "?"}
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">{profile?.name || "Estudante"}</h1>
-            <p className="text-sm text-muted-foreground">{user?.email}</p>
+            <h1 className="text-2xl font-bold text-ink-strong">{profile?.name || "Estudante"}</h1>
+            <p className="text-sm text-ink-soft">{user?.email}</p>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="mt-6 grid grid-cols-4 gap-2 animate-fade-in" style={{ animationDelay: "0.05s" }}>
-          <div className="p-3 bg-gray-50 rounded-2xl text-center">
-            <p className="text-lg font-semibold text-foreground">{profile?.total_xp || 0}</p>
-            <p className="text-[10px] text-muted-foreground font-medium">XP</p>
-          </div>
-          <div className="p-3 bg-gray-50 rounded-2xl text-center">
-            <p className="text-lg font-semibold text-foreground">{profile?.current_streak || 0}</p>
-            <p className="text-[10px] text-muted-foreground font-medium">Streak</p>
-          </div>
-          <div className="p-3 bg-gray-50 rounded-2xl text-center">
-            <p className="text-lg font-semibold text-foreground">{profile?.missions_completed || 0}</p>
-            <p className="text-[10px] text-muted-foreground font-medium">Missões</p>
-          </div>
-          <div className="p-3 bg-gray-50 rounded-2xl text-center">
-            <p className="text-lg font-semibold text-foreground">{profile?.exams_completed || 0}</p>
-            <p className="text-[10px] text-muted-foreground font-medium">Provas</p>
-          </div>
+        {/* Stats row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 animate-fade-in">
+          <StatCard label="XP Total" value={String(profile?.total_xp || 0)} icon={Zap} />
+          <StatCard label="Dias seguidos" value={String(profile?.current_streak || 0)} icon={Flame} />
+          <StatCard label="Missões" value={String(profile?.missions_completed || 0)} icon={Target} />
+          <StatCard label="Respondidas" value={String(totalAnswered)} icon={FileText} />
         </div>
 
-        {/* Info Cards */}
-        <div className="mt-8 space-y-3 animate-fade-in" style={{ animationDelay: "0.1s" }}>
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Informações</h2>
-          {infoItems.map((item) => (
-            <div key={item.label} className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100">
-              <div className="h-9 w-9 rounded-xl bg-gray-100 flex items-center justify-center">
-                <item.icon className="h-4 w-4 text-foreground" />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-                <p className="text-sm font-medium text-foreground">{item.value}</p>
-              </div>
-            </div>
-          ))}
+        {/* Course card */}
+        {examInfo && (
+          <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card mb-6 animate-fade-in">
+            <p className="text-xs uppercase tracking-wider text-ink-soft font-medium mb-3">Meu vestibular</p>
+            <p className="text-base font-semibold text-ink-strong">{examInfo.exam_name}</p>
+            <p className="text-sm text-ink-soft">{examInfo.course_name}</p>
+          </div>
+        )}
+
+        {/* Study routine card */}
+        <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card mb-6 animate-fade-in">
+          <p className="text-xs uppercase tracking-wider text-ink-soft font-medium mb-3">Rotina de estudos</p>
+          <div className="space-y-2">
+            <p className="text-sm text-ink">
+              <span className="font-medium text-ink-strong">Horas por dia:</span>{" "}
+              {profile?.hours_per_day ? `${profile.hours_per_day}h` : "—"}
+            </p>
+            <p className="text-sm text-ink">
+              <span className="font-medium text-ink-strong">Dias por semana:</span>{" "}
+              {daysCount > 0 ? `${daysCount} dias` : "—"}
+            </p>
+          </div>
         </div>
 
         {/* Universities */}
         {profile?.target_universities && profile.target_universities.length > 0 && (
-          <div className="mt-6 animate-fade-in" style={{ animationDelay: "0.15s" }}>
-            <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Universidades Alvo</h2>
+          <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card mb-6 animate-fade-in">
+            <p className="text-xs uppercase tracking-wider text-ink-soft font-medium mb-3">Universidades Alvo</p>
             <div className="flex gap-2 flex-wrap">
               {profile.target_universities.map((uni) => (
-                <span key={uni} className="px-3 py-1.5 rounded-full bg-gray-100 text-sm font-medium text-foreground">
+                <span key={uni} className="px-3 py-1.5 rounded-input bg-bg-app border border-line text-sm font-medium text-ink">
                   {uni}
                 </span>
               ))}
@@ -124,45 +130,33 @@ const Profile = () => {
         )}
 
         {/* Subscription */}
-        <div className="mt-8 animate-fade-in" style={{ animationDelay: "0.2s" }}>
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Plano</h2>
-          <div className="p-5 bg-gray-50 rounded-2xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Plano Gratuito</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Acesso básico à plataforma</p>
-              </div>
-              <span className="px-3 py-1 rounded-full bg-gray-200 text-xs font-medium text-foreground">Ativo</span>
+        <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card mb-6 animate-fade-in">
+          <p className="text-xs uppercase tracking-wider text-ink-soft font-medium mb-3">Plano</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-ink-strong">Plano Gratuito</p>
+              <p className="text-xs text-ink-muted mt-0.5">Acesso básico à plataforma</p>
             </div>
-            <button className="mt-4 w-full h-10 rounded-full bg-foreground text-white text-sm font-medium hover:bg-foreground/90 transition-all">
-              Upgrade para Premium — R$29,90/mês
-            </button>
+            <span className="px-3 py-1 rounded-input bg-signal-ok/10 text-signal-ok text-xs font-medium">Ativo</span>
           </div>
-        </div>
-
-        {/* Account Actions */}
-        <div className="mt-8 space-y-2 animate-fade-in" style={{ animationDelay: "0.3s" }}>
-          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">Conta</h2>
-          <button className="w-full flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100 text-foreground hover:shadow-md transition-all">
-            <div className="flex items-center gap-3">
-              <Shield className="h-5 w-5 text-muted-foreground" />
-              <span className="text-sm font-medium">Alterar Senha</span>
-            </div>
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          </button>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 text-destructive hover:shadow-md transition-all"
-          >
-            <LogOut className="h-5 w-5" />
-            <span className="text-sm font-medium">Sair da conta</span>
+          <button className="mt-4 w-full py-3 rounded-input bg-ink-strong text-white text-sm font-medium hover:opacity-90 transition-all">
+            Upgrade para Premium — R$29,90/mês
           </button>
         </div>
 
-        <button className="mt-6 text-xs text-destructive/60 hover:text-destructive transition-colors">
+        {/* Logout */}
+        <button
+          onClick={handleLogout}
+          className="mt-8 w-full bg-transparent text-signal-error border border-signal-error/30 rounded-input py-3 text-sm font-medium hover:bg-signal-error/5 transition-all flex items-center justify-center gap-2"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair da conta
+        </button>
+
+        <button className="mt-4 w-full text-xs text-signal-error/60 hover:text-signal-error transition-colors text-center">
           Excluir minha conta
         </button>
-      </main>
+      </div>
 
       <BottomNav />
     </div>

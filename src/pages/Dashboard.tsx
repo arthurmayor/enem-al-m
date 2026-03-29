@@ -37,6 +37,12 @@ interface Mission {
 
 const missionTypeLabels = MISSION_TYPE_LABELS;
 
+/** Formata data YYYY-MM-DD para exibição curta: "22 mar" */
+function formatMissionDate(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00");
+  return d.toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replace(".", "");
+}
+
 /** Converte uma data ISO em formato humano legível sem artigo */
 function formatCountdown(examDate: string): string {
   const today = new Date();
@@ -691,11 +697,33 @@ const Dashboard = () => {
                         {overdueMissions.length} {overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"}
                       </h3>
                       <p className="text-sm text-ink-soft mt-1 leading-relaxed">
-                        Você tem {overdueMissions.length === 1 ? "uma missão de um dia anterior" : "missões de dias anteriores"} que ainda não {overdueMissions.length === 1 ? "foi concluída" : "foram concluídas"}.
+                        {overdueMissions.length === 1 ? "Uma missão de um dia anterior" : "Missões de dias anteriores"} ainda não {overdueMissions.length === 1 ? "foi concluída" : "foram concluídas"}.
                       </p>
+                      {/* Preview das primeiras 3 missões */}
+                      <div className="mt-3 space-y-1.5">
+                        {overdueMissions.slice(0, 3).map((m) => (
+                          <div key={m.id} className="flex items-center gap-2">
+                            <div
+                              className="h-1.5 w-1.5 rounded-full shrink-0"
+                              style={{ backgroundColor: getSubjectColor(m.subject) }}
+                            />
+                            <span className="text-sm text-ink truncate flex-1">
+                              {m.subject} · {missionTypeLabels[m.mission_type] || m.mission_type}
+                            </span>
+                            <span className="text-xs text-ink-soft shrink-0">
+                              {formatMissionDate(m.date)}
+                            </span>
+                          </div>
+                        ))}
+                        {overdueMissions.length > 3 && (
+                          <p className="text-xs text-ink-soft pl-3.5">
+                            + {overdueMissions.length - 3} mais
+                          </p>
+                        )}
+                      </div>
                       <button
                         onClick={() => navigate("/study")}
-                        className="mt-3 px-5 py-2 rounded-input bg-ink-strong text-white text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
+                        className="mt-4 px-5 py-2 rounded-input bg-ink-strong text-white text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
                       >
                         Retomar pendentes
                       </button>
@@ -745,7 +773,22 @@ const Dashboard = () => {
             <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
               <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Sua semana</span>
               {weeklySessionsTarget === 0 ? (
-                <p className="text-sm text-ink-soft mt-2">Nenhuma missão planejada para esta semana.</p>
+                overdueMissions.length > 0 ? (
+                  <div className="mt-2">
+                    <p className="text-sm text-ink-soft">Sem missões planejadas para esta semana.</p>
+                    <p className="text-sm font-medium text-ink-strong mt-1">
+                      {overdueMissions.length} {overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"} de semanas anteriores.
+                    </p>
+                    <button
+                      onClick={() => navigate("/study")}
+                      className="mt-3 text-sm font-medium text-brand-500 hover:text-brand-600 transition-colors"
+                    >
+                      Retomar pendentes →
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-ink-soft mt-2">Nenhuma missão planejada para esta semana.</p>
+                )
               ) : (
                 <>
                   <p className="text-lg font-semibold text-ink-strong mt-2">
@@ -785,10 +828,11 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* ─── Card: Streak & XP ─────────────────────────── */}
+          {/* ─── Card: Seu Progresso ───────────────────────── */}
           {!needsDiagnostic && (
             <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
-              <div className="flex items-center gap-4">
+              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Seu progresso</span>
+              <div className="flex items-center gap-4 mt-3">
                 <div className="flex items-center gap-1.5 text-ink-strong">
                   <Flame className="h-5 w-5 text-brand-500" />
                   <span className="text-lg font-semibold">{profile?.current_streak || 0} dias</span>
@@ -800,17 +844,20 @@ const Dashboard = () => {
                 </div>
               </div>
               {totalAnswered !== null && totalAnswered > 0 && (
-                <p className="text-sm text-ink-soft mt-2">
+                <p className="text-sm text-ink-soft mt-1.5">
                   {totalAnswered} {totalAnswered === 1 ? "questão respondida" : "questões respondidas"}
                 </p>
               )}
-              <button
-                onClick={() => navigate("/exams")}
-                className="mt-4 w-full flex items-center justify-center gap-2 bg-bg-app border border-line-light rounded-input px-4 py-2.5 text-sm font-medium text-ink-strong hover:shadow-card transition-shadow"
-              >
-                <FileText className="h-4 w-4" />
-                Mini Simulado
-              </button>
+              <div className="border-t border-line-light mt-4 pt-4">
+                <button
+                  onClick={() => navigate("/exams")}
+                  className="w-full flex items-center justify-center gap-2 bg-bg-app border border-line-light rounded-input px-4 py-2.5 text-sm font-medium text-ink-strong hover:shadow-card transition-shadow"
+                >
+                  <FileText className="h-4 w-4" />
+                  Fazer Mini Simulado
+                </button>
+                <p className="text-xs text-ink-muted text-center mt-1.5">Teste rápido · ~75 min</p>
+              </div>
             </div>
           )}
         </div>

@@ -94,8 +94,11 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Footer: profile snippet */}
       {profile && (
-        <div className="mt-auto border-t border-line-light px-4 pt-4 pb-4 shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="mt-auto border-t border-line-light px-3 pt-3 pb-3 shrink-0">
+          <NavLink
+            to="/perfil"
+            className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-bg-app cursor-pointer"
+          >
             <div className="h-9 w-9 rounded-full bg-brand-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">
               {initial}
             </div>
@@ -110,7 +113,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
                 </p>
               )}
             </div>
-          </div>
+          </NavLink>
         </div>
       )}
     </div>
@@ -146,10 +149,14 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Footer: avatar only */}
       {profile && (
-        <div className="mt-auto border-t border-line-light py-4 shrink-0 flex justify-center w-full">
-          <div className="h-8 w-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-semibold">
+        <div className="mt-auto border-t border-line-light py-3 shrink-0 flex justify-center w-full">
+          <NavLink
+            to="/perfil"
+            title="Perfil"
+            className="h-8 w-8 rounded-full bg-brand-500 flex items-center justify-center text-white text-xs font-semibold hover:opacity-80 transition-opacity"
+          >
             {initial}
-          </div>
+          </NavLink>
         </div>
       )}
     </div>

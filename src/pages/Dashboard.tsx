@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Clock, ChevronDown, ArrowRight, Target, RefreshCw, CheckCircle2, Flame, Zap, FileText } from "lucide-react";
+import { BookOpen, Clock, ChevronDown, ArrowRight, Target, RefreshCw, CheckCircle2, Flame, Zap, FileText, Calendar, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -37,6 +37,31 @@ interface Mission {
 
 const missionTypeLabels = MISSION_TYPE_LABELS;
 
+/** Converte uma data ISO em formato humano legível sem artigo */
+function formatCountdown(examDate: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const exam = new Date(examDate);
+  exam.setHours(0, 0, 0, 0);
+  const diffMs = exam.getTime() - today.getTime();
+  if (diffMs <= 0) return "Prova já ocorreu";
+
+  const totalDays = Math.ceil(diffMs / 86400000);
+  const years = Math.floor(totalDays / 365);
+  const remaining = totalDays - years * 365;
+  const months = Math.floor(remaining / 30);
+  const days = remaining - months * 30;
+
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? "ano" : "anos"}`);
+  if (months > 0) parts.push(`${months} ${months === 1 ? "mês" : "meses"}`);
+  if (days > 0 || parts.length === 0) parts.push(`${days} ${days === 1 ? "dia" : "dias"}`);
+
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return `${parts[0]} e ${parts[1]}`;
+  return `${parts[0]}, ${parts[1]} e ${parts[2]}`;
+}
+
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -51,6 +76,8 @@ const Dashboard = () => {
   const [weakestSubjects, setWeakestSubjects] = useState<{ subject: string; score: number }[]>([]);
   const [totalAnswered, setTotalAnswered] = useState<number | null>(null);
   const [examName, setExamName] = useState<string | null>(null);
+  const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
+  const [overdueMissions, setOverdueMissions] = useState<Mission[]>([]);
   const regenChecked = useRef(false);
 
   // ─── Regeneration helper ──────────────────────────────────────────────────
@@ -302,6 +329,25 @@ const Dashboard = () => {
         .eq("user_id", user.id);
       if (answeredCount !== null) setTotalAnswered(answeredCount);
 
+      // Check active plan existence + overdue missions (before setLoading)
+      const [{ data: planCheck }, { data: overdueData }] = await Promise.all([
+        supabase
+          .from("study_plans")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("is_current", true)
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("daily_missions")
+          .select("id, subject, subtopic, mission_type, status, date, estimated_minutes, mission_order, score")
+          .eq("user_id", user.id)
+          .lt("date", today)
+          .in("status", [MISSION_STATUSES.PENDING, MISSION_STATUSES.IN_PROGRESS]),
+      ]);
+      setHasActivePlan(planCheck !== null);
+      setOverdueMissions(overdueData || []);
+
       setLoading(false);
 
       // ─── Idempotent weekly regeneration check ─────────────────
@@ -366,10 +412,6 @@ const Dashboard = () => {
     fetchData();
   }, [user]);
 
-  const daysUntilExam = profile?.exam_date
-    ? Math.max(0, Math.ceil((new Date(profile.exam_date).getTime() - Date.now()) / 86400000))
-    : null;
-
   const firstName = profile?.name?.split(" ")[0] || "Estudante";
 
   // Filter missions excluding superseded
@@ -394,14 +436,18 @@ const Dashboard = () => {
 
   const nextMission = pendingMissions[0] || null;
 
-  // Subtitle
+  // Subtitle — dinâmico e útil, nunca texto morto
   const subtitle = needsDiagnostic
     ? "Faça o diagnóstico para começar seu plano."
     : allDone
-      ? "Sessão do dia completa. Volte amanhã."
+      ? "Sessão do dia completa. Bom trabalho!"
       : pendingMissions.length > 0
-        ? `Você tem ${pendingMissions.length} ${pendingMissions.length === 1 ? "missão" : "missões"} hoje.`
-        : "Gere seu plano de estudos.";
+        ? `${pendingMissions.length} ${pendingMissions.length === 1 ? "missão" : "missões"} para hoje.`
+        : overdueMissions.length > 0
+          ? `${overdueMissions.length} ${overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"} de dias anteriores.`
+          : hasActivePlan
+            ? "Hoje não é um dia planejado de estudo."
+            : null;
 
   if (loading) {
     return (
@@ -415,15 +461,27 @@ const Dashboard = () => {
     <div className="min-h-screen bg-bg-app pb-24 md:pb-0">
       {/* ─── Header (full width) ────────────────────────────────── */}
       <header className="mb-6 animate-fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-ink-strong">Olá, {firstName}</h1>
-            <p className="text-sm text-ink-soft mt-0.5">{subtitle}</p>
+            {subtitle && (
+              <p className="text-sm text-ink-soft mt-0.5">{subtitle}</p>
+            )}
           </div>
-          {daysUntilExam !== null && (
-            <span className="text-sm text-ink-soft whitespace-nowrap">
-              {daysUntilExam} dias para {examName ? `o ${examName}` : "a prova"}
-            </span>
+          {profile?.exam_date && (
+            <div className="inline-flex items-center gap-2.5 bg-bg-card border border-line-light rounded-card px-4 py-2.5 shadow-card shrink-0 self-start">
+              <Calendar className="h-4 w-4 text-ink-soft shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider text-ink-soft font-medium leading-none mb-0.5">
+                  Próxima prova
+                </p>
+                <p className="text-sm leading-tight">
+                  <span className="font-semibold text-ink-strong">{examName || "Vestibular"}</span>
+                  <span className="text-ink-soft mx-1.5">·</span>
+                  <span className="font-medium text-ink-strong">{formatCountdown(profile.exam_date)}</span>
+                </p>
+              </div>
+            </div>
           )}
         </div>
       </header>
@@ -497,7 +555,7 @@ const Dashboard = () => {
                 onClick={() => navigate(`/mission/${nextMission.mission_type}/${nextMission.id}`)}
                 className="mt-4 w-full flex items-center justify-center gap-2 bg-ink-strong text-white rounded-input px-4 py-2.5 text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
               >
-                Iniciar <ArrowRight className="h-4 w-4" />
+                {nextMission.status === MISSION_STATUSES.IN_PROGRESS ? "Continuar missão" : "Começar missão"} <ArrowRight className="h-4 w-4" />
               </button>
             </div>
           ) : hasMissions && allDone ? (
@@ -607,15 +665,76 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* ─── Empty state: no missions, no diagnostic ──── */}
+          {/* ─── Empty states inteligentes ────────────────────────── */}
           {!needsDiagnostic && !hasMissions && (
-            <EmptyState
-              icon={BookOpen}
-              title="Sem missões hoje"
-              description="Descanse ou explore conteúdo por conta própria."
-              actionLabel="Ver semana"
-              onAction={() => navigate("/study")}
-            />
+            <>
+              {/* A) Sem plano ativo */}
+              {hasActivePlan === false && (
+                <EmptyState
+                  icon={Target}
+                  title="Você ainda não tem um plano ativo"
+                  description="Gere seu plano de estudos personalizado para começar."
+                  actionLabel="Gerar plano"
+                  onAction={() => navigate("/diagnostic/intro")}
+                />
+              )}
+
+              {/* C) Plano existe, missões atrasadas de dias anteriores */}
+              {hasActivePlan && overdueMissions.length > 0 && (
+                <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-bg-app flex items-center justify-center shrink-0">
+                      <AlertCircle className="h-5 w-5 text-ink-strong" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-semibold text-ink-strong">
+                        {overdueMissions.length} {overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"}
+                      </h3>
+                      <p className="text-sm text-ink-soft mt-1 leading-relaxed">
+                        Você tem {overdueMissions.length === 1 ? "uma missão de um dia anterior" : "missões de dias anteriores"} que ainda não {overdueMissions.length === 1 ? "foi concluída" : "foram concluídas"}.
+                      </p>
+                      <button
+                        onClick={() => navigate("/study")}
+                        className="mt-3 px-5 py-2 rounded-input bg-ink-strong text-white text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
+                      >
+                        Retomar pendentes
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* B) Plano existe, sem missões hoje e sem atraso */}
+              {hasActivePlan && overdueMissions.length === 0 && (
+                <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-xl bg-bg-app flex items-center justify-center shrink-0">
+                      <BookOpen className="h-5 w-5 text-ink-soft" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-base font-semibold text-ink-strong">Hoje não é um dia planejado de estudo</h3>
+                      <p className="text-sm text-ink-soft mt-1 leading-relaxed">
+                        Seu plano não inclui estudo hoje. Você pode ver o que vem nos próximos dias ou praticar por conta própria.
+                      </p>
+                      <div className="flex items-center gap-3 mt-3 flex-wrap">
+                        <button
+                          onClick={() => navigate("/study")}
+                          className="px-5 py-2 rounded-input bg-ink-strong text-white text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
+                        >
+                          Ver semana
+                        </button>
+                        <button
+                          onClick={() => navigate("/exams")}
+                          className="px-5 py-2 rounded-input bg-bg-app border border-line-light text-sm font-medium text-ink-strong hover:shadow-card transition-shadow"
+                        >
+                          Praticar por conta
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -625,20 +744,27 @@ const Dashboard = () => {
           {!needsDiagnostic && (
             <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
               <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Sua semana</span>
-              <p className="text-lg font-semibold text-ink-strong mt-2">
-                {weeklySessionsDone} de {weeklySessionsTarget} sessões
-              </p>
-              <div className="mt-3">
-                <ProgressBar value={weeklyPct} />
-              </div>
-              <p className="text-sm text-ink-soft mt-2">{weeklyPct}% do plano</p>
+              {weeklySessionsTarget === 0 ? (
+                <p className="text-sm text-ink-soft mt-2">Nenhuma missão planejada para esta semana.</p>
+              ) : (
+                <>
+                  <p className="text-lg font-semibold text-ink-strong mt-2">
+                    {weeklySessionsDone} de {weeklySessionsTarget} missões concluídas
+                  </p>
+                  <div className="mt-3">
+                    <ProgressBar value={weeklyPct} />
+                  </div>
+                  <p className="text-sm text-ink-soft mt-2">{weeklyPct}% das missões da semana</p>
+                </>
+              )}
             </div>
           )}
 
-          {/* ─── Card: Foco da semana (weakest subjects) ──── */}
+          {/* ─── Card: Áreas para reforçar (weakest subjects by proficiency) ──── */}
           {weakestSubjects.length > 0 && (
             <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
-              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Foco da semana</span>
+              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Áreas para reforçar</span>
+              <p className="text-xs text-ink-muted mt-0.5">Domínio estimado por matéria</p>
               <div className="mt-4 space-y-4">
                 {weakestSubjects.map(({ subject, score }) => (
                   <div key={subject} className="flex items-center gap-3">

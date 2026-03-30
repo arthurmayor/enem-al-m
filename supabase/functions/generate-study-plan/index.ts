@@ -113,44 +113,13 @@ const DURATIONS: Record<string, [number, number]> = {
   writing_partial: [25, 30],
 };
 
-// Composition % by placement band
+// Beta: apenas missões do tipo "questions" em todos os planos gerados.
+// Outros tipos (summaries, spaced_review, error_review, etc.) serão introduzidos em fases futuras.
 const COMPOSITION: Record<string, Record<string, number>> = {
-  base: {
-    questions: 0.35,
-    short_summary: 0.25,
-    error_review: 0.15,
-    spaced_review: 0.1,
-    mixed_block: 0.05,
-    reading_work: 0.05,
-    writing: 0.05,
-  },
-  intermediario: {
-    questions: 0.45,
-    short_summary: 0.15,
-    error_review: 0.15,
-    spaced_review: 0.1,
-    mixed_block: 0.05,
-    reading_work: 0.05,
-    writing: 0.05,
-  },
-  competitivo: {
-    questions: 0.55,
-    short_summary: 0.08,
-    error_review: 0.12,
-    spaced_review: 0.1,
-    mixed_block: 0.08,
-    reading_work: 0.05,
-    writing: 0.02,
-  },
-  forte: {
-    questions: 0.5,
-    short_summary: 0.05,
-    error_review: 0.1,
-    spaced_review: 0.1,
-    mixed_block: 0.15,
-    reading_work: 0.05,
-    writing: 0.05,
-  },
+  base:         { questions: 1.0 },
+  intermediario: { questions: 1.0 },
+  competitivo:  { questions: 1.0 },
+  forte:        { questions: 1.0 },
 };
 
 const BLOCK_MAP: Record<string, string> = {
@@ -629,32 +598,8 @@ serve(async (req) => {
       bottlenecks,
     );
 
-    // ─── §6c Inject spaced reviews (due items) ────────────────
-    const dueReviews: { subject: string; subtopic: string }[] = spacedReviews || [];
-    if (dueReviews.length > 0) {
-      const reviewsToPlace = dueReviews.slice(0, 5); // max 5 per plan
-      const usedSubtopics = new Set<string>();
-      let dayIdx = 0;
-      for (const rev of reviewsToPlace) {
-        // Find a day with room, preferring earlier days
-        for (let attempt = 0; attempt < dayPlans.length; attempt++) {
-          const tryDay = (dayIdx + attempt) % dayPlans.length;
-          const dayMinutes = dayPlans[tryDay].missions.reduce((s, m) => s + m.estimated_minutes, 0);
-          const maxMin = targetMinutes(hpd);
-          if (dayMinutes + 8 <= maxMin * 1.3) {
-            dayPlans[tryDay].missions.unshift({
-              subject: rev.subject,
-              subtopic: rev.subtopic,
-              type: "spaced_review",
-              estimated_minutes: 8,
-              description: `Revisão espaçada: ${rev.subtopic}`,
-            });
-            dayIdx = (tryDay + 1) % dayPlans.length;
-            break;
-          }
-        }
-      }
-    }
+    // Beta: injeção de spaced_review desabilitada — planos geram apenas "questions".
+    // Reativar quando revisão espaçada for introduzida no produto.
 
     const focusAreas = distributed
       .filter((p) => p.weeklyMinutes > 0 && p.bucket === "attack")
@@ -682,7 +627,7 @@ serve(async (req) => {
         maintenance_pct: maintPct,
         placement_band: band,
         week_number: wk,
-        spaced_reviews_injected: Math.min(dueReviews.length, 5),
+        spaced_reviews_injected: 0,
       },
     };
 

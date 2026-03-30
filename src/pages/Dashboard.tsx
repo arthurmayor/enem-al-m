@@ -12,6 +12,7 @@ import ProgressBar from "@/components/ui/ProgressBar";
 import SubjectBadge from "@/components/ui/SubjectBadge";
 import EmptyState from "@/components/ui/EmptyState";
 import { getSubjectColor } from "@/lib/subjectColors";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface Profile {
   name: string;
@@ -43,29 +44,30 @@ function formatMissionDate(dateStr: string): string {
   return d.toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replace(".", "");
 }
 
-/** Converte uma data ISO em formato humano legível sem artigo */
-function formatCountdown(examDate: string): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const exam = new Date(examDate);
-  exam.setHours(0, 0, 0, 0);
-  const diffMs = exam.getTime() - today.getTime();
-  if (diffMs <= 0) return "Prova já ocorreu";
-
-  const totalDays = Math.ceil(diffMs / 86400000);
-  const years = Math.floor(totalDays / 365);
-  const remaining = totalDays - years * 365;
-  const months = Math.floor(remaining / 30);
-  const days = remaining - months * 30;
-
-  const parts: string[] = [];
-  if (years > 0) parts.push(`${years} ${years === 1 ? "ano" : "anos"}`);
-  if (months > 0) parts.push(`${months} ${months === 1 ? "mês" : "meses"}`);
-  if (days > 0 || parts.length === 0) parts.push(`${days} ${days === 1 ? "dia" : "dias"}`);
-
-  if (parts.length === 1) return parts[0];
-  if (parts.length === 2) return `${parts[0]} e ${parts[1]}`;
-  return `${parts[0]}, ${parts[1]} e ${parts[2]}`;
+/** Converte dias restantes em formato humano com no máximo 2 granularidades.
+ *  > 60 dias → "X anos e Y meses" ou "X meses"
+ *  32–60 dias → "X meses"
+ *  ≤ 31 dias → "X dias"
+ */
+function formatCountdown(daysRemaining: number): string {
+  if (daysRemaining <= 0) return "Prova já ocorreu";
+  if (daysRemaining <= 31) {
+    return `${daysRemaining} ${daysRemaining === 1 ? "dia" : "dias"}`;
+  }
+  if (daysRemaining <= 60) {
+    const months = Math.floor(daysRemaining / 30);
+    return `${months} ${months === 1 ? "mês" : "meses"}`;
+  }
+  // > 60 dias
+  const years = Math.floor(daysRemaining / 365);
+  const remainingDays = daysRemaining - years * 365;
+  const months = Math.round(remainingDays / 30);
+  if (years >= 1) {
+    if (months === 0) return `${years} ${years === 1 ? "ano" : "anos"}`;
+    return `${years} ${years === 1 ? "ano" : "anos"} e ${months} ${months === 1 ? "mês" : "meses"}`;
+  }
+  const totalMonths = Math.round(daysRemaining / 30);
+  return `${totalMonths} ${totalMonths === 1 ? "mês" : "meses"}`;
 }
 
 const Dashboard = () => {
@@ -84,6 +86,7 @@ const Dashboard = () => {
   const [examName, setExamName] = useState<string | null>(null);
   const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
   const [overdueMissions, setOverdueMissions] = useState<Mission[]>([]);
+  const [pendingDrawerOpen, setPendingDrawerOpen] = useState(false);
   const regenChecked = useRef(false);
 
   // ─── Regeneration helper ──────────────────────────────────────────────────
@@ -442,6 +445,14 @@ const Dashboard = () => {
 
   const nextMission = pendingMissions[0] || null;
 
+  const daysUntilExam = profile?.exam_date
+    ? Math.max(0, Math.ceil((new Date(profile.exam_date).getTime() - Date.now()) / 86400000))
+    : null;
+
+  // Missões atrasadas ordenadas por data (mais antiga primeiro)
+  const sortedOverdueMissions = [...overdueMissions].sort((a, b) => a.date.localeCompare(b.date));
+  const firstOverdueMission = sortedOverdueMissions[0] ?? null;
+
   // Subtitle — dinâmico e útil, nunca texto morto
   const subtitle = needsDiagnostic
     ? "Faça o diagnóstico para começar seu plano."
@@ -474,7 +485,7 @@ const Dashboard = () => {
               <p className="text-sm text-ink-soft mt-0.5">{subtitle}</p>
             )}
           </div>
-          {profile?.exam_date && (
+          {daysUntilExam !== null && (
             <div className="inline-flex items-center gap-2.5 bg-bg-card border border-line-light rounded-card px-4 py-2.5 shadow-card shrink-0 self-start">
               <Calendar className="h-4 w-4 text-ink-soft shrink-0" />
               <div className="min-w-0">
@@ -484,7 +495,7 @@ const Dashboard = () => {
                 <p className="text-sm leading-tight">
                   <span className="font-semibold text-ink-strong">{examName || "Vestibular"}</span>
                   <span className="text-ink-soft mx-1.5">·</span>
-                  <span className="font-medium text-ink-strong">{formatCountdown(profile.exam_date)}</span>
+                  <span className="font-medium text-ink-strong">{formatCountdown(daysUntilExam)}</span>
                 </p>
               </div>
             </div>
@@ -687,49 +698,82 @@ const Dashboard = () => {
 
               {/* C) Plano existe, missões atrasadas de dias anteriores */}
               {hasActivePlan && overdueMissions.length > 0 && (
-                <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
-                  <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-bg-app flex items-center justify-center shrink-0">
-                      <AlertCircle className="h-5 w-5 text-ink-strong" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-base font-semibold text-ink-strong">
-                        {overdueMissions.length} {overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"}
-                      </h3>
-                      <p className="text-sm text-ink-soft mt-1 leading-relaxed">
-                        {overdueMissions.length === 1 ? "Uma missão de um dia anterior" : "Missões de dias anteriores"} ainda não {overdueMissions.length === 1 ? "foi concluída" : "foram concluídas"}.
-                      </p>
-                      {/* Preview das primeiras 3 missões */}
-                      <div className="mt-3 space-y-1.5">
-                        {overdueMissions.slice(0, 3).map((m) => (
-                          <div key={m.id} className="flex items-center gap-2">
-                            <div
-                              className="h-1.5 w-1.5 rounded-full shrink-0"
-                              style={{ backgroundColor: getSubjectColor(m.subject) }}
-                            />
-                            <span className="text-sm text-ink truncate flex-1">
-                              {m.subject} · {missionTypeLabels[m.mission_type] || m.mission_type}
-                            </span>
-                            <span className="text-xs text-ink-soft shrink-0">
-                              {formatMissionDate(m.date)}
-                            </span>
-                          </div>
-                        ))}
-                        {overdueMissions.length > 3 && (
-                          <p className="text-xs text-ink-soft pl-3.5">
-                            + {overdueMissions.length - 3} mais
-                          </p>
-                        )}
+                <>
+                  <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
+                    <div className="flex items-start gap-4">
+                      <div className="h-10 w-10 rounded-xl bg-bg-app flex items-center justify-center shrink-0">
+                        <AlertCircle className="h-5 w-5 text-ink-strong" />
                       </div>
-                      <button
-                        onClick={() => navigate("/study")}
-                        className="mt-4 px-5 py-2 rounded-input bg-ink-strong text-white text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
-                      >
-                        Retomar pendentes
-                      </button>
+                      <div className="flex-1">
+                        <h3 className="text-base font-semibold text-ink-strong">
+                          {overdueMissions.length} {overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"}
+                        </h3>
+                        <p className="text-sm text-ink-soft mt-1 leading-relaxed">
+                          {overdueMissions.length === 1 ? "Uma missão de um dia anterior" : "Missões de dias anteriores"} ainda não {overdueMissions.length === 1 ? "foi concluída" : "foram concluídas"}.
+                        </p>
+                        {/* Preview das primeiras 3 missões (ordenadas por data) */}
+                        <div className="mt-3 space-y-1.5">
+                          {sortedOverdueMissions.slice(0, 3).map((m) => (
+                            <div key={m.id} className="flex items-center gap-2">
+                              <div
+                                className="h-1.5 w-1.5 rounded-full shrink-0"
+                                style={{ backgroundColor: getSubjectColor(m.subject) }}
+                              />
+                              <span className="text-sm text-ink truncate flex-1">
+                                {m.subject}
+                              </span>
+                              <span className="text-xs text-ink-soft shrink-0">
+                                {formatMissionDate(m.date)}
+                              </span>
+                            </div>
+                          ))}
+                          {overdueMissions.length > 3 && (
+                            <button
+                              onClick={() => setPendingDrawerOpen(true)}
+                              className="text-xs text-brand-500 hover:underline cursor-pointer pl-3.5"
+                            >
+                              + {overdueMissions.length - 3} mais
+                            </button>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => firstOverdueMission && navigate(`/mission/${firstOverdueMission.mission_type}/${firstOverdueMission.id}`)}
+                          className="mt-4 px-5 py-2 rounded-input bg-ink-strong text-white text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
+                        >
+                          Retomar pendentes
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+
+                  {/* Drawer: todas as missões pendentes */}
+                  <Sheet open={pendingDrawerOpen} onOpenChange={setPendingDrawerOpen}>
+                    <SheetContent side="right" className="flex flex-col">
+                      <SheetHeader>
+                        <SheetTitle>Missões pendentes</SheetTitle>
+                      </SheetHeader>
+                      <div className="mt-4 flex-1 overflow-y-auto space-y-0.5">
+                        {sortedOverdueMissions.map((m) => (
+                          <button
+                            key={m.id}
+                            onClick={() => {
+                              setPendingDrawerOpen(false);
+                              navigate(`/mission/${m.mission_type}/${m.id}`);
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-accent text-left transition-colors"
+                          >
+                            <div
+                              className="h-2 w-2 rounded-full shrink-0"
+                              style={{ backgroundColor: getSubjectColor(m.subject) }}
+                            />
+                            <span className="flex-1 text-sm text-foreground font-medium truncate">{m.subject}</span>
+                            <span className="text-xs text-muted-foreground shrink-0">{formatMissionDate(m.date)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                </>
               )}
 
               {/* B) Plano existe, sem missões hoje e sem atraso */}
@@ -779,12 +823,6 @@ const Dashboard = () => {
                     <p className="text-sm font-medium text-ink-strong mt-1">
                       {overdueMissions.length} {overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"} de semanas anteriores.
                     </p>
-                    <button
-                      onClick={() => navigate("/study")}
-                      className="mt-3 text-sm font-medium text-brand-500 hover:text-brand-600 transition-colors"
-                    >
-                      Retomar pendentes →
-                    </button>
                   </div>
                 ) : (
                   <p className="text-sm text-ink-soft mt-2">Nenhuma missão planejada para esta semana.</p>

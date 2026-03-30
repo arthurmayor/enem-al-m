@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { BookOpen, Clock, ChevronDown, ArrowRight, Target, RefreshCw, CheckCircle2, Flame, Zap, FileText, Calendar, AlertCircle } from "lucide-react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { BookOpen, Clock, ChevronDown, ArrowRight, Target, RefreshCw, CheckCircle2, Flame, Zap, Calendar, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import BottomNav from "@/components/BottomNav";
@@ -73,6 +73,7 @@ function formatCountdown(daysRemaining: number): string {
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,7 +82,6 @@ const Dashboard = () => {
   const [completionRate, setCompletionRate] = useState(0);
   const [weeklySessionsTarget, setWeeklySessionsTarget] = useState(0);
   const [weeklySessionsDone, setWeeklySessionsDone] = useState(0);
-  const [weakestSubjects, setWeakestSubjects] = useState<{ subject: string; score: number }[]>([]);
   const [totalAnswered, setTotalAnswered] = useState<number | null>(null);
   const [examName, setExamName] = useState<string | null>(null);
   const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
@@ -304,12 +304,11 @@ const Dashboard = () => {
       weekEnd.setDate(weekEnd.getDate() + 6);
       const weekEndStr = weekEnd.toISOString().split("T")[0];
 
-      // Month range for monthly metrics
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      const monthStartStr = monthStart.toISOString().split("T")[0];
-      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
-      const monthEndStr = monthEnd.toISOString().split("T")[0];
+      // "Seu mês" = 4-week window from weekStart (always a superset of "Sua semana")
+      const monthEnd4w = new Date(weekStart);
+      monthEnd4w.setDate(monthEnd4w.getDate() + 27);
+      const monthStartStr = weekStartStr;
+      const monthEndStr = monthEnd4w.toISOString().split("T")[0];
 
       const [
         { count: weeklyTarget },
@@ -334,24 +333,6 @@ const Dashboard = () => {
       setWeeklySessionsDone(weeklyDone || 0);
       setMonthlyTarget(mTarget || 0);
       setMonthlyDone(mDone || 0);
-
-      // Fetch proficiency scores for weakest subjects card
-      const { data: profRows } = await supabase
-        .from("proficiency_scores")
-        .select("subject, score, measured_at")
-        .eq("user_id", user.id)
-        .order("measured_at", { ascending: false });
-      if (profRows && profRows.length > 0) {
-        const profMap = new Map<string, number>();
-        for (const row of profRows) {
-          if (!profMap.has(row.subject)) profMap.set(row.subject, row.score);
-        }
-        const weakest = Array.from(profMap.entries())
-          .sort((a, b) => a[1] - b[1])
-          .slice(0, 3)
-          .map(([subject, score]) => ({ subject, score }));
-        setWeakestSubjects(weakest);
-      }
 
       // Fetch total answered questions
       const { count: answeredCount } = await supabase
@@ -441,7 +422,7 @@ const Dashboard = () => {
       }
     };
     fetchData();
-  }, [user]);
+  }, [user, location.key]);
 
   const firstName = profile?.name?.split(" ")[0] || "Estudante";
 
@@ -886,61 +867,20 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* ─── Card: Áreas para reforçar (weakest subjects by proficiency) ──── */}
-          {weakestSubjects.length > 0 && (
-            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
-              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Áreas para reforçar</span>
-              <p className="text-xs text-ink-muted mt-0.5">Domínio estimado por matéria</p>
-              <div className="mt-4 space-y-4">
-                {weakestSubjects.map(({ subject, score }) => (
-                  <div key={subject} className="flex items-center gap-3">
-                    <SubjectBadge subject={subject} />
-                    <div className="flex-1">
-                      <ProgressBar
-                        value={Math.round(score * 100)}
-                        color={getSubjectColor(subject)}
-                        size="sm"
-                      />
-                    </div>
-                    <span className="text-sm font-medium text-ink-soft w-10 text-right">
-                      {Math.round(score * 100)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ─── Card: Seu Progresso (secundário — sem shadow) ─── */}
+          {/* ─── Card: Seu Progresso (compacto) ─── */}
           {!needsDiagnostic && (
-            <div className="bg-bg-card rounded-card p-5 border border-line-light animate-fade-in">
-              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Seu progresso</span>
-              <div className="flex items-center gap-4 mt-3">
-                <div className="flex items-center gap-1.5 text-ink-strong">
-                  <Flame className="h-5 w-5 text-brand-500" />
-                  <span className="text-lg font-semibold">{profile?.current_streak || 0} dias</span>
-                </div>
-                <div className="h-5 w-px bg-line-light" />
-                <div className="flex items-center gap-1.5 text-ink-strong">
-                  <Zap className="h-5 w-5 text-brand-500" />
-                  <span className="text-lg font-semibold">{profile?.total_xp || 0} XP</span>
-                </div>
-              </div>
+            <div className="bg-bg-card rounded-card px-5 py-3.5 border border-line-light animate-fade-in flex items-center gap-3 flex-wrap">
+              <Flame className="h-4 w-4 text-brand-500 shrink-0" />
+              <span className="text-sm font-medium text-ink-strong">{profile?.current_streak || 0} dias</span>
+              <span className="text-line-light">·</span>
+              <Zap className="h-4 w-4 text-brand-500 shrink-0" />
+              <span className="text-sm font-medium text-ink-strong">{profile?.total_xp || 0} XP</span>
               {totalAnswered !== null && totalAnswered > 0 && (
-                <p className="text-sm text-ink-soft mt-1.5">
-                  {totalAnswered} {totalAnswered === 1 ? "questão respondida" : "questões respondidas"}
-                </p>
+                <>
+                  <span className="text-line-light">·</span>
+                  <span className="text-sm text-ink-soft">{totalAnswered} questões</span>
+                </>
               )}
-              <div className="border-t border-line-light mt-4 pt-4">
-                <button
-                  onClick={() => navigate("/exams")}
-                  className="w-full flex items-center justify-center gap-2 bg-bg-app border border-line-light rounded-input px-4 py-2.5 text-sm font-medium text-ink-strong hover:shadow-card transition-shadow"
-                >
-                  <FileText className="h-4 w-4" />
-                  Fazer Mini Simulado
-                </button>
-                <p className="text-xs text-ink-muted text-center mt-1.5">Teste rápido · ~75 min</p>
-              </div>
             </div>
           )}
         </div>

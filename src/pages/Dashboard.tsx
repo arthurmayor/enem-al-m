@@ -479,18 +479,6 @@ const Dashboard = () => {
   const sortedOverdueMissions = [...overdueMissions].sort((a, b) => a.date.localeCompare(b.date));
   const firstOverdueMission = sortedOverdueMissions[0] ?? null;
 
-  // Subtitle — dinâmico e útil, nunca texto morto
-  const subtitle = needsDiagnostic
-    ? "Faça o diagnóstico para começar seu plano."
-    : allDone
-      ? "Sessão do dia completa. Bom trabalho!"
-      : pendingMissions.length > 0
-        ? `${pendingMissions.length} ${pendingMissions.length === 1 ? "missão" : "missões"} para hoje.`
-        : overdueMissions.length > 0
-          ? `${overdueMissions.length} ${overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"} de dias anteriores.`
-          : hasActivePlan
-            ? "Hoje não é um dia planejado de estudo."
-            : null;
 
   if (loading) {
     return (
@@ -507,9 +495,6 @@ const Dashboard = () => {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-ink-strong">Olá, {firstName}</h1>
-            {subtitle && (
-              <p className="text-sm text-ink-soft mt-0.5">{subtitle}</p>
-            )}
           </div>
           {daysUntilExam !== null && (
             <div className="inline-flex items-center gap-2.5 bg-bg-card border border-line-light rounded-card px-4 py-2.5 shadow-card shrink-0 self-start">

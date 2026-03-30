@@ -87,6 +87,8 @@ const Dashboard = () => {
   const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
   const [overdueMissions, setOverdueMissions] = useState<Mission[]>([]);
   const [pendingDrawerOpen, setPendingDrawerOpen] = useState(false);
+  const [monthlyTarget, setMonthlyTarget] = useState(0);
+  const [monthlyDone, setMonthlyDone] = useState(0);
   const regenChecked = useRef(false);
 
   // ─── Regeneration helper ──────────────────────────────────────────────────
@@ -302,16 +304,36 @@ const Dashboard = () => {
       weekEnd.setDate(weekEnd.getDate() + 6);
       const weekEndStr = weekEnd.toISOString().split("T")[0];
 
-      const [{ count: weeklyTarget }, { count: weeklyDone }] = await Promise.all([
+      // Month range for monthly metrics
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      const monthStartStr = monthStart.toISOString().split("T")[0];
+      const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0);
+      const monthEndStr = monthEnd.toISOString().split("T")[0];
+
+      const [
+        { count: weeklyTarget },
+        { count: weeklyDone },
+        { count: mTarget },
+        { count: mDone },
+      ] = await Promise.all([
         supabase.from("daily_missions").select("id", { count: "exact", head: true })
           .eq("user_id", user.id).gte("date", weekStartStr).lte("date", weekEndStr)
           .not("status", "eq", MISSION_STATUSES.SUPERSEDED),
         supabase.from("daily_missions").select("id", { count: "exact", head: true })
           .eq("user_id", user.id).gte("date", weekStartStr).lte("date", weekEndStr)
           .eq("status", MISSION_STATUSES.COMPLETED),
+        supabase.from("daily_missions").select("id", { count: "exact", head: true })
+          .eq("user_id", user.id).gte("date", monthStartStr).lte("date", monthEndStr)
+          .not("status", "eq", MISSION_STATUSES.SUPERSEDED),
+        supabase.from("daily_missions").select("id", { count: "exact", head: true })
+          .eq("user_id", user.id).gte("date", monthStartStr).lte("date", monthEndStr)
+          .eq("status", MISSION_STATUSES.COMPLETED),
       ]);
       setWeeklySessionsTarget(weeklyTarget || 0);
       setWeeklySessionsDone(weeklyDone || 0);
+      setMonthlyTarget(mTarget || 0);
+      setMonthlyDone(mDone || 0);
 
       // Fetch proficiency scores for weakest subjects card
       const { data: profRows } = await supabase
@@ -441,6 +463,10 @@ const Dashboard = () => {
 
   const weeklyPct = weeklySessionsTarget > 0
     ? Math.round((weeklySessionsDone / weeklySessionsTarget) * 100)
+    : 0;
+
+  const monthlyPct = monthlyTarget > 0
+    ? Math.round((monthlyDone / monthlyTarget) * 100)
     : 0;
 
   const nextMission = pendingMissions[0] || null;
@@ -835,9 +861,28 @@ const Dashboard = () => {
                   <div className="mt-3">
                     <ProgressBar value={weeklyPct} />
                   </div>
-                  <p className="text-sm text-ink-soft mt-2">{weeklyPct}% das missões da semana</p>
+                  <p className="text-sm text-ink-soft mt-2">{weeklyPct}% da semana concluída</p>
+                  {overdueMissions.length > 0 && (
+                    <p className="text-xs text-ink-muted mt-2 border-t border-line-light pt-2">
+                      + {overdueMissions.length} {overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"} de semanas anteriores
+                    </p>
+                  )}
                 </>
               )}
+            </div>
+          )}
+
+          {/* ─── Card: Seu Mês ─────────────────────────────── */}
+          {!needsDiagnostic && monthlyTarget > 0 && (
+            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
+              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Seu mês</span>
+              <p className="text-lg font-semibold text-ink-strong mt-2">
+                {monthlyDone} de {monthlyTarget} missões concluídas
+              </p>
+              <div className="mt-3">
+                <ProgressBar value={monthlyPct} />
+              </div>
+              <p className="text-sm text-ink-soft mt-2">{monthlyPct}% do mês concluído</p>
             </div>
           )}
 
@@ -866,9 +911,9 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* ─── Card: Seu Progresso ───────────────────────── */}
+          {/* ─── Card: Seu Progresso (secundário — sem shadow) ─── */}
           {!needsDiagnostic && (
-            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
+            <div className="bg-bg-card rounded-card p-5 border border-line-light animate-fade-in">
               <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Seu progresso</span>
               <div className="flex items-center gap-4 mt-3">
                 <div className="flex items-center gap-1.5 text-ink-strong">

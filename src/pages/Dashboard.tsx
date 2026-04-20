@@ -1,879 +1,562 @@
-import { useState, useEffect, useRef } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import { BookOpen, Clock, ChevronDown, ArrowRight, Target, RefreshCw, CheckCircle2, Flame, Zap, Calendar, AlertCircle } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Star, Flame, Clock, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import BottomNav from "@/components/BottomNav";
-import { toast } from "sonner";
 import { trackEvent } from "@/lib/trackEvent";
-import { MISSION_TYPE_LABELS, MISSION_STATUSES, PLAN_STATUSES } from "@/lib/constants";
-import { deduplicateProficiencies, diagnosticToProfArray, buildPlannerInput, calculateBand } from "@/lib/plannerInput";
-import ProgressBar from "@/components/ui/ProgressBar";
-import SubjectBadge from "@/components/ui/SubjectBadge";
-import EmptyState from "@/components/ui/EmptyState";
-import { getSubjectColor } from "@/lib/subjectColors";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import BottomNav from "@/components/BottomNav";
+import StatCard from "@/components/dashboard/StatCard";
+import SegmentedControl from "@/components/dashboard/SegmentedControl";
+import SubjectSelect from "@/components/dashboard/SubjectSelect";
+import MissionRow from "@/components/dashboard/MissionRow";
+import SubjectProficiencyRow from "@/components/dashboard/SubjectProficiencyRow";
+import EvolutionChart from "@/components/dashboard/EvolutionChart";
+import ExamsChart from "@/components/dashboard/ExamsChart";
+import { SUBJECT_COLORS } from "@/components/dashboard/subjectColors";
+import { useDashboardMetrics } from "@/hooks/dashboard/useDashboardMetrics";
+import {
+  useAccuracyByPeriod,
+  type AccuracyPeriod,
+} from "@/hooks/dashboard/useAccuracyByPeriod";
+import {
+  useProficiencyBySubject,
+  type ProficiencyPeriod,
+} from "@/hooks/dashboard/useProficiencyBySubject";
+import { useProficiencySubtopics } from "@/hooks/dashboard/useProficiencySubtopics";
+import {
+  useQuestionsEvolution,
+  type EvolutionPeriod,
+} from "@/hooks/dashboard/useQuestionsEvolution";
+import {
+  useExamsEvolution,
+  type ExamsPeriod,
+  type ExamsType,
+} from "@/hooks/dashboard/useExamsEvolution";
+import { useTodayMissions } from "@/hooks/dashboard/useTodayMissions";
+import { MISSION_STATUSES } from "@/lib/constants";
 
-interface Profile {
-  name: string;
-  education_goal: string;
-  exam_date: string | null;
-  onboarding_complete: boolean;
-  total_xp?: number;
-  current_streak?: number;
-  exam_config_id?: string | null;
+const ACERTO_OPTIONS = ["Semana", "Mês", "Ano", "Geral"] as const;
+const EVO_PERIOD_OPTIONS = ["Semana", "Mês", "6m", "Ano", "Geral"] as const;
+const PROF_OPTIONS = ["Geral", "Semana", "Mês", "6m"] as const;
+const SIM_TYPE_OPTIONS = ["Todos", "Simulados", "Fuvest"] as const;
+const SIM_PERIOD_OPTIONS = ["Semana", "Mês", "6m", "Geral"] as const;
+
+type AcertoLabel = (typeof ACERTO_OPTIONS)[number];
+type EvoLabel = (typeof EVO_PERIOD_OPTIONS)[number];
+type ProfLabel = (typeof PROF_OPTIONS)[number];
+type SimTypeLabel = (typeof SIM_TYPE_OPTIONS)[number];
+type SimPeriodLabel = (typeof SIM_PERIOD_OPTIONS)[number];
+
+const acertoMap: Record<AcertoLabel, AccuracyPeriod> = {
+  Semana: "week",
+  Mês: "month",
+  Ano: "year",
+  Geral: "all",
+};
+const evoPeriodMap: Record<EvoLabel, EvolutionPeriod> = {
+  Semana: "week",
+  Mês: "month",
+  "6m": "6m",
+  Ano: "year",
+  Geral: "all",
+};
+const profMap: Record<ProfLabel, ProficiencyPeriod> = {
+  Geral: "all",
+  Semana: "week",
+  Mês: "month",
+  "6m": "6m",
+};
+const simTypeMap: Record<SimTypeLabel, ExamsType> = {
+  Todos: "all",
+  Simulados: "mock",
+  Fuvest: "fuvest",
+};
+const simPeriodMap: Record<SimPeriodLabel, ExamsPeriod> = {
+  Semana: "week",
+  Mês: "month",
+  "6m": "6m",
+  Geral: "all",
+};
+
+function capitalize(s: string): string {
+  return s.length > 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
 
-interface Mission {
-  id: string;
-  subject: string;
-  subtopic: string;
-  mission_type: string;
-  status: string;
-  date: string;
-  estimated_minutes?: number;
-  mission_order?: number | null;
-  score?: number | null;
+function formatDate(d: Date): string {
+  const formatted = d.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  return capitalize(formatted);
 }
 
-const missionTypeLabels = MISSION_TYPE_LABELS;
+const MIN_QUESTIONS_FOR_PROBABILITY = 60;
 
-/** Formata data YYYY-MM-DD para exibição curta: "22 mar" */
-function formatMissionDate(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00");
-  return d.toLocaleDateString("pt-BR", { day: "numeric", month: "short" }).replace(".", "");
-}
-
-/** Converte dias restantes em formato humano com no máximo 2 granularidades.
- *  > 60 dias → "X anos e Y meses" ou "X meses"
- *  32–60 dias → "X meses"
- *  ≤ 31 dias → "X dias"
- */
-function formatCountdown(daysRemaining: number): string {
-  if (daysRemaining <= 0) return "Prova já ocorreu";
-  if (daysRemaining <= 31) {
-    return `${daysRemaining} ${daysRemaining === 1 ? "dia" : "dias"}`;
-  }
-  if (daysRemaining <= 60) {
-    const months = Math.floor(daysRemaining / 30);
-    return `${months} ${months === 1 ? "mês" : "meses"}`;
-  }
-  // > 60 dias
-  const years = Math.floor(daysRemaining / 365);
-  const remainingDays = daysRemaining - years * 365;
-  const months = Math.round(remainingDays / 30);
-  if (years >= 1) {
-    if (months === 0) return `${years} ${years === 1 ? "ano" : "anos"}`;
-    return `${years} ${years === 1 ? "ano" : "anos"} e ${months} ${months === 1 ? "mês" : "meses"}`;
-  }
-  const totalMonths = Math.round(daysRemaining / 30);
-  return `${totalMonths} ${totalMonths === 1 ? "mês" : "meses"}`;
-}
-
-const Dashboard = () => {
+export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [missions, setMissions] = useState<Mission[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showRegenCta, setShowRegenCta] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
-  const [completionRate, setCompletionRate] = useState(0);
-  const [weeklySessionsTarget, setWeeklySessionsTarget] = useState(0);
-  const [weeklySessionsDone, setWeeklySessionsDone] = useState(0);
-  const [totalAnswered, setTotalAnswered] = useState<number | null>(null);
-  const [examName, setExamName] = useState<string | null>(null);
-  const [hasActivePlan, setHasActivePlan] = useState<boolean | null>(null);
-  const [overdueMissions, setOverdueMissions] = useState<Mission[]>([]);
-  const [pendingDrawerOpen, setPendingDrawerOpen] = useState(false);
-  const [monthlyTarget, setMonthlyTarget] = useState(0);
-  const [monthlyDone, setMonthlyDone] = useState(0);
-  const regenChecked = useRef(false);
 
-  // ─── Regeneration helper ──────────────────────────────────────────────────
+  const [acertoLabel, setAcertoLabel] = useState<AcertoLabel>("Semana");
+  const [evoLabel, setEvoLabel] = useState<EvoLabel>("Mês");
+  const [evoSubject, setEvoSubject] = useState<string>("Geral");
+  const [profLabel, setProfLabel] = useState<ProfLabel>("Geral");
+  const [expandedSubject, setExpandedSubject] = useState<string | null>(null);
+  const [simPeriodLabel, setSimPeriodLabel] = useState<SimPeriodLabel>("Mês");
+  const [simTypeLabel, setSimTypeLabel] = useState<SimTypeLabel>("Todos");
 
-  async function regeneratePlan(userId: string) {
-    setRegenerating(true);
-    trackEvent("replan_triggered", {}, userId);
-    try {
-      // Fetch calibrated proficiencies, profile, and latest plan in parallel
-      const [{ data: profRows }, { data: profileData }, { data: latestPlan }, { count: totalAnswered }] = await Promise.all([
-        supabase.from("proficiency_scores").select("subject, score, source, measured_at").eq("user_id", userId).order("measured_at", { ascending: false }),
-        supabase.from("profiles").select("name, education_goal, desired_course, exam_date, hours_per_day, study_days, available_days, self_declared_blocks, exam_config_id").eq("id", userId).single(),
-        supabase.from("study_plans").select("id, week_number, version").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).single(),
-        supabase.from("answer_history").select("id", { count: "exact", head: true }).eq("user_id", userId),
-      ]);
+  const acertoPeriod = acertoMap[acertoLabel];
+  const evoPeriod = evoPeriodMap[evoLabel];
+  const profPeriod = profMap[profLabel];
+  const simPeriod = simPeriodMap[simPeriodLabel];
+  const simType = simTypeMap[simTypeLabel];
 
-      // Build profArray from calibrated proficiency_scores (most recent per subject)
-      const profMap = deduplicateProficiencies(profRows || []);
-      let profArray = Array.from(profMap.entries()).map(([subject, score]) => ({
-        subject,
-        score,
-        confidence: 0.7,
-      }));
-
-      // Fallback: if no calibrated proficiencies, use diagnostic_estimates
-      let originalBand: string | undefined;
-      if (profArray.length === 0) {
-        const { data: latestEstimate } = await supabase
-          .from("diagnostic_estimates")
-          .select("proficiencies, estimate_scope")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
-        const proficiencies = latestEstimate?.proficiencies || {};
-        profArray = diagnosticToProfArray(proficiencies as Record<string, { elo?: number; score?: number }>);
-        // Extract originalBand from diagnostic proficiency averages
-        if (profArray.length > 0) {
-          const avgScore = profArray.reduce((s, p) => s + p.score, 0) / profArray.length;
-          originalBand = calculateBand(avgScore);
-        }
-      }
-
-      // Get exam config
-      let examConfigData = { phase2_subjects: [] as string[], cutoff_mean: 0, competition_ratio: 10, subject_distribution: {} as Record<string, unknown>, total_questions: 90 };
-      if (profileData?.exam_config_id) {
-        const { data: ec } = await supabase.from("exam_configs").select("*").eq("id", profileData.exam_config_id).single();
-        if (ec) examConfigData = ec as typeof examConfigData;
-      }
-
-      // Build planner input with band recalculation
-      const { band, bottlenecks, strengths } = buildPlannerInput(
-        profArray,
-        totalAnswered || 0,
-        originalBand,
-      );
-
-      const sd = profileData?.available_days || profileData?.study_days;
-      const numDays = Array.isArray(sd) ? sd.length : typeof sd === "number" ? sd : 5;
-
-      const userProfile = {
-        ...(profileData || {}),
-        study_days: numDays,
-        self_declared_blocks: (profileData as Record<string, unknown>)?.self_declared_blocks || {},
-      };
-
-      const newWeek = (latestPlan?.week_number || 1) + 1;
-      const newVersion = (latestPlan?.version || 1) + 1;
-
-      // Fetch due spaced reviews
-      const { data: dueReviews } = await supabase
-        .from("spaced_review_queue")
-        .select("subject, subtopic")
-        .eq("user_id", userId)
-        .lte("next_review_at", new Date().toISOString())
-        .limit(5);
-
-      // Get completion rate of old plan
-      let oldCompletionRate = -1;
-      if (latestPlan?.id) {
-        const { count: totalM } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", latestPlan.id);
-        const { count: doneM } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", latestPlan.id).eq("status", MISSION_STATUSES.COMPLETED);
-        if (totalM && totalM > 0) oldCompletionRate = Math.round(((doneM || 0) / totalM) * 100);
-      }
-
-      const { data: plan, error: invokeError } = await supabase.functions.invoke("generate-study-plan", {
-        body: {
-          proficiencyScores: { proficiency: profArray },
-          userProfile,
-          diagnosticResult: { placement_band: band, strengths, bottlenecks },
-          examConfig: examConfigData,
-          weekNumber: newWeek,
-          completionRate: oldCompletionRate,
-          spacedReviews: dueReviews || [],
-        },
-      });
-      if (invokeError) throw new Error(invokeError.message);
-      if (plan?.error) throw new Error(plan.error);
-
-      // Mark old plan as superseded
-      await supabase.from("study_plans").update({ status: PLAN_STATUSES.SUPERSEDED, is_current: false } as any).eq("user_id", userId).eq("is_current", true);
-      const today = new Date().toISOString().split("T")[0];
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + 6);
-
-      const { data: savedPlan, error: planError } = await supabase.from("study_plans").insert({
-        user_id: userId,
-        week_number: newWeek,
-        start_date: today,
-        end_date: endDate.toISOString().split("T")[0],
-        plan_json: plan,
-        is_current: true,
-        status: PLAN_STATUSES.ACTIVE,
-        version: newVersion,
-      } as any).select("id").single();
-      if (planError) throw new Error(planError.message);
-
-      // Supersede old pending missions (preserve history, don't touch in_progress)
-      await supabase.from("daily_missions")
-        .update({ status: MISSION_STATUSES.SUPERSEDED })
-        .eq("user_id", userId)
-        .gte("date", today)
-        .in("status", [MISSION_STATUSES.PENDING]);
-
-      const dayNames: Record<string, number> = { Domingo: 0, Segunda: 1, Terca: 2, Quarta: 3, Quinta: 4, Sexta: 5, Sabado: 6 };
-      const start = new Date();
-      start.setHours(0, 0, 0, 0);
-      const missionsToInsert: { user_id: string; study_plan_id: string; date: string; subject: string; subtopic: string; mission_type: string; status: string; estimated_minutes: number }[] = [];
-
-      for (const week of plan.weeks ?? []) {
-        for (const dayObj of week.days ?? []) {
-          const targetWeekday = dayNames[dayObj.day] ?? 1;
-          // Find next occurrence of this weekday from today
-          const d = new Date(start);
-          while (d.getDay() !== targetWeekday) d.setDate(d.getDate() + 1);
-          const dateStr = d.toISOString().split("T")[0];
-          for (const mission of dayObj.missions ?? []) {
-            missionsToInsert.push({
-              user_id: userId,
-              study_plan_id: savedPlan!.id,
-              date: dateStr,
-              subject: mission.subject ?? "Geral",
-              subtopic: mission.subtopic ?? "",
-              mission_type: mission.type ?? "questions",
-              status: MISSION_STATUSES.PENDING,
-              estimated_minutes: mission.estimated_minutes ?? 15,
-            });
-          }
-        }
-      }
-
-      if (missionsToInsert.length > 0) {
-        await supabase.from("daily_missions").insert(missionsToInsert);
-      }
-
-      trackEvent("replan_applied", { week: newWeek, missions: missionsToInsert.length }, userId);
-
-      // Refetch today's missions without full page reload
-      const { data: freshMissions } = await supabase
-        .from("daily_missions")
-        .select("id, subject, subtopic, mission_type, status, date, estimated_minutes, mission_order, score")
-        .eq("user_id", userId)
-        .eq("date", today)
-        .not("status", "eq", MISSION_STATUSES.SUPERSEDED);
-      if (freshMissions) setMissions(freshMissions);
-      toast.success("Novo plano semanal gerado!");
-    } catch (err) {
-      console.error("Regeneration error:", err);
-      toast.error("Erro ao regenerar plano. Tente novamente.");
-    } finally {
-      setRegenerating(false);
-    }
-  }
-
-  // ─── Fetch data + check regeneration ──────────────────────────────────────
+  const { data: metrics, isLoading: metricsLoading } = useDashboardMetrics();
+  const { data: acertoTrend } = useAccuracyByPeriod(acertoPeriod);
+  const { data: proficiency } = useProficiencyBySubject(profPeriod);
+  const { data: subtopics, isLoading: subtopicsLoading } =
+    useProficiencySubtopics(expandedSubject);
+  const { data: evoData } = useQuestionsEvolution(
+    evoPeriod,
+    evoSubject === "Geral" ? null : evoSubject,
+  );
+  const { data: simData } = useExamsEvolution(simPeriod, simType);
+  const { data: todayMissions } = useTodayMissions();
 
   useEffect(() => {
-    if (!user) return;
-    const fetchData = async () => {
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("name, education_goal, exam_date, onboarding_complete, total_xp, current_streak, exam_config_id")
-        .eq("id", user.id)
-        .single();
-      if (profileData) {
-        setProfile(profileData);
-        // Fetch exam name
-        if (profileData.exam_config_id) {
-          const { data: ec } = await supabase
-            .from("exam_configs")
-            .select("exam_name")
-            .eq("id", profileData.exam_config_id)
-            .single();
-          if (ec?.exam_name) setExamName(ec.exam_name);
-        }
-      }
+    if (user) trackEvent("dashboard_viewed", {}, user.id);
+  }, [user]);
 
-      trackEvent("dashboard_loaded", {}, user.id);
+  const subjectsFromProficiency = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of proficiency ?? []) set.add(p.subject);
+    return Array.from(set).sort();
+  }, [proficiency]);
 
-      const today = new Date().toISOString().split("T")[0];
-      const { data: missionsData } = await supabase
-        .from("daily_missions")
-        .select("id, subject, subtopic, mission_type, status, date, estimated_minutes, mission_order, score")
-        .eq("user_id", user.id)
-        .eq("date", today);
-      if (missionsData) setMissions(missionsData);
+  const firstName = metrics?.name?.split(" ")[0] ?? "";
+  const today = formatDate(new Date());
 
-      // Fetch real weekly metrics
-      const weekStart = new Date();
-      weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-      const weekStartStr = weekStart.toISOString().split("T")[0];
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekEnd.getDate() + 6);
-      const weekEndStr = weekEnd.toISOString().split("T")[0];
+  const missionsToday = todayMissions ?? [];
+  const activeMissions = missionsToday.filter(
+    (m) => m.status !== MISSION_STATUSES.SUPERSEDED,
+  );
+  const hasMissions = activeMissions.length > 0;
+  const nextPendingIndex = activeMissions.findIndex(
+    (m) =>
+      m.status === MISSION_STATUSES.PENDING ||
+      m.status === MISSION_STATUSES.IN_PROGRESS,
+  );
+  const allCompleted =
+    hasMissions &&
+    activeMissions.every((m) => m.status === MISSION_STATUSES.COMPLETED);
 
-      // "Seu mês" = 4-week window from weekStart (always a superset of "Sua semana")
-      const monthEnd4w = new Date(weekStart);
-      monthEnd4w.setDate(monthEnd4w.getDate() + 27);
-      const monthStartStr = weekStartStr;
-      const monthEndStr = monthEnd4w.toISOString().split("T")[0];
+  const missionsTodayCompleted = metrics?.missions_today_completed ?? 0;
+  const missionsTodayTotal = metrics?.missions_today_total ?? 0;
+  const todayPct =
+    missionsTodayTotal > 0
+      ? Math.round((missionsTodayCompleted / missionsTodayTotal) * 100)
+      : 0;
 
-      const [
-        { count: weeklyTarget },
-        { count: weeklyDone },
-        { count: mTarget },
-        { count: mDone },
-      ] = await Promise.all([
-        supabase.from("daily_missions").select("id", { count: "exact", head: true })
-          .eq("user_id", user.id).gte("date", weekStartStr).lte("date", weekEndStr)
-          .not("status", "eq", MISSION_STATUSES.SUPERSEDED),
-        supabase.from("daily_missions").select("id", { count: "exact", head: true })
-          .eq("user_id", user.id).gte("date", weekStartStr).lte("date", weekEndStr)
-          .eq("status", MISSION_STATUSES.COMPLETED),
-        supabase.from("daily_missions").select("id", { count: "exact", head: true })
-          .eq("user_id", user.id).gte("date", monthStartStr).lte("date", monthEndStr)
-          .not("status", "eq", MISSION_STATUSES.SUPERSEDED),
-        supabase.from("daily_missions").select("id", { count: "exact", head: true })
-          .eq("user_id", user.id).gte("date", monthStartStr).lte("date", monthEndStr)
-          .eq("status", MISSION_STATUSES.COMPLETED),
-      ]);
-      setWeeklySessionsTarget(weeklyTarget || 0);
-      setWeeklySessionsDone(weeklyDone || 0);
-      setMonthlyTarget(mTarget || 0);
-      setMonthlyDone(mDone || 0);
+  const totalGenerated = metrics?.total_missions_generated ?? 0;
+  const totalCompleted = metrics?.total_missions_completed ?? 0;
+  const tasksPct =
+    totalGenerated > 0
+      ? Math.round((totalCompleted / totalGenerated) * 100)
+      : 0;
 
-      // Fetch total answered questions
-      const { count: answeredCount } = await supabase
-        .from("answer_history")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id);
-      if (answeredCount !== null) setTotalAnswered(answeredCount);
+  const totalQuestions = metrics?.total_questions ?? 0;
+  const totalCorrect = metrics?.total_correct ?? 0;
+  const totalErradas = Math.max(0, totalQuestions - totalCorrect);
+  const overallAcertoPct =
+    totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+  const overallErradaPct =
+    totalQuestions > 0 ? 100 - overallAcertoPct : 0;
 
-      // Check active plan existence + overdue missions (before setLoading)
-      const [{ data: planCheck }, { data: overdueData }] = await Promise.all([
-        supabase
-          .from("study_plans")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("is_current", true)
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("daily_missions")
-          .select("id, subject, subtopic, mission_type, status, date, estimated_minutes, mission_order, score")
-          .eq("user_id", user.id)
-          .lt("date", today)
-          .in("status", [MISSION_STATUSES.PENDING, MISSION_STATUSES.IN_PROGRESS]),
-      ]);
-      setHasActivePlan(planCheck !== null);
-      setOverdueMissions(overdueData || []);
+  // Approval probability: simple proxy from overall accuracy once we have
+  // enough signal. Below threshold, show the "complete more questions" CTA.
+  const hasEnoughForProb = totalQuestions >= MIN_QUESTIONS_FOR_PROBABILITY;
+  const probabilityPct = hasEnoughForProb ? overallAcertoPct : null;
+  const questionsRemaining = Math.max(
+    0,
+    MIN_QUESTIONS_FOR_PROBABILITY - totalQuestions,
+  );
 
-      setLoading(false);
+  const totalExams = metrics?.total_exams ?? 0;
+  const lastExamScore = metrics?.last_exam_score;
+  const bestExamScore = metrics?.best_exam_score;
 
-      // ─── Idempotent weekly regeneration check ─────────────────
-      if (regenChecked.current) return;
-      regenChecked.current = true;
+  const daysUntilExam = metrics?.days_until_exam ?? null;
+  const hasExamConfig = !!metrics?.exam_name;
+  const hasActivePlan = totalGenerated > 0 || missionsTodayTotal > 0;
 
-      const { data: activePlan } = await supabase
-        .from("study_plans")
-        .select("id, start_date, end_date, created_at, plan_json, is_current")
-        .eq("user_id", user.id)
-        .eq("is_current", true)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (!activePlan) return;
-
-      const endDate = (activePlan as any).end_date;
-      const startDate = (activePlan as any).start_date;
-
-      // Calculate completion rate for CTA
-      const { count: totalMissions } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", activePlan.id);
-      const { count: completedCount } = await supabase.from("daily_missions").select("id", { count: "exact", head: true }).eq("study_plan_id", activePlan.id).eq("status", MISSION_STATUSES.COMPLETED);
-      const rate = totalMissions && totalMissions > 0 ? Math.round(((completedCount || 0) / totalMissions) * 100) : 0;
-      setCompletionRate(rate);
-
-      // Check if plan has expired (end_date < today)
-      if (endDate && endDate < today) {
-        // Idempotent: check if a plan already exists for this week
-        const weekStart = new Date();
-        weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
-        const weekStartStr = weekStart.toISOString().split("T")[0];
-
-        const { data: existingThisWeek } = await supabase
-          .from("study_plans")
-          .select("id")
-          .eq("user_id", user.id)
-          .gte("start_date", weekStartStr)
-          .limit(1);
-
-        if (!existingThisWeek || existingThisWeek.length === 0) {
-          // Don't regenerate if plan is less than 3 days old
-          const createdAt = new Date(activePlan.created_at);
-          const daysSinceCreation = (Date.now() - createdAt.getTime()) / 86400000;
-          if (daysSinceCreation >= 3) {
-            regeneratePlan(user.id);
-          }
-        }
-        return;
-      }
-
-      // CTA: plan active and completion >= 70%
-      if (startDate && rate >= 70) {
-        // Only show if plan has been active for at least 3 days
-        const planStart = new Date(startDate);
-        const daysSinceStart = (Date.now() - planStart.getTime()) / 86400000;
-        if (daysSinceStart >= 3) {
-          setShowRegenCta(true);
-        }
-      }
-    };
-    fetchData();
-  }, [user, location.key]);
-
-  const firstName = profile?.name?.split(" ")[0] || "Estudante";
-
-  // Filter missions excluding superseded
-  const activeMissions = missions.filter((m) => m.status !== MISSION_STATUSES.SUPERSEDED);
-  const completedMissionsList = activeMissions.filter((m) => m.status === MISSION_STATUSES.COMPLETED);
-  const pendingMissions = activeMissions
-    .filter((m) => m.status === MISSION_STATUSES.PENDING || m.status === MISSION_STATUSES.IN_PROGRESS)
-    .sort((a, b) => (a.mission_order ?? 999) - (b.mission_order ?? 999));
-  const completedCount = completedMissionsList.length;
-  const totalToday = activeMissions.length;
-  const hasMissions = totalToday > 0;
-  const allDone = hasMissions && pendingMissions.length === 0;
-  const needsDiagnostic = !profile?.onboarding_complete;
-  const [showCompleted, setShowCompleted] = useState(false);
-
-  const totalMinutesToday = activeMissions.reduce((s, m) => s + (m.estimated_minutes || 15), 0);
-  const completedMinutesToday = completedMissionsList.reduce((s, m) => s + (m.estimated_minutes || 15), 0);
-
-  const weeklyPct = weeklySessionsTarget > 0
-    ? Math.round((weeklySessionsDone / weeklySessionsTarget) * 100)
-    : 0;
-
-  const monthlyPct = monthlyTarget > 0
-    ? Math.round((monthlyDone / monthlyTarget) * 100)
-    : 0;
-
-  const nextMission = pendingMissions[0] || null;
-
-  const daysUntilExam = profile?.exam_date
-    ? Math.max(0, Math.ceil((new Date(profile.exam_date).getTime() - Date.now()) / 86400000))
-    : null;
-
-  // Missões atrasadas ordenadas por data (mais antiga primeiro)
-  const sortedOverdueMissions = [...overdueMissions].sort((a, b) => a.date.localeCompare(b.date));
-  const firstOverdueMission = sortedOverdueMissions[0] ?? null;
-
-
-  if (loading) {
+  if (metricsLoading) {
     return (
-      <div className="min-h-screen bg-bg-app flex items-center justify-center">
-        <div className="h-8 w-8 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center py-20">
+        <div className="h-8 w-8 border-2 border-coral border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-bg-app pb-24 md:pb-0">
-      {/* ─── Header (full width) ────────────────────────────────── */}
-      <header className="mb-6 animate-fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+    <div className="pb-24 md:pb-0">
+      <div className="max-w-[980px] mx-auto">
+        {/* 1. Header */}
+        <header className="flex items-start justify-between flex-wrap gap-3 pt-4 pb-5">
           <div>
-            <h1 className="text-2xl font-bold text-ink-strong">Olá, {firstName}</h1>
+            <h1 className="text-2xl font-bold tracking-[-0.5px] text-[#2C2C2A]">
+              Olá, {firstName || "Estudante"}
+            </h1>
+            <div className="text-[13px] text-[#888780] mt-0.5">{today}</div>
           </div>
-          {daysUntilExam !== null && (
-            <div className="inline-flex items-center gap-2.5 bg-bg-card border border-line-light rounded-card px-4 py-2.5 shadow-card shrink-0 self-start">
-              <Calendar className="h-4 w-4 text-ink-soft shrink-0" />
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-wider text-ink-soft font-medium leading-none mb-0.5">
-                  Próxima prova
-                </p>
-                <p className="text-sm leading-tight">
-                  <span className="font-semibold text-ink-strong">{examName || "Vestibular"}</span>
-                  <span className="text-ink-soft mx-1.5">·</span>
-                  <span className="font-medium text-ink-strong">{formatCountdown(daysUntilExam)}</span>
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </header>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3.5 py-1.5 rounded-full bg-[#FFF3E6] text-[#854F0B]">
+              <Star className="h-3.5 w-3.5 fill-current" />
+              {metrics?.total_xp ?? 0} XP
+            </span>
+            <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3.5 py-1.5 rounded-full bg-[#FCEBEB] text-[#A32D2D]">
+              <Flame className="h-3.5 w-3.5" />
+              {metrics?.current_streak ?? 0} dias
+            </span>
+            {daysUntilExam != null && hasExamConfig && (
+              <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-3.5 py-1.5 rounded-full bg-coral-light text-coral-dark">
+                <Clock className="h-3.5 w-3.5" />
+                {daysUntilExam} dias para a {metrics?.exam_name}
+              </span>
+            )}
+          </div>
+        </header>
 
-      {/* ─── Needs diagnostic CTA ─────────────────────────────── */}
-      {needsDiagnostic && (
-        <Link
-          to="/diagnostic/intro"
-          className="block bg-bg-card rounded-card p-6 border border-line-light shadow-card hover:shadow-card-hover transition-shadow animate-fade-in mb-6"
-        >
-          <div className="flex items-start gap-4">
-            <div className="h-10 w-10 rounded-xl bg-bg-app flex items-center justify-center shrink-0">
-              <Target className="h-5 w-5 text-ink-strong" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-base font-semibold text-ink-strong">Comece pelo diagnóstico</h3>
-              <p className="text-sm text-ink-soft mt-1 leading-relaxed">
-                8 questões rápidas para montar seu plano personalizado
+        {/* 2. Stat cards linha 1 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+          <StatCard label="Missões hoje">
+            {missionsTodayTotal > 0 ? (
+              <>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[26px] font-bold text-[#2C2C2A] leading-none">
+                    {missionsTodayCompleted}
+                  </span>
+                  <span className="text-sm text-[#888780]">
+                    /{missionsTodayTotal}
+                  </span>
+                </div>
+                <div className="w-full h-[5px] bg-[#F1EFE8] rounded-sm mt-2 overflow-hidden">
+                  <div
+                    className="h-full bg-coral rounded-sm transition-[width] duration-300"
+                    style={{ width: `${todayPct}%` }}
+                  />
+                </div>
+              </>
+            ) : (
+              <p className="text-[13px] text-[#888780] mt-1">
+                Sem missões hoje.
               </p>
-            </div>
-            <ArrowRight className="h-5 w-5 text-ink-soft mt-0.5 shrink-0" />
-          </div>
-        </Link>
-      )}
+            )}
+          </StatCard>
 
-      {/* ─── 2-column grid ────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* ══════ LEFT COLUMN ══════ */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* ─── Card: Hoje ─────────────────────────────────── */}
-          {hasMissions && (
-            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
-              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Hoje</span>
-              <div className="flex items-baseline gap-2 mt-2">
-                <span className="text-2xl font-bold text-ink-strong">
-                  {completedCount}/{totalToday} missões
+          <StatCard label="% acerto geral">
+            {acertoTrend?.current != null ? (
+              <div className="flex items-baseline gap-2">
+                <span className="text-[26px] font-bold text-[#2C2C2A] leading-none">
+                  {acertoTrend.current}%
                 </span>
+                {acertoTrend.delta != null && (
+                  <span
+                    className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap ${
+                      acertoTrend.delta >= 0
+                        ? "bg-[#E1F5EE] text-[#1D9E75]"
+                        : "bg-[#FCEBEB] text-[#A32D2D]"
+                    }`}
+                  >
+                    {acertoTrend.delta >= 0 ? "+" : ""}
+                    {acertoTrend.delta}%
+                  </span>
+                )}
               </div>
-              <div className="mt-3">
-                <ProgressBar
-                  value={totalToday > 0 ? (completedCount / totalToday) * 100 : 0}
-                  color="#059669"
-                />
-              </div>
-              <p className="text-sm text-ink-soft mt-2">
-                {completedMinutesToday} de {totalMinutesToday} min
-              </p>
+            ) : (
+              <p className="text-[13px] text-[#888780]">Sem respostas no período.</p>
+            )}
+            <div className="mt-2">
+              <SegmentedControl
+                options={ACERTO_OPTIONS}
+                active={acertoLabel}
+                onChange={setAcertoLabel}
+              />
             </div>
-          )}
+          </StatCard>
 
-          {/* ─── Card: Próxima Missão ──────────────────────── */}
-          {nextMission ? (
-            <div
-              className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in"
-              style={{ borderLeftWidth: "4px", borderLeftColor: getSubjectColor(nextMission.subject) }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <SubjectBadge subject={nextMission.subject} />
-                  <p className="text-base text-ink mt-2">{nextMission.subtopic}</p>
-                  <div className="flex items-center gap-3 mt-1.5 text-sm text-ink-soft">
-                    <span>{missionTypeLabels[nextMission.mission_type] || nextMission.mission_type}</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3.5 w-3.5" />
-                      {nextMission.estimated_minutes || 15} min
+          <StatCard label="Prob. aprovação">
+            {hasEnoughForProb && probabilityPct != null ? (
+              <>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[26px] font-bold text-[#2C2C2A] leading-none">
+                    {probabilityPct}%
+                  </span>
+                  {metrics?.course_name && (
+                    <span className="text-xs text-[#888780]">
+                      {metrics.exam_name} {metrics.course_name}
                     </span>
-                  </div>
+                  )}
+                </div>
+                <div className="w-full h-[5px] bg-[#F1EFE8] rounded-sm mt-2 overflow-hidden">
+                  <div
+                    className="h-full bg-[#1D9E75] rounded-sm transition-[width] duration-300"
+                    style={{ width: `${probabilityPct}%` }}
+                  />
+                </div>
+                <div className="text-xs text-[#888780] mt-1">
+                  {totalQuestions} questões respondidas
+                </div>
+              </>
+            ) : (
+              <p className="text-[13px] text-[#888780] mt-1 leading-relaxed">
+                Complete {questionsRemaining} questões para liberar a estimativa.
+              </p>
+            )}
+          </StatCard>
+        </div>
+
+        {/* 3. Stat cards linha 2 */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+          <StatCard label="Simulados feitos">
+            <div className="text-[26px] font-bold text-[#2C2C2A] leading-none">
+              {totalExams}
+            </div>
+            <div className="text-xs text-[#888780] mt-1">
+              {lastExamScore != null
+                ? `Último: ${Math.round(lastExamScore)}/100`
+                : "Nenhum ainda"}
+            </div>
+          </StatCard>
+
+          <StatCard label="Tarefas totais">
+            {totalGenerated > 0 ? (
+              <>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-[26px] font-bold text-[#2C2C2A] leading-none">
+                    {tasksPct}%
+                  </span>
+                  <span className="text-xs text-[#888780]">completas</span>
+                </div>
+                <div className="w-full h-[5px] bg-[#F1EFE8] rounded-sm mt-2 overflow-hidden">
+                  <div
+                    className="h-full bg-coral rounded-sm transition-[width] duration-300"
+                    style={{ width: `${tasksPct}%` }}
+                  />
+                </div>
+                <div className="text-xs text-[#888780] mt-1">
+                  {totalCompleted} de {totalGenerated} missões concluídas
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[13px] text-[#888780] mt-1">
+                  Gere seu plano de estudos.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate("/diagnostic/intro")}
+                  className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-coral hover:text-coral-dark transition-colors"
+                >
+                  Gerar plano <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+          </StatCard>
+
+          <StatCard label="Questões respondidas">
+            <div className="text-[26px] font-bold text-[#2C2C2A] leading-none">
+              {totalQuestions}
+            </div>
+            <div className="text-xs text-[#888780] mt-1">
+              {totalQuestions > 0
+                ? `Acertadas: ${totalCorrect} · Erradas: ${totalErradas}`
+                : "Comece respondendo sua primeira questão."}
+            </div>
+          </StatCard>
+        </div>
+
+        {/* 4. Evolução de questões */}
+        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-5">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <span className="text-[15px] font-semibold text-[#2C2C2A]">
+              Evolução de questões respondidas
+            </span>
+            <SegmentedControl
+              options={EVO_PERIOD_OPTIONS}
+              active={evoLabel}
+              onChange={setEvoLabel}
+            />
+          </div>
+          <div className="mb-3">
+            <SubjectSelect
+              value={evoSubject}
+              onChange={setEvoSubject}
+              subjects={subjectsFromProficiency}
+            />
+          </div>
+          {totalQuestions === 0 ? (
+            <p className="text-[13px] text-[#888780] py-10 text-center">
+              Responda questões para ver sua evolução.
+            </p>
+          ) : (
+            <div className="flex gap-5 flex-wrap md:flex-nowrap">
+              <div className="flex-1 min-w-0">
+                <EvolutionChart data={evoData ?? []} />
+              </div>
+              <div className="w-full md:w-[150px] text-[13px] shrink-0">
+                <p className="font-semibold mb-2 text-[#2C2C2A]">Desempenho</p>
+                <div className="flex justify-between py-1">
+                  <span className="text-[#888780]">Acertadas</span>
+                  <span className="font-semibold text-[#1D9E75]">
+                    {overallAcertoPct}%
+                  </span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-[#888780]">Erradas</span>
+                  <span className="font-semibold text-[#A32D2D]">
+                    {overallErradaPct}%
+                  </span>
                 </div>
               </div>
-              <button
-                onClick={() => navigate(`/mission/${nextMission.mission_type}/${nextMission.id}`)}
-                className="mt-4 w-full flex items-center justify-center gap-2 bg-ink-strong text-white rounded-input px-4 py-2.5 text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
-              >
-                {nextMission.status === MISSION_STATUSES.IN_PROGRESS ? "Continuar missão" : "Começar missão"} <ArrowRight className="h-4 w-4" />
-              </button>
             </div>
-          ) : hasMissions && allDone ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="Sessão completa. Bom trabalho!"
-              description="Todas as missões de hoje foram concluídas."
-            />
-          ) : null}
+          )}
+        </section>
 
-          {/* ─── Remaining pending missions ─────────────────── */}
-          {pendingMissions.length > 1 && (
-            <div className="bg-bg-card rounded-card border border-line-light shadow-card overflow-hidden animate-fade-in">
-              {pendingMissions.slice(1).map((mission, i) => (
-                <Link
-                  key={mission.id}
-                  to={`/mission/${mission.mission_type}/${mission.id}`}
-                  className={`flex items-center gap-4 px-5 py-4 transition-colors hover:bg-bg-app ${i > 0 ? "border-t border-line-light" : ""}`}
+        {/* 5. Missões do dia */}
+        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-5">
+          <div className="text-[15px] font-semibold text-[#2C2C2A] mb-3.5">
+            Missões do dia
+          </div>
+          {!hasMissions ? (
+            <div>
+              <p className="text-[13px] text-[#888780]">Sem missões hoje.</p>
+              {!hasActivePlan && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/diagnostic/intro")}
+                  className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-coral hover:text-coral-dark transition-colors"
                 >
-                  <div
-                    className="h-2 w-2 rounded-full shrink-0"
-                    style={{ backgroundColor: getSubjectColor(mission.subject) }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-ink truncate">
-                      {mission.subject} — {missionTypeLabels[mission.mission_type] || mission.mission_type}
-                    </p>
-                    <p className="text-xs text-ink-soft mt-0.5 truncate">{mission.subtopic}</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-xs text-ink-soft shrink-0">
-                    <Clock className="h-3 w-3" />
-                    {mission.estimated_minutes || 15} min
-                  </div>
-                </Link>
+                  Gerar novo plano <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ) : allCompleted ? (
+            <p className="text-[13px] text-[#888780]">
+              Sessão do dia completa. Bom trabalho!
+            </p>
+          ) : (
+            <div>
+              {activeMissions.map((m, i) => (
+                <MissionRow
+                  key={m.id}
+                  mission={m}
+                  isNext={i === nextPendingIndex}
+                />
               ))}
             </div>
           )}
+        </section>
 
-          {/* ─── Completed missions accordion ──────────────── */}
-          {completedCount > 0 && (
-            <div className="animate-fade-in">
-              <button
-                onClick={() => setShowCompleted(!showCompleted)}
-                className="flex items-center gap-2 text-sm font-medium text-ink-soft hover:text-ink-strong transition-colors"
-              >
-                <ChevronDown className={`h-4 w-4 transition-transform ${showCompleted ? "" : "-rotate-90"}`} />
-                Concluídas ({completedCount})
-              </button>
-              {showCompleted && (
-                <div className="mt-2 bg-bg-card rounded-card border border-line-light shadow-card overflow-hidden">
-                  {completedMissionsList.map((mission, i) => (
-                    <Link
-                      key={mission.id}
-                      to={`/mission/${mission.mission_type}/${mission.id}`}
-                      className={`flex items-center gap-4 px-5 py-3 opacity-60 hover:opacity-80 transition-opacity ${i > 0 ? "border-t border-line-light" : ""}`}
-                    >
-                      <CheckCircle2 className="h-4 w-4 text-signal-ok shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <SubjectBadge subject={mission.subject} />
-                          <span className="text-sm text-ink-soft">
-                            {missionTypeLabels[mission.mission_type] || mission.mission_type}
-                          </span>
-                        </div>
-                      </div>
-                      {mission.score != null && (
-                        <span className="text-sm font-medium text-ink-soft shrink-0">
-                          {Math.round(mission.score)}%
-                        </span>
-                      )}
-                    </Link>
-                  ))}
-                </div>
-              )}
+        {/* 6. Proficiência por matéria */}
+        {proficiency && proficiency.length > 0 && (
+          <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-5">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <span className="text-[15px] font-semibold text-[#2C2C2A]">
+                Proficiência por matéria
+              </span>
+              <SegmentedControl
+                options={PROF_OPTIONS}
+                active={profLabel}
+                onChange={setProfLabel}
+              />
             </div>
-          )}
+            <p className="text-[11px] text-[#B4B2A9] mb-2.5">
+              Clique em uma matéria para expandir os subtemas
+            </p>
+            <div>
+              {proficiency.map((row) => {
+                const color = SUBJECT_COLORS[row.subject] ?? "#888780";
+                const isExpanded = expandedSubject === row.subject;
+                return (
+                  <SubjectProficiencyRow
+                    key={row.subject}
+                    subject={row.subject}
+                    score={row.score}
+                    delta={row.delta}
+                    color={color}
+                    isExpanded={isExpanded}
+                    onToggle={() =>
+                      setExpandedSubject(isExpanded ? null : row.subject)
+                    }
+                    subtopics={isExpanded ? subtopics : undefined}
+                    subtopicsLoading={isExpanded && subtopicsLoading}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-          {/* ─── Regeneration CTA ─────────────────────────── */}
-          {showRegenCta && !regenerating && (
-            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-xl bg-bg-app flex items-center justify-center shrink-0">
-                  <RefreshCw className="h-5 w-5 text-ink-strong" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold text-ink-strong">
-                    Você completou {completionRate}% do plano!
-                  </h3>
-                  <p className="text-sm text-ink-soft mt-1">
-                    Quer gerar a próxima semana com base no seu progresso?
-                  </p>
-                  <button
-                    onClick={() => user && regeneratePlan(user.id)}
-                    className="mt-3 px-5 py-2 rounded-input bg-ink-strong text-white text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
-                  >
-                    Gerar próxima semana
-                  </button>
-                </div>
+        {/* 7. Análise de provas e simulados */}
+        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-5">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3.5">
+            <span className="text-[15px] font-semibold text-[#2C2C2A]">
+              Análise de provas e simulados
+            </span>
+            <div className="flex gap-1.5 flex-wrap">
+              <SegmentedControl
+                options={SIM_TYPE_OPTIONS}
+                active={simTypeLabel}
+                onChange={setSimTypeLabel}
+              />
+              <SegmentedControl
+                options={SIM_PERIOD_OPTIONS}
+                active={simPeriodLabel}
+                onChange={setSimPeriodLabel}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="bg-[#F7F6F3] rounded-[10px] px-3.5 py-3 text-center">
+              <div className="text-[11px] text-[#888780]">Simulados feitos</div>
+              <div className="text-[22px] font-bold mt-0.5 text-[#2C2C2A]">
+                {totalExams}
               </div>
             </div>
-          )}
-
-          {regenerating && (
-            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card flex items-center gap-3 animate-fade-in">
-              <div className="h-5 w-5 border-2 border-ink-strong border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-ink">Gerando novo plano semanal...</p>
+            <div className="bg-[#F7F6F3] rounded-[10px] px-3.5 py-3 text-center">
+              <div className="text-[11px] text-[#888780]">Melhor nota</div>
+              <div className="text-[22px] font-bold mt-0.5 text-[#1D9E75]">
+                {bestExamScore != null ? `${Math.round(bestExamScore)}%` : "—"}
+              </div>
             </div>
-          )}
-
-          {/* ─── Empty states inteligentes ────────────────────────── */}
-          {!needsDiagnostic && !hasMissions && (
-            <>
-              {/* A) Sem plano ativo */}
-              {hasActivePlan === false && (
-                <EmptyState
-                  icon={Target}
-                  title="Você ainda não tem um plano ativo"
-                  description="Gere seu plano de estudos personalizado para começar."
-                  actionLabel="Gerar plano"
-                  onAction={() => navigate("/diagnostic/intro")}
-                />
-              )}
-
-              {/* C) Plano existe, missões atrasadas de dias anteriores */}
-              {hasActivePlan && overdueMissions.length > 0 && (
-                <>
-                  <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
-                    <div className="flex items-start gap-4">
-                      <div className="h-10 w-10 rounded-xl bg-bg-app flex items-center justify-center shrink-0">
-                        <AlertCircle className="h-5 w-5 text-ink-strong" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-base font-semibold text-ink-strong">
-                          {overdueMissions.length} {overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"}
-                        </h3>
-                        <p className="text-sm text-ink-soft mt-1 leading-relaxed">
-                          {overdueMissions.length === 1 ? "Uma missão de um dia anterior" : "Missões de dias anteriores"} ainda não {overdueMissions.length === 1 ? "foi concluída" : "foram concluídas"}.
-                        </p>
-                        {/* Preview das primeiras 3 missões (ordenadas por data) */}
-                        <div className="mt-3 space-y-1.5">
-                          {sortedOverdueMissions.slice(0, 3).map((m) => (
-                            <div key={m.id} className="flex items-center gap-2">
-                              <div
-                                className="h-1.5 w-1.5 rounded-full shrink-0"
-                                style={{ backgroundColor: getSubjectColor(m.subject) }}
-                              />
-                              <span className="text-sm text-ink truncate flex-1">
-                                {m.subject}
-                              </span>
-                              <span className="text-xs text-ink-soft shrink-0">
-                                {formatMissionDate(m.date)}
-                              </span>
-                            </div>
-                          ))}
-                          {overdueMissions.length > 3 && (
-                            <button
-                              onClick={() => setPendingDrawerOpen(true)}
-                              className="text-xs text-brand-500 hover:underline cursor-pointer pl-3.5"
-                            >
-                              + {overdueMissions.length - 3} mais
-                            </button>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => firstOverdueMission && navigate(`/mission/${firstOverdueMission.mission_type}/${firstOverdueMission.id}`)}
-                          className="mt-4 px-5 py-2 rounded-input bg-ink-strong text-white text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
-                        >
-                          Retomar pendentes
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Drawer: todas as missões pendentes */}
-                  <Sheet open={pendingDrawerOpen} onOpenChange={setPendingDrawerOpen}>
-                    <SheetContent side="right" className="flex flex-col">
-                      <SheetHeader>
-                        <SheetTitle>Missões pendentes</SheetTitle>
-                      </SheetHeader>
-                      <div className="mt-4 flex-1 overflow-y-auto space-y-0.5">
-                        {sortedOverdueMissions.map((m) => (
-                          <button
-                            key={m.id}
-                            onClick={() => {
-                              setPendingDrawerOpen(false);
-                              navigate(`/mission/${m.mission_type}/${m.id}`);
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-accent text-left transition-colors"
-                          >
-                            <div
-                              className="h-2 w-2 rounded-full shrink-0"
-                              style={{ backgroundColor: getSubjectColor(m.subject) }}
-                            />
-                            <span className="flex-1 text-sm text-foreground font-medium truncate">{m.subject}</span>
-                            <span className="text-xs text-muted-foreground shrink-0">{formatMissionDate(m.date)}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </SheetContent>
-                  </Sheet>
-                </>
-              )}
-
-              {/* B) Plano existe, sem missões hoje e sem atraso */}
-              {hasActivePlan && overdueMissions.length === 0 && (
-                <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
-                  <div className="flex items-start gap-4">
-                    <div className="h-10 w-10 rounded-xl bg-bg-app flex items-center justify-center shrink-0">
-                      <BookOpen className="h-5 w-5 text-ink-soft" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-base font-semibold text-ink-strong">Hoje não é um dia planejado de estudo</h3>
-                      <p className="text-sm text-ink-soft mt-1 leading-relaxed">
-                        Seu plano não inclui estudo hoje. Você pode ver o que vem nos próximos dias ou praticar por conta própria.
-                      </p>
-                      <div className="flex items-center gap-3 mt-3 flex-wrap">
-                        <button
-                          onClick={() => navigate("/study")}
-                          className="px-5 py-2 rounded-input bg-ink-strong text-white text-sm font-semibold hover:bg-ink-strong/90 transition-colors"
-                        >
-                          Ver semana
-                        </button>
-                        <button
-                          onClick={() => navigate("/exams")}
-                          className="px-5 py-2 rounded-input bg-bg-app border border-line-light text-sm font-medium text-ink-strong hover:shadow-card transition-shadow"
-                        >
-                          Praticar por conta
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* ══════ RIGHT COLUMN ══════ */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* ─── Card: Sua Semana ──────────────────────────── */}
-          {!needsDiagnostic && (
-            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
-              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Sua semana</span>
-              {weeklySessionsTarget === 0 ? (
-                overdueMissions.length > 0 ? (
-                  <div className="mt-2">
-                    <p className="text-sm text-ink-soft">Sem missões planejadas para esta semana.</p>
-                    <p className="text-sm font-medium text-ink-strong mt-1">
-                      {overdueMissions.length} {overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"} de semanas anteriores.
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-sm text-ink-soft mt-2">Nenhuma missão planejada para esta semana.</p>
-                )
-              ) : (
-                <>
-                  <p className="text-lg font-semibold text-ink-strong mt-2">
-                    {weeklySessionsDone} de {weeklySessionsTarget} missões concluídas
-                  </p>
-                  <div className="mt-3">
-                    <ProgressBar value={weeklyPct} />
-                  </div>
-                  <p className="text-sm text-ink-soft mt-2">{weeklyPct}% da semana concluída</p>
-                  {overdueMissions.length > 0 && (
-                    <p className="text-xs text-ink-muted mt-2 border-t border-line-light pt-2">
-                      + {overdueMissions.length} {overdueMissions.length === 1 ? "missão pendente" : "missões pendentes"} de semanas anteriores
-                    </p>
-                  )}
-                </>
-              )}
+            <div className="bg-[#F7F6F3] rounded-[10px] px-3.5 py-3 text-center">
+              <div className="text-[11px] text-[#888780]">Última nota</div>
+              <div className="text-[22px] font-bold mt-0.5 text-[#2C2C2A]">
+                {lastExamScore != null ? `${Math.round(lastExamScore)}%` : "—"}
+              </div>
             </div>
-          )}
+          </div>
 
-          {/* ─── Card: Seu Mês ─────────────────────────────── */}
-          {!needsDiagnostic && monthlyTarget > 0 && (
-            <div className="bg-bg-card rounded-card p-5 border border-line-light shadow-card animate-fade-in">
-              <span className="text-xs uppercase tracking-wider text-ink-soft font-medium">Seu mês</span>
-              <p className="text-lg font-semibold text-ink-strong mt-2">
-                {monthlyDone} de {monthlyTarget} missões concluídas
+          {totalExams === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-[13px] text-[#888780] mb-3">
+                Seu primeiro mini simulado leva 75 min.
               </p>
-              <div className="mt-3">
-                <ProgressBar value={monthlyPct} />
-              </div>
-              <p className="text-sm text-ink-soft mt-2">{monthlyPct}% do mês concluído</p>
+              <button
+                type="button"
+                onClick={() => navigate("/exams")}
+                className="inline-flex items-center gap-1 px-5 py-2 rounded-lg bg-coral text-white text-[13px] font-semibold hover:brightness-110 transition-all"
+              >
+                Iniciar <ArrowRight className="h-3.5 w-3.5" />
+              </button>
             </div>
+          ) : (
+            <ExamsChart data={simData ?? []} />
           )}
-
-          {/* ─── Card: Seu Progresso (compacto) ─── */}
-          {!needsDiagnostic && (
-            <div className="bg-bg-card rounded-card px-5 py-3.5 border border-line-light animate-fade-in flex items-center gap-3 flex-wrap">
-              <Flame className="h-4 w-4 text-brand-500 shrink-0" />
-              <span className="text-sm font-medium text-ink-strong">{profile?.current_streak || 0} dias</span>
-              <span className="text-line-light">·</span>
-              <Zap className="h-4 w-4 text-brand-500 shrink-0" />
-              <span className="text-sm font-medium text-ink-strong">{profile?.total_xp || 0} XP</span>
-              {totalAnswered !== null && totalAnswered > 0 && (
-                <>
-                  <span className="text-line-light">·</span>
-                  <span className="text-sm text-ink-soft">{totalAnswered} questões</span>
-                </>
-              )}
-            </div>
-          )}
-        </div>
+        </section>
       </div>
 
       <BottomNav />
     </div>
   );
-};
-
-export default Dashboard;
+}

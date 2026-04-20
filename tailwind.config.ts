@@ -104,6 +104,10 @@ export default {
         "signal-info": "#2563EB",
         "signal-ok": "#059669",
         "signal-error": "#DC2626",
+        // Dashboard v4 palette
+        coral: "#D85A30",
+        "coral-light": "#FAECE7",
+        "coral-dark": "#993C1D",
       },
       borderRadius: {
         lg: "var(--radius)",

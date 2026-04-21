@@ -52,22 +52,39 @@ const CRITICAL_ISSUE_TYPES = new Set([
 // Supabase fetch with retry: wraps the global fetch so every query the
 // supabase-js client issues survives transient DNS / connection hiccups
 // (ENOTFOUND, ECONNRESET, "DNS cache overflow", UND_ERR_*) without each
-// call-site having to know about it. Exponential backoff up to 5 tries.
+// call-site having to know about it. Also inspects err.cause because
+// undici nests the real network error one level down while the outer
+// Error message is a generic "fetch failed".
+const SUPABASE_FETCH_RETRIES = 8;
 const supabaseFetch: typeof fetch = async (input, init) => {
+  const transient =
+    /DNS cache overflow|ENOTFOUND|ECONNRESET|fetch failed|UND_ERR|ETIMEDOUT|socket hang up|EAI_AGAIN|other side closed/i;
+  const messages = (err: unknown): string => {
+    const parts: string[] = [];
+    let cur: unknown = err;
+    for (let i = 0; i < 4 && cur; i++) {
+      if (cur instanceof Error) {
+        parts.push(cur.message);
+        cur = (cur as Error & { cause?: unknown }).cause;
+      } else {
+        parts.push(String(cur));
+        break;
+      }
+    }
+    return parts.join(" | ");
+  };
   let lastErr: unknown;
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < SUPABASE_FETCH_RETRIES; attempt++) {
     try {
       return await fetch(input, init);
     } catch (err) {
       lastErr = err;
-      const msg = err instanceof Error ? err.message : String(err);
-      if (
-        /DNS cache overflow|ENOTFOUND|ECONNRESET|fetch failed|UND_ERR|ETIMEDOUT|socket hang up|EAI_AGAIN/i.test(
-          msg,
-        )
-      ) {
-        const delay = 500 * Math.pow(2, attempt);
-        console.warn(`[SUPABASE-FETCH] ${msg} — retry ${attempt + 1}/5 em ${delay}ms`);
+      const msg = messages(err);
+      if (transient.test(msg)) {
+        const delay = 500 * Math.pow(2, Math.min(attempt, 5));
+        console.warn(
+          `[SUPABASE-FETCH] ${msg} — retry ${attempt + 1}/${SUPABASE_FETCH_RETRIES} em ${delay}ms`,
+        );
         await new Promise((r) => setTimeout(r, delay));
         continue;
       }
@@ -443,14 +460,24 @@ function profileSummary(p: ProfileResult): string {
 // Strip lines that match a known page-level running header/footer or
 // are isolated page numbers. Preserves line count by leaving blank
 // lines in place — downstream Lx line numbering stays stable.
-function stripRunningHeaders(pages: ParsedPage[], profile: ProfileResult): ParsedPage[] {
+function stripRunningHeaders(
+  pages: ParsedPage[],
+  profile: ProfileResult,
+  preserveLines: ReadonlySet<string> = new Set(),
+): ParsedPage[] {
   const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
   const header = profile.running_header ? norm(profile.running_header) : "";
   const footer = profile.running_footer ? norm(profile.running_footer) : "";
   const isPageNumber = (s: string) => /^\s*\d{1,3}\s*$/.test(s);
   return pages.map((p) => {
     const lines = p.text.split("\n");
-    const cleaned = lines.map((line) => {
+    const cleaned = lines.map((line, i) => {
+      // Protect lines that the deterministic scanner identified as question
+      // markers. Without this, Fuvest 2022-24 cadernos have their bare "01",
+      // "02", ... markers replaced with empty strings (they match the
+      // page-number pattern), and the segmenter can no longer attribute
+      // question_hint, collapsing 90 questions into 25-28.
+      if (preserveLines.has(`${p.page_number}:${i + 1}`)) return line;
       const n = norm(line);
       if (!n) return line;
       if (header && n === header) return "";
@@ -2163,7 +2190,14 @@ async function main(examId: string) {
     });
 
     // 3. SEGMENTER
-    const segPages = stripRunningHeaders(pages, profile);
+    // Protect question markers from the page-number stripper by passing the
+    // set of (page, line) keys detected by the profiler scan. Line numbers
+    // survive stripping because it replaces lines with empty strings rather
+    // than deleting them, so coordinates stay aligned with the segmenter.
+    const preserveLines = new Set(
+      profilerMarkers.map((m) => `${m.page}:${m.line}`),
+    );
+    const segPages = stripRunningHeaders(pages, profile, preserveLines);
     if (profile.running_header || profile.running_footer) {
       console.log(
         `[SEGMENTER] removidos cabeçalho='${profile.running_header ?? ""}' rodapé='${profile.running_footer ?? ""}'`,

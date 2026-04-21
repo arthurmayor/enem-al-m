@@ -32,8 +32,10 @@ export function useExamHighlights() {
           .from("exam_results")
           .select("exam_name, score_percent, created_at")
           .eq("user_id", userId)
+          // Tiebreaker: when two exams share the best score, we credit the
+          // one the user achieved FIRST — not the most recent repeat.
           .order("score_percent", { ascending: false })
-          .order("created_at", { ascending: false })
+          .order("created_at", { ascending: true })
           .limit(1)
           .maybeSingle(),
         supabase

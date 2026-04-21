@@ -36,8 +36,12 @@ export function useExamsEvolution(period: ExamsPeriod, type: ExamsType) {
         .gte("created_at", cutoff)
         .order("created_at", { ascending: true });
 
-      if (type === "mock") query = query.eq("exam_type", "mock");
-      if (type === "fuvest") query = query.eq("exam_type", "fuvest");
+      // `exam_type` is a free-form text column; case variations ("Fuvest",
+      // "FUVEST", "fuvest-2026") exist in practice. `.ilike` without
+      // wildcards does a case-insensitive exact match so the filter
+      // doesn't silently return zero rows.
+      if (type === "mock") query = query.ilike("exam_type", "mock");
+      if (type === "fuvest") query = query.ilike("exam_type", "fuvest");
 
       const { data, error } = await query;
 

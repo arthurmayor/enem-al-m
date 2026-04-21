@@ -54,6 +54,13 @@ export function useQuestionsEvolution(
         rows = rows.filter((r) => r.questions?.subject === subject);
       }
 
+      // Bucket granularity changes with the period and this is intentional:
+      //   - "week"  → one bucket per DAY (7 points, labels like "14/04")
+      //   - "month", "6m", "year", "all" → one bucket per ISO-WEEK
+      //       (labels like "14 abr", one per Monday)
+      // The Segmented Control labels ("Semana", "Mês", …) therefore imply
+      // different X-axis granularity. If product wants identical step size
+      // across periods, uniformize here.
       const useDayBucket = period === "week";
       const buckets = new Map<string, { key: string; count: number; sort: number }>();
 

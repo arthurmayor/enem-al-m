@@ -345,6 +345,11 @@ function composePlan(
   // priority/budget logic above still runs and determines which subjects
   // take precedence; we just skip the type-mix and slots-per-day heuristics
   // until spaced_review / summaries etc. come back online.
+  //
+  // TODO beta: reintroduzir maxMinPerDay após validação.
+  // Hoje ignoramos `hpd` aqui, então um usuário que declarou 0.5 h/dia
+  // acaba recebendo 4 × ~25 min = ~100 min/dia. Quando a lógica adaptativa
+  // voltar, voltar a respeitar `targetMinutes(hpd)`.
   const SLOTS_PER_DAY = 4;
 
   const active = priorities

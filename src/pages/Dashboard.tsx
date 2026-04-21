@@ -150,6 +150,7 @@ export default function Dashboard() {
   // `todayTotal`/`todayCompleted` come from the same fetch as the active
   // queue, so the hero ring and the "Suas Missões" list can never diverge.
   const overdueMissions = queuedMissions?.overdueMissions ?? [];
+  const todayMissionsOrdered = queuedMissions?.todayMissions ?? [];
   const activeQueue = queuedMissions?.activeQueue ?? [];
   const missionsTodayTotal = queuedMissions?.todayTotal ?? 0;
   const missionsTodayCompleted = queuedMissions?.todayCompleted ?? 0;
@@ -158,11 +159,26 @@ export default function Dashboard() {
   const allCompleted =
     hasAnyTodayMissions && missionsTodayCompleted >= missionsTodayTotal;
   const heroMission = activeQueue[0] ?? null;
-  const nextPendingIndex = heroMission ? 0 : -1;
   const todayPct =
     missionsTodayTotal > 0
       ? Math.round((missionsTodayCompleted / missionsTodayTotal) * 100)
       : 0;
+
+  // Hero counter split (audit bug 10): show the hero's position inside its
+  // own cohort (today vs. overdue) and surface the OTHER cohort as a
+  // secondary count, so we don't mix atrasadas into "de N hoje".
+  const heroIsOverdue = heroMission?.isOverdue ?? false;
+  const heroPositionInCohort = heroMission
+    ? heroIsOverdue
+      ? overdueMissions.findIndex((m) => m.id === heroMission.id) + 1
+      : todayMissionsOrdered.findIndex((m) => m.id === heroMission.id) + 1
+    : 0;
+  const heroCohortTotal = heroIsOverdue
+    ? overdueMissions.length
+    : missionsTodayTotal;
+  const otherCohortCount = heroIsOverdue
+    ? missionsTodayTotal
+    : overdueMissions.length;
 
   const totalQuestions = metrics?.total_questions ?? 0;
   const totalCorrect = metrics?.total_correct ?? 0;
@@ -185,6 +201,14 @@ export default function Dashboard() {
   const hasExamConfig = !!metrics?.exam_name;
   const hasActivePlan =
     (metrics?.total_missions_generated ?? 0) > 0 || missionsTodayTotal > 0;
+
+  // Gamification gate (audit bug 3): XP and streak aren't written by any
+  // current code path except ExamSession. Until the backend pipeline
+  // exists, hide both pills when there's no positive signal to show —
+  // displaying "0 XP / 0 dias" perpetually is a placeholder, not data.
+  const totalXp = metrics?.total_xp ?? 0;
+  const currentStreak = metrics?.current_streak ?? 0;
+  const showGamification = totalXp > 0 || currentStreak > 0 || totalExams > 0;
 
   // Donut + period label for section 4.3
   const periodAccuracyPct = acertoPeriod?.current ?? null;
@@ -223,14 +247,18 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FFF3E6] text-[#854F0B]">
-              <Star className="h-3 w-3 fill-current" />
-              {metrics?.total_xp ?? 0} XP
-            </span>
-            <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FCEBEB] text-[#A32D2D]">
-              <Flame className="h-3 w-3" />
-              {metrics?.current_streak ?? 0} dias
-            </span>
+            {showGamification && (
+              <>
+                <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FFF3E6] text-[#854F0B]">
+                  <Star className="h-3 w-3 fill-current" />
+                  {totalXp} XP
+                </span>
+                <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FCEBEB] text-[#A32D2D]">
+                  <Flame className="h-3 w-3" />
+                  {currentStreak} dias
+                </span>
+              </>
+            )}
             {daysUntilExam != null && hasExamConfig && (
               <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FAECE7] text-[#993C1D]">
                 <Calendar className="h-3 w-3" />
@@ -250,14 +278,25 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 px-7 pt-8 pb-6 items-center">
                 {/* Left: action info */}
                 <div>
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.5px] uppercase text-[#993C1D] bg-[#FAECE7] px-2.5 py-1 rounded-md">
                       <Target className="h-3 w-3" />
                       Próxima missão
                     </span>
-                    <span className="text-[12px] text-[#B4B2A9]">
-                      {nextPendingIndex + 1} de {activeQueue.length} na fila
-                    </span>
+                    {heroCohortTotal > 0 && (
+                      <span className="text-[12px] text-[#B4B2A9]">
+                        {heroPositionInCohort} de {heroCohortTotal}{" "}
+                        {heroIsOverdue ? "atrasadas" : "hoje"}
+                      </span>
+                    )}
+                    {otherCohortCount > 0 && (
+                      <span className="text-[12px] text-[#B4B2A9]">
+                        · +{" "}
+                        {heroIsOverdue
+                          ? `${otherCohortCount} hoje`
+                          : `${otherCohortCount} atrasada${otherCohortCount > 1 ? "s" : ""}`}
+                      </span>
+                    )}
                   </div>
 
                   <h2 className="text-[28px] md:text-[32px] font-bold tracking-[-0.6px] leading-tight mb-2 text-[#2C2C2A]">

@@ -238,6 +238,7 @@ async function generateAndSavePlan(
     mission_type: string;
     status: string;
     estimated_minutes: number;
+    mission_order: number;
   }[] = [];
 
   for (const week of plan.weeks ?? []) {
@@ -249,6 +250,7 @@ async function generateAndSavePlan(
       d.setDate(d.getDate() + n * 7);
       weekdayCount[targetWeekday] = n + 1;
       const dateStr = d.toISOString().split("T")[0];
+      let orderWithinDay = 1;
       for (const mission of dayObj.missions ?? []) {
         missionsToInsert.push({
           user_id: userId,
@@ -259,7 +261,9 @@ async function generateAndSavePlan(
           mission_type: mission.type ?? "questions",
           status: MISSION_STATUSES.PENDING,
           estimated_minutes: mission.estimated_minutes ?? 15,
+          mission_order: orderWithinDay,
         });
+        orderWithinDay++;
       }
     }
   }

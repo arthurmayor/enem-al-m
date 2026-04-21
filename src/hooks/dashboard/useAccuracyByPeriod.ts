@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AccuracyPeriod = "week" | "month" | "year" | "all";
+export type AccuracyPeriod = "week" | "month" | "6m" | "year" | "all";
 
 function daysForPeriod(period: AccuracyPeriod): number {
   switch (period) {
@@ -9,6 +9,8 @@ function daysForPeriod(period: AccuracyPeriod): number {
       return 7;
     case "month":
       return 30;
+    case "6m":
+      return 180;
     case "year":
       return 365;
     default:

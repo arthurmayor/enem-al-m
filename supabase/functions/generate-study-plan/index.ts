@@ -340,158 +340,81 @@ function composePlan(
   strengths: string[],
   bottlenecks: string[],
 ): { day: string; missions: Mission[] }[] {
-  const comp = COMPOSITION[band] || COMPOSITION.intermediario;
-  const slotsPerDay = missionsPerDay(hpd);
-  const maxMinPerDay = targetMinutes(hpd);
-  const totalSlots = slotsPerDay * numDays;
+  // Beta simplification: we always emit exactly 4 "questions" missions per
+  // study day, using distinct subjects within each day. The adaptive
+  // priority/budget logic above still runs and determines which subjects
+  // take precedence; we just skip the type-mix and slots-per-day heuristics
+  // until spaced_review / summaries etc. come back online.
+  const SLOTS_PER_DAY = 4;
 
-  // §6 Determine how many slots per mission type
-  const typeSlots: { type: string; count: number }[] = [];
-  for (const [type, pct] of Object.entries(comp)) {
-    if (type === "mixed_block") continue; // §8 skip in week 1
-    let t = type;
-    if (t === "writing") t = "writing_outline"; // §8 week 1 → outline
-    const count = Math.max(type === "reading_work" || t === "writing_outline" ? 1 : 0,
-      Math.round(pct * totalSlots));
-    if (count > 0) typeSlots.push({ type: t, count });
-  }
-
-  // Build ordered mission pool: assign subjects to type slots
   const active = priorities
     .filter((p) => p.weeklyMinutes > 0)
     .sort((a, b) => b.finalPriority - a.finalPriority);
 
-  // Track remaining minutes per subject
-  const remaining = new Map<string, number>();
-  for (const p of active) remaining.set(p.subject, p.weeklyMinutes);
+  // Fall back to ALL_SUBJECTS if the priority list is somehow too short;
+  // we still need at least SLOTS_PER_DAY distinct subjects to avoid
+  // repeating a subject inside the same day.
+  const subjectPool: string[] = active.map((p) => p.subject);
+  for (const s of ALL_SUBJECTS) {
+    if (subjectPool.length >= SLOTS_PER_DAY) break;
+    if (!subjectPool.includes(s)) subjectPool.push(s);
+  }
 
-  const pool: { subject: string; type: string; minutes: number }[] = [];
   const usedSubtopics = new Set<string>();
+  const questionsDuration = durationFor("questions");
 
-  // For each type, assign subjects that still have minutes
-  for (const { type, count } of typeSlots) {
-    // Pick subjects in priority order, cycling
-    let subjectIdx = 0;
-    for (let i = 0; i < count; i++) {
-      // Find next subject with remaining minutes
-      let found = false;
-      for (let attempt = 0; attempt < active.length; attempt++) {
-        const idx = (subjectIdx + attempt) % active.length;
-        const subj = active[idx].subject;
-        const rem = remaining.get(subj) || 0;
-        const dur = durationFor(type);
-        if (rem >= dur * 0.5) {
-          pool.push({ subject: subj, type, minutes: dur });
-          remaining.set(subj, rem - dur);
-          subjectIdx = (idx + 1) % active.length;
-          found = true;
-          break;
-        }
-      }
-      if (!found && active.length > 0) {
-        // Fallback: just use highest priority
-        const subj = active[0].subject;
-        pool.push({ subject: subj, type, minutes: durationFor(type) });
-      }
-    }
-  }
-
-  // §8 Week 1 rules: mission 1 of day 1 = strength, mission 2 = bottleneck
-  const strengthItem = pool.findIndex((m) => strengths.includes(m.subject) && m.type === "questions");
-  const bottleneckItem = pool.findIndex((m) => bottlenecks.includes(m.subject) && m.type === "questions");
-
-  // Move strength to front
-  if (strengthItem > 0) {
-    const [item] = pool.splice(strengthItem, 1);
-    pool.unshift(item);
-  }
-  // Move bottleneck to second
-  const bnIdx = pool.findIndex((m) => bottlenecks.includes(m.subject) && m.type === "questions" && pool.indexOf(m) !== 0);
-  if (bnIdx > 1) {
-    const [item] = pool.splice(bnIdx, 1);
-    pool.splice(1, 0, item);
-  }
-
-  // Distribute to days
   const dayPlans: { day: string; missions: Mission[] }[] = DAYS.slice(
     0,
     numDays,
-  ).map((day) => ({ day, missions: [] }));
-
-  let dayIdx = 0;
-  for (const slot of pool) {
-    // Try to avoid same subject on same day
-    let placed = false;
-    for (let attempt = 0; attempt < numDays; attempt++) {
-      const tryDay = (dayIdx + attempt) % numDays;
-      const daySubjects = dayPlans[tryDay].missions.map((m) => m.subject);
-      const dayMinutes = dayPlans[tryDay].missions.reduce(
-        (s, m) => s + m.estimated_minutes,
-        0,
-      );
-
-      if (
-        dayPlans[tryDay].missions.length < slotsPerDay &&
-        dayMinutes + slot.minutes <= maxMinPerDay * 1.2 &&
-        !daySubjects.includes(slot.subject)
-      ) {
-        const subtopic = pickSubtopic(slot.subject, usedSubtopics);
-        dayPlans[tryDay].missions.push({
-          subject: slot.subject,
-          subtopic,
-          type: slot.type,
-          estimated_minutes: slot.minutes,
-          description: missionDescription(slot.type, slot.subject, subtopic),
-        });
-        dayIdx = (tryDay + 1) % numDays;
-        placed = true;
-        break;
-      }
-    }
-
-    if (!placed) {
-      // Fallback: place on least-full day
-      const leastFull = dayPlans.reduce((best, day, i) =>
-        day.missions.length < dayPlans[best].missions.length ? i : best, 0);
-      const subtopic = pickSubtopic(slot.subject, usedSubtopics);
-      dayPlans[leastFull].missions.push({
-        subject: slot.subject,
+  ).map((day, dayIdx) => {
+    const missions: Mission[] = [];
+    const usedToday = new Set<string>();
+    // Rotate starting offset per day so different days don't all lead
+    // with the same top-priority subject.
+    let cursor = dayIdx;
+    let guard = 0;
+    while (missions.length < SLOTS_PER_DAY && guard < subjectPool.length * 3) {
+      const subject = subjectPool[cursor % subjectPool.length];
+      cursor++;
+      guard++;
+      if (usedToday.has(subject)) continue;
+      usedToday.add(subject);
+      const subtopic = pickSubtopic(subject, usedSubtopics);
+      missions.push({
+        subject,
         subtopic,
-        type: slot.type,
-        estimated_minutes: slot.minutes,
-        description: missionDescription(slot.type, slot.subject, subtopic),
+        type: "questions",
+        estimated_minutes: questionsDuration,
+        description: missionDescription("questions", subject, subtopic),
       });
     }
-  }
+    return { day, missions };
+  });
 
-  // §9.3 Cognitive sequencing within each day
-  const intensity: Record<string, number> = {
-    short_summary: 1,
-    spaced_review: 2,
-    reading_work: 3,
-    writing_outline: 3,
-    questions: 4,
-    error_review: 5,
-    writing_partial: 5,
-    mixed_block: 6,
-  };
-
-  for (const day of dayPlans) {
-    if (day.missions.length <= 1) continue;
-    // Sort by intensity then reorder: medium → heavy → light
-    const sorted = [...day.missions].sort(
-      (a, b) => (intensity[a.type] || 3) - (intensity[b.type] || 3),
+  // §8 Week 1 rules: on the first day, lead with a strength, then a
+  // bottleneck. Only reorder within the 4 slots already chosen.
+  if (dayPlans.length > 0) {
+    const firstDay = dayPlans[0];
+    const strengthIdx = firstDay.missions.findIndex((m) =>
+      strengths.includes(m.subject),
     );
-    if (sorted.length === 2) {
-      // [lighter, heavier] → good as-is (activation → peak)
-      day.missions = sorted;
-    } else if (sorted.length >= 3) {
-      // [light, medium, heavy] → reorder to [medium, heavy, light]
-      day.missions = [sorted[1], sorted[sorted.length - 1], sorted[0]];
+    if (strengthIdx > 0) {
+      const [item] = firstDay.missions.splice(strengthIdx, 1);
+      firstDay.missions.unshift(item);
+    }
+    const bottleneckIdx = firstDay.missions.findIndex(
+      (m, i) => i !== 0 && bottlenecks.includes(m.subject),
+    );
+    if (bottleneckIdx > 1) {
+      const [item] = firstDay.missions.splice(bottleneckIdx, 1);
+      firstDay.missions.splice(1, 0, item);
     }
   }
 
-  // Remove empty days
+  // Silence unused-param warnings (kept for signature compatibility).
+  void band;
+  void hpd;
+
   return dayPlans.filter((d) => d.missions.length > 0);
 }
 

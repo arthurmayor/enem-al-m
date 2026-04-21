@@ -77,16 +77,27 @@ export default function SubjectProficiencyRow({
         }}
       >
         <div className="py-1">
-          {subtopicsLoading ? (
-            <p className="text-xs text-[#B4B2A9] pl-[34px] py-2">
-              Carregando subtemas...
-            </p>
-          ) : !subtopics || subtopics.length === 0 ? (
-            <p className="text-xs text-[#B4B2A9] pl-[34px] py-2">
-              Nenhum subtema registrado ainda.
-            </p>
-          ) : (
-            subtopics.map((st) => {
+          {(() => {
+            // "Geral" é um agregado; ele aparece como proficiência da matéria
+            // como um todo e duplica a barra superior. Filtramos no frontend.
+            const visibleSubtopics = (subtopics ?? []).filter(
+              (s) => s.subtopic.toLowerCase() !== "geral",
+            );
+            if (subtopicsLoading) {
+              return (
+                <p className="text-xs text-[#B4B2A9] pl-[34px] py-2">
+                  Carregando subtemas...
+                </p>
+              );
+            }
+            if (visibleSubtopics.length === 0) {
+              return (
+                <p className="text-xs text-[#B4B2A9] pl-[34px] py-2">
+                  Nenhum subtema registrado ainda.
+                </p>
+              );
+            }
+            return visibleSubtopics.map((st) => {
               const stClamped = Math.min(100, Math.max(0, st.score));
               return (
                 <div
@@ -111,8 +122,8 @@ export default function SubjectProficiencyRow({
                   </span>
                 </div>
               );
-            })
-          )}
+            });
+          })()}
         </div>
       </div>
     </div>

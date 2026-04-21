@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { DEV_SKIP_AUTH } from "@/contexts/AuthContext";
@@ -14,13 +14,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const fetchedForUser = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user) {
-      setProfileLoading(false);
+      fetchedForUser.current = null;
+      setOnboardingComplete(null);
       return;
     }
+    // Skip re-fetch if we already loaded for this user
+    if (fetchedForUser.current === user.id) return;
+    setProfileLoading(true);
     let cancelled = false;
     const fetchProfile = async () => {
       const { data } = await supabase
@@ -31,6 +36,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       if (!cancelled) {
         setOnboardingComplete(data?.onboarding_complete ?? false);
         setProfileLoading(false);
+        fetchedForUser.current = user.id;
       }
     };
     fetchProfile();
@@ -47,7 +53,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   // === AUTH REAL ===
-  if (loading || profileLoading) {
+  if (loading || (user && profileLoading)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />

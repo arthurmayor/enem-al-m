@@ -99,6 +99,36 @@ const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROL
   global: { fetch: supabaseFetch },
 });
 
+// Call-site retry for supabase-js operations that surface transient errors
+// (e.g. "DNS cache overflow" from Node's c-ares resolver under load) as
+// `{ error: { message: ... } }` instead of throwing. The fetch wrapper
+// above only sees errors that bubble up through fetch itself — some paths
+// in postgrest-js swallow the throw and return it as an error object,
+// bypassing the retry entirely. Wrapping the call site catches those too.
+const SUPABASE_OP_RETRIES = 6;
+async function withSupaRetry<T>(
+  label: string,
+  op: () => PromiseLike<{ error: { message: string } | null; data?: T | null }>,
+): Promise<T | null> {
+  const transient =
+    /DNS cache overflow|ENOTFOUND|ECONNRESET|FetchError|fetch failed|UND_ERR|ETIMEDOUT|socket hang up|EAI_AGAIN|other side closed/i;
+  let lastMsg = "";
+  for (let attempt = 0; attempt < SUPABASE_OP_RETRIES; attempt++) {
+    const { error, data } = await op();
+    if (!error) return (data ?? null) as T | null;
+    lastMsg = error.message;
+    if (!transient.test(lastMsg)) {
+      throw new Error(`${label}: ${lastMsg}`);
+    }
+    const delay = 500 * Math.pow(2, Math.min(attempt, 5));
+    console.warn(
+      `[SUPABASE-OP] ${label}: ${lastMsg} — retry ${attempt + 1}/${SUPABASE_OP_RETRIES} em ${delay}ms`,
+    );
+    await new Promise((r) => setTimeout(r, delay));
+  }
+  throw new Error(`${label}: ${lastMsg} (esgotadas ${SUPABASE_OP_RETRIES} tentativas)`);
+}
+
 // ───────────────────── shared types ─────────────────────
 interface ParsedPage {
   page_number: number;
@@ -623,6 +653,90 @@ function blocksByNumero(blocks: Block[]): Map<number, Block[]> {
   return by;
 }
 
+// "TEXTO PARA AS QUESTÕES 27 A 29" / "... DE 27 A 29" / "... 37 E 38" / "{27}".
+// Returns the list of question numbers referenced in the first few lines of
+// the shared_context block, or [] if no explicit reference.
+function parseSharedContextRange(text: string): number[] {
+  const head = text.split("\n").slice(0, 3).join(" ").toUpperCase();
+  const mRange = head.match(
+    /TEXTO PARA (?:AS?\s+)?QUEST[ÕO]ES?(?:\s+DE)?\s+(\d{1,3})\s*(?:A|-|–|—|ATÉ)\s*(\d{1,3})/,
+  );
+  if (mRange) {
+    const a = parseInt(mRange[1], 10);
+    const b = parseInt(mRange[2], 10);
+    if (b >= a && b - a < 20) return Array.from({ length: b - a + 1 }, (_, i) => a + i);
+  }
+  const mPair = head.match(/QUEST[ÕO]ES?\s+(\d{1,3})\s+E\s+(\d{1,3})/);
+  if (mPair) return [parseInt(mPair[1], 10), parseInt(mPair[2], 10)];
+  const mSingle = text.match(/\{(\d{1,3})\}/);
+  if (mSingle) return [parseInt(mSingle[1], 10)];
+  return [];
+}
+
+// Attach orphan shared_context blocks (question_hint=null) to the question
+// numbers they apply to. Emits a COPY of the block with question_hint set
+// per affected numero so `blocksByNumero` picks it up for the assembler.
+//
+// Resolution order per orphan:
+//   1. Explicit "QUESTÕES X A Y" / "X E Y" / "{X}" header in the block text.
+//   2. Fallback: the next N question stems on the same or following page,
+//      where N is 2 (minimum shareable group). This keeps the behavior
+//      conservative — if the segmenter didn't emit a range header we only
+//      propagate to the closest 2 stems after the block, avoiding false
+//      positives on contextless figures.
+function propagateSharedContext(blocks: Block[]): Block[] {
+  const out: Block[] = [...blocks];
+  // Map of stem/question_start blocks by numero so we can find "next stems".
+  const stems = blocks
+    .filter(
+      (b) => (b.type === "stem" || b.type === "question_start") && typeof b.question_hint === "number",
+    )
+    .sort((a, b) => {
+      const ap = a.page ?? 0;
+      const bp = b.page ?? 0;
+      if (ap !== bp) return ap - bp;
+      return (a.line_start ?? 0) - (b.line_start ?? 0);
+    });
+
+  let propagated = 0;
+  for (const b of blocks) {
+    if (b.type !== "shared_context") continue;
+    if (typeof b.question_hint === "number") continue;
+
+    // 1. Explicit range in text.
+    let numeros = parseSharedContextRange(b.text);
+
+    // 2. Fallback: next 2 stems on same or following page (after this block).
+    if (numeros.length === 0) {
+      const bp = b.page ?? 0;
+      const bl = b.line_start ?? 0;
+      const following = stems.filter((s) => {
+        const sp = s.page ?? 0;
+        if (sp < bp) return false;
+        if (sp === bp && (s.line_start ?? 0) < bl) return false;
+        if (sp > bp + 1) return false;
+        return true;
+      });
+      numeros = following.slice(0, 2).map((s) => s.question_hint as number);
+    }
+
+    // Deduplicate and drop invalid.
+    numeros = [...new Set(numeros.filter((n) => Number.isFinite(n) && n > 0))];
+    if (numeros.length === 0) continue;
+
+    for (const n of numeros) {
+      out.push({ ...b, question_hint: n });
+      propagated++;
+    }
+  }
+  if (propagated > 0) {
+    console.log(
+      `[ASSEMBLER] propagateSharedContext: ${propagated} shared_context attachments across questions`,
+    );
+  }
+  return out;
+}
+
 // If Claude serialized `options` as a JSON-encoded string (instead of the
 // expected array), try to parse it back into an array. Same for shared_context
 // or other fields if ever needed.
@@ -722,10 +836,48 @@ function stemStartsWithOption(stem: string): boolean {
   return /^\(?[A-Ea-e]\)\s+\S/.test(s);
 }
 
+// Words that a stem should NEVER end with. If the last token on the stem
+// matches one of these, the segmenter likely cut the stem mid-sentence at a
+// page/column break. We can't recover the missing text, but we can normalize
+// whitespace / remove trailing truncation artifacts so the validator's
+// heuristic doesn't fire on well-formed-but-short questions.
+const TRUNCATION_TRAILING = new RegExp(
+  "[\\s,;:]*\\b(que|e|ou|de|do|da|dos|das|em|na|no|nas|nos|a|o|as|os|por|para|com|" +
+    "sem|sobre|como|seguinte|seguintes|entre|ante|após|até|contra|desde|durante|" +
+    "mediante|perante|segundo|sob|traás|última|último|primeira|primeiro)[\\s]*[:,;—–-]?[\\s]*$",
+  "i",
+);
+
+// Collapse whitespace, trim trailing punctuation that looks like an
+// unfinished clause. Returns a normalized stem. Does NOT change semantics
+// when the stem is well-formed.
+function trimDanglingConnector(stem: string): string {
+  let s = stem.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  // If the final line ends with a bare connector AND the previous line is
+  // non-trivial, drop the dangling trailer — this converts eg. "... analise
+  // o texto e" into "... analise o texto." (readable without losing info).
+  const lines = s.split("\n").map((l) => l.trim()).filter((l) => l.length > 0);
+  if (lines.length > 0) {
+    const last = lines[lines.length - 1];
+    if (TRUNCATION_TRAILING.test(last)) {
+      lines[lines.length - 1] = last.replace(TRUNCATION_TRAILING, "").replace(/[,;:—–-]+$/g, "");
+      if (lines[lines.length - 1].length === 0) lines.pop();
+    }
+  }
+  s = lines.join("\n");
+  return s;
+}
+
 function postProcessAssembled(q: AssembledQuestion, profile: ProfileResult): AssembledQuestion {
   const out = { ...q };
   out.stem = stripHeadersFromText(out.stem, profile) ?? "";
   out.shared_context = stripHeadersFromText(out.shared_context, profile) ?? null;
+
+  // Trim dangling connectors produced by page/column breaks.
+  out.stem = trimDanglingConnector(out.stem);
+  if (out.shared_context) {
+    out.shared_context = trimDanglingConnector(out.shared_context);
+  }
 
   // Normalize option labels: strip surrounding parens/brackets so
   // gabarito "A" compares cleanly against option.label "A"
@@ -762,7 +914,8 @@ function postProcessAssembled(q: AssembledQuestion, profile: ProfileResult): Ass
 }
 
 async function runAssembler(blocks: Block[], profile: ProfileResult): Promise<AssembledQuestion[]> {
-  const byNumero = blocksByNumero(blocks);
+  const withSharedCtx = propagateSharedContext(blocks);
+  const byNumero = blocksByNumero(withSharedCtx);
   const numeros = [...byNumero.keys()].sort((a, b) => a - b);
   console.log(`[ASSEMBLER] ${numeros.length} questões para montar (parallel=${ASSEMBLER_PARALLELISM})`);
 
@@ -2330,8 +2483,11 @@ async function main(examId: string) {
       status: "raw",
     }));
     if (rows.length) {
-      const { error } = await supabase.from("question_raw").upsert(rows, { onConflict: "exam_id,numero" });
-      if (error) throw new Error(`Falha upsert question_raw: ${error.message}`);
+      await withSupaRetry("Falha upsert question_raw", () =>
+        supabase
+          .from("question_raw")
+          .upsert(rows, { onConflict: "exam_id,numero" }),
+      );
     }
     const flagged = questions.filter((q) => q.flagged).length;
     console.log(`[INSERT] ${rows.length} questões inseridas em question_raw, ${flagged} flagged`);

@@ -11,9 +11,11 @@
  *   npx tsx scripts/extract-exam-local.ts <exam_id>
  */
 
+import { createHash } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { extractText, getDocumentProxy } from "unpdf";
+import { extractText, getDocumentProxy, getResolvedPDFJS } from "unpdf";
+import { PNG } from "pngjs";
 
 // ───────────────────── config ─────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "https://nbfgqrjcrzgrprzqedtl.supabase.co";
@@ -1078,6 +1080,533 @@ async function runEnricher(examId: string): Promise<EnricherSummary> {
   return { count: persisted, by_subject: bySubject };
 }
 
+// ───────────────────── asset extractor ─────────────────────
+const ASSET_MIN_DIM = 40; // skip tiny decorative glyphs
+const ASSET_MAX_BYTES = 20 * 1024 * 1024; // 20MB PNG ceiling
+
+interface AssetManifestItem {
+  file_name: string;
+  page: number;
+  storage_path: string;
+  width: number;
+  height: number;
+  file_hash: string;
+  order_index: number;
+}
+
+interface RawImage {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+  kind?: number;
+}
+
+async function extractImagesWithMeta(pdf: unknown, pageNumber: number): Promise<RawImage[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const page = await (pdf as any).getPage(pageNumber);
+  const operatorList = await page.getOperatorList();
+  const { OPS } = await getResolvedPDFJS();
+  const out: RawImage[] = [];
+  for (let i = 0; i < operatorList.fnArray.length; i++) {
+    if (operatorList.fnArray[i] !== OPS.paintImageXObject) continue;
+    const imageKey = operatorList.argsArray[i][0];
+    try {
+      const image = await page.objs.get(imageKey);
+      if (!image?.data || !image.width || !image.height) continue;
+      out.push({
+        data: image.data as Uint8ClampedArray,
+        width: image.width as number,
+        height: image.height as number,
+        kind: image.kind as number | undefined,
+      });
+    } catch {
+      // Image not resolvable; skip.
+    }
+  }
+  return out;
+}
+
+function encodePng(img: RawImage): Buffer | null {
+  const { width, height } = img;
+  const expectedRgba = 4 * width * height;
+  const expectedRgb = 3 * width * height;
+  let rgba: Buffer;
+  if (img.kind === 3 || img.data.length === expectedRgba) {
+    rgba = Buffer.from(img.data.buffer, img.data.byteOffset, img.data.byteLength).subarray(0, expectedRgba);
+  } else if (img.kind === 2 || img.data.length === expectedRgb) {
+    rgba = Buffer.alloc(expectedRgba);
+    for (let i = 0, j = 0; j < expectedRgba; i += 3, j += 4) {
+      rgba[j] = img.data[i];
+      rgba[j + 1] = img.data[i + 1];
+      rgba[j + 2] = img.data[i + 2];
+      rgba[j + 3] = 255;
+    }
+  } else if (img.kind === 1) {
+    rgba = Buffer.alloc(expectedRgba);
+    for (let p = 0; p < width * height; p++) {
+      const byte = img.data[p >>> 3];
+      const bit = (byte >> (7 - (p & 7))) & 1;
+      const v = bit ? 255 : 0;
+      const o = p * 4;
+      rgba[o] = v;
+      rgba[o + 1] = v;
+      rgba[o + 2] = v;
+      rgba[o + 3] = 255;
+    }
+  } else {
+    // Unknown layout: bail out gracefully.
+    return null;
+  }
+  const png = new PNG({ width, height });
+  png.data = rgba;
+  try {
+    return PNG.sync.write(png);
+  } catch {
+    return null;
+  }
+}
+
+async function runAssetExtractor(
+  pdfBuffer: Uint8Array,
+  examId: string,
+): Promise<{ assets: AssetManifestItem[]; pages_scanned: number }> {
+  const pdf = await getDocumentProxy(pdfBuffer);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const numPages = (pdf as any).numPages as number;
+  const manifest: AssetManifestItem[] = [];
+  const seenHashes = new Set<string>();
+  let orderIndex = 0;
+
+  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+    let images: RawImage[] = [];
+    try {
+      images = await extractImagesWithMeta(pdf, pageNum);
+    } catch (err) {
+      console.warn(
+        `[ASSET EXTRACTOR] page ${pageNum} falhou: ${err instanceof Error ? err.message : err}`,
+      );
+      continue;
+    }
+
+    let imgIndex = 0;
+    for (const img of images) {
+      imgIndex++;
+      if (img.width < ASSET_MIN_DIM || img.height < ASSET_MIN_DIM) continue;
+      const png = encodePng(img);
+      if (!png) continue;
+      if (png.length > ASSET_MAX_BYTES) continue;
+
+      const fileHash = createHash("sha256").update(png).digest("hex");
+      if (seenHashes.has(fileHash)) continue; // dedup same decoded image across pages
+      seenHashes.add(fileHash);
+
+      const fileName = `page${pageNum}_img${imgIndex}.png`;
+      const storagePath = `assets/${examId}/${fileName}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("exam-files")
+        .upload(storagePath, png, {
+          contentType: "image/png",
+          upsert: true,
+        });
+      if (upErr) {
+        console.warn(
+          `[ASSET EXTRACTOR] upload ${storagePath} falhou: ${upErr.message}`,
+        );
+        continue;
+      }
+
+      manifest.push({
+        file_name: fileName,
+        page: pageNum,
+        storage_path: `exam-files/${storagePath}`,
+        width: img.width,
+        height: img.height,
+        file_hash: fileHash,
+        order_index: orderIndex++,
+      });
+    }
+  }
+
+  return { assets: manifest, pages_scanned: numPages };
+}
+
+// ───────────────────── media mapper ─────────────────────
+const MEDIA_MAPPER_MAX_TOKENS = 8192;
+
+const MEDIA_ROLES = ["enunciado", "alternativa", "shared_context"] as const;
+const MEDIA_TYPES = [
+  "figure",
+  "chart",
+  "map",
+  "table",
+  "photo",
+  "charge",
+  "option_image",
+] as const;
+
+const MEDIA_SYSTEM = `Associe as imagens extraídas às questões da prova.
+Roles válidos: enunciado | alternativa | shared_context
+Quando role = alternativa, adicione campo option_label (A, B, etc.)
+Media types válidos: figure | chart | map | table | photo | charge | option_image
+Se incerto: flagged = true.
+NÃO associe mídia de uma questão à vizinha.
+Use as informações de question_hint por página nos blocos para inferir
+a qual questão cada imagem pertence. Se uma imagem não pertencer a
+nenhuma questão identificável, ignore-a (não a inclua na resposta).`;
+
+const MEDIA_MAP_SCHEMA = {
+  type: "object",
+  properties: {
+    media: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          question_number: { type: "integer" },
+          role: { type: "string", enum: MEDIA_ROLES },
+          option_label: { type: ["string", "null"] },
+          media_type: { type: "string", enum: MEDIA_TYPES },
+          file_name: { type: "string" },
+          caption: { type: ["string", "null"] },
+          page: { type: "integer" },
+          flagged: { type: "boolean" },
+        },
+        required: ["question_number", "role", "media_type", "file_name", "page"],
+      },
+    },
+  },
+  required: ["media"],
+};
+
+interface MediaMapItem {
+  question_number: number;
+  role: string;
+  option_label?: string | null;
+  media_type: string;
+  file_name: string;
+  caption?: string | null;
+  page: number;
+  flagged?: boolean;
+}
+
+async function runMediaMapper(
+  manifest: AssetManifestItem[],
+  blocks: Block[],
+  profile: ProfileResult,
+): Promise<MediaMapItem[]> {
+  if (manifest.length === 0) return [];
+
+  // Keep the block payload small: only question_hint + page + type + first 120 chars of text.
+  const trimmedBlocks = blocks
+    .filter((b) => typeof b.question_hint === "number")
+    .map((b) => ({
+      question_hint: b.question_hint,
+      page: b.page,
+      type: b.type,
+      label: b.label,
+      text_preview: String(b.text ?? "").slice(0, 120),
+    }));
+
+  const user =
+    `Profile: ${profileSummary(profile)}\n\n` +
+    `Assets disponíveis:\n${JSON.stringify(manifest.map((a) => ({ file_name: a.file_name, page: a.page })))}\n\n` +
+    `Blocos da prova (apenas com question_hint):\n${JSON.stringify(trimmedBlocks)}`;
+
+  const { input } = await callTool<{ media?: MediaMapItem[] }>({
+    system: MEDIA_SYSTEM,
+    user,
+    maxTokens: MEDIA_MAPPER_MAX_TOKENS,
+    model: MODEL_SONNET,
+    toolName: "submit_media_map",
+    toolDescription: "Submit the mapping between extracted images and questions.",
+    schema: MEDIA_MAP_SCHEMA,
+  });
+
+  return input.media ?? [];
+}
+
+// Persist the media mapping after question_raw rows exist: one row per
+// (file, question) in question_media, and a rolled-up media_map column
+// on question_raw.
+async function persistMedia(
+  examId: string,
+  manifest: AssetManifestItem[],
+  mapping: MediaMapItem[],
+): Promise<number> {
+  if (mapping.length === 0) return 0;
+
+  const byFile = new Map<string, AssetManifestItem>();
+  for (const a of manifest) byFile.set(a.file_name, a);
+
+  const { data: rows, error: rowsErr } = await supabase
+    .from("question_raw")
+    .select("id, numero")
+    .eq("exam_id", examId);
+  if (rowsErr) throw new Error(`persistMedia load question_raw: ${rowsErr.message}`);
+  const idByNumero = new Map<number, string>();
+  for (const r of rows ?? []) idByNumero.set(r.numero as number, r.id as string);
+
+  const mediaRows: Record<string, unknown>[] = [];
+  const byQuestion = new Map<number, MediaMapItem[]>();
+
+  for (const m of mapping) {
+    const qid = idByNumero.get(m.question_number);
+    const asset = byFile.get(m.file_name);
+    if (!qid || !asset) continue;
+    mediaRows.push({
+      exam_id: examId,
+      question_raw_id: qid,
+      media_type: m.media_type,
+      role: m.role,
+      option_label: m.role === "alternativa" ? m.option_label ?? null : null,
+      storage_path: asset.storage_path,
+      file_name: asset.file_name,
+      caption: m.caption ?? null,
+      page: asset.page,
+      width: asset.width,
+      height: asset.height,
+      file_hash: asset.file_hash,
+      order_index: asset.order_index,
+      flagged: !!m.flagged,
+    });
+    const list = byQuestion.get(m.question_number) ?? [];
+    list.push(m);
+    byQuestion.set(m.question_number, list);
+  }
+
+  if (mediaRows.length) {
+    const { error: insErr } = await supabase.from("question_media").insert(mediaRows);
+    if (insErr) throw new Error(`persistMedia insert: ${insErr.message}`);
+  }
+
+  for (const [numero, items] of byQuestion) {
+    const qid = idByNumero.get(numero);
+    if (!qid) continue;
+    await supabase
+      .from("question_raw")
+      .update({ media_map: items })
+      .eq("id", qid);
+  }
+
+  return byQuestion.size;
+}
+
+// ───────────────────── inserter ─────────────────────
+const CRITICAL_ISSUE_TYPES = new Set([
+  "contaminacao",
+  "imagem_incorreta",
+  "legenda_quebrada",
+  "alternativas_incorretas",
+  "gabarito_invalido",
+  "duplicata_provavel",
+]);
+
+interface InserterSummary {
+  inserted: number;
+  deduped_exact: number;
+  flagged_near_dup: number;
+  skipped_no_enrichment: number;
+}
+
+function computeContentHash(stem: string, options: unknown[]): string {
+  return createHash("sha256")
+    .update(stem + JSON.stringify(options))
+    .digest("hex");
+}
+
+function computeNormalizedHash(stem: string, options: unknown[]): string {
+  const normalized = String(stem ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return createHash("sha256")
+    .update(normalized + JSON.stringify(options))
+    .digest("hex");
+}
+
+interface ExamMeta {
+  banca: string;
+  ano: number;
+  versao: string | null;
+}
+
+async function runInserter(
+  examId: string,
+  jobId: string,
+  examMeta: ExamMeta,
+): Promise<InserterSummary> {
+  // Equivalent of v_questions_ready but applied to question_raw (the
+  // source side): approved status, confidence >= 0.8, no unresolved
+  // high/critical or blocker-type issues.
+  const { data: questions, error } = await supabase
+    .from("question_raw")
+    .select(
+      "id, numero, stem, options, shared_context, note_e_adote, correct_answer, source_pages, confidence_score, enrichment",
+    )
+    .eq("exam_id", examId)
+    .eq("status", "approved")
+    .gte("confidence_score", 0.8)
+    .order("numero", { ascending: true });
+  if (error) throw new Error(`inserter load: ${error.message}`);
+  if (!questions?.length) {
+    return { inserted: 0, deduped_exact: 0, flagged_near_dup: 0, skipped_no_enrichment: 0 };
+  }
+
+  const { data: blockerIssues } = await supabase
+    .from("question_issues")
+    .select("question_raw_id, severity, issue_type, resolved")
+    .in("question_raw_id", questions.map((q) => q.id))
+    .eq("resolved", false);
+  const blockedIds = new Set<string>();
+  for (const iss of blockerIssues ?? []) {
+    if (
+      iss.severity === "high" ||
+      iss.severity === "critical" ||
+      CRITICAL_ISSUE_TYPES.has(iss.issue_type as string)
+    ) {
+      blockedIds.add(iss.question_raw_id as string);
+    }
+  }
+
+  let inserted = 0;
+  let dedupedExact = 0;
+  let flaggedNearDup = 0;
+  let skippedNoEnrichment = 0;
+
+  for (const q of questions) {
+    if (blockedIds.has(q.id)) continue;
+    const enrichment = q.enrichment as
+      | { subject?: string; subtopic?: string; difficulty?: number; tags?: string[]; competency?: string }
+      | null;
+    if (!enrichment?.subject || !enrichment?.subtopic) {
+      skippedNoEnrichment++;
+      continue;
+    }
+
+    const rawOpts = Array.isArray(q.options) ? (q.options as AssembledOption[]) : [];
+    const correctAns = String(q.correct_answer ?? "").trim();
+    const convertedOptions = rawOpts.map((o) => ({
+      label: o.label,
+      text: o.text,
+      is_correct: correctAns !== "" && correctAns !== "*" && o.label === correctAns,
+    }));
+
+    const stem = String(q.stem ?? "");
+    const contentHash = computeContentHash(stem, convertedOptions);
+    const normalizedHash = computeNormalizedHash(stem, convertedOptions);
+
+    // Dedup exact.
+    const { data: exact, error: exactErr } = await supabase
+      .from("questions")
+      .select("id")
+      .eq("content_hash", contentHash)
+      .limit(1)
+      .maybeSingle();
+    if (exactErr && exactErr.code !== "PGRST116") {
+      throw new Error(`inserter exact dup check: ${exactErr.message}`);
+    }
+    if (exact?.id) {
+      await supabase.from("question_occurrences").insert({
+        question_id: exact.id,
+        exam_id: examId,
+        raw_question_id: q.id,
+        numero_na_prova: q.numero,
+        versao: examMeta.versao,
+        source: `${examMeta.banca} ${examMeta.ano}${examMeta.versao ? " " + examMeta.versao : ""} Q${q.numero}`,
+        source_pages: Array.isArray(q.source_pages) ? q.source_pages : null,
+      });
+      await supabase
+        .from("question_raw")
+        .update({ status: "deduped", content_hash: contentHash, normalized_hash: normalizedHash })
+        .eq("id", q.id);
+      dedupedExact++;
+      continue;
+    }
+
+    // Dedup near-match.
+    const { data: near } = await supabase
+      .from("questions")
+      .select("id")
+      .eq("normalized_hash", normalizedHash)
+      .limit(1)
+      .maybeSingle();
+    if (near?.id) {
+      await supabase.from("question_issues").insert({
+        question_raw_id: q.id,
+        job_id: jobId,
+        issue_type: "duplicata_provavel",
+        severity: "medium",
+        description: `Possível duplicata de questions.id=${near.id} (mesmo normalized_hash)`,
+        agent: "inserter",
+      });
+      await supabase
+        .from("question_raw")
+        .update({ status: "flagged", content_hash: contentHash, normalized_hash: normalizedHash })
+        .eq("id", q.id);
+      flaggedNearDup++;
+      continue;
+    }
+
+    // New question — insert.
+    const difficulty =
+      typeof enrichment.difficulty === "number" &&
+      enrichment.difficulty >= 1 &&
+      enrichment.difficulty <= 5
+        ? enrichment.difficulty
+        : 3;
+    const source = `${examMeta.banca} ${examMeta.ano}${examMeta.versao ? " " + examMeta.versao : ""} Q${q.numero}`;
+
+    const { data: ins, error: insErr } = await supabase
+      .from("questions")
+      .insert({
+        exam_type: examMeta.banca,
+        subject: enrichment.subject,
+        subtopic: enrichment.subtopic,
+        difficulty,
+        question_text: stem,
+        options: convertedOptions,
+        year: examMeta.ano,
+        tags: Array.isArray(enrichment.tags) ? enrichment.tags : null,
+        source,
+        shared_context: (q.shared_context as string | null) ?? null,
+        note_e_adote: (q.note_e_adote as string | null) ?? null,
+        exam_id: examId,
+        raw_question_id: q.id,
+        source_pages: Array.isArray(q.source_pages) ? q.source_pages : null,
+        content_hash: contentHash,
+        normalized_hash: normalizedHash,
+        ingestion_version: 1,
+        status: "approved",
+      })
+      .select("id")
+      .single();
+    if (insErr || !ins) {
+      throw new Error(`inserter insert questions (q${q.numero}): ${insErr?.message ?? "unknown"}`);
+    }
+
+    await supabase.from("question_occurrences").insert({
+      question_id: ins.id,
+      exam_id: examId,
+      raw_question_id: q.id,
+      numero_na_prova: q.numero,
+      versao: examMeta.versao,
+      source,
+      source_pages: Array.isArray(q.source_pages) ? q.source_pages : null,
+    });
+
+    await supabase
+      .from("question_raw")
+      .update({ status: "inserted", content_hash: contentHash, normalized_hash: normalizedHash })
+      .eq("id", q.id);
+    inserted++;
+  }
+
+  return { inserted, deduped_exact: dedupedExact, flagged_near_dup: flaggedNearDup, skipped_no_enrichment: skippedNoEnrichment };
+}
+
 // ───────────────────── main ─────────────────────
 async function main(examId: string) {
   // Fetch exam and resolve storage paths from the most recent job that has them
@@ -1191,6 +1720,18 @@ async function main(examId: string) {
       has_images: profile.has_images ?? null,
     }).eq("id", examId);
 
+    // 2.5. ASSET EXTRACTOR
+    const assetManifest = await runStage("extracting_assets", async () => {
+      const started = Date.now();
+      const pdfBuf = await downloadPdf(exam.prova_storage_path as string);
+      const res = await runAssetExtractor(pdfBuf, examId);
+      const sec = ((Date.now() - started) / 1000).toFixed(1);
+      console.log(
+        `[ASSET EXTRACTOR] ${res.assets.length} imagens extraídas de ${res.pages_scanned} páginas (${sec}s)`,
+      );
+      return res.assets;
+    });
+
     // 3. SEGMENTER
     const blocks = await runStage("segmenting", async () => {
       const started = Date.now();
@@ -1200,6 +1741,22 @@ async function main(examId: string) {
       return bs;
     });
     await supabase.from("extraction_jobs").update({ segmenter_blocks_json: blocks }).eq("id", jobId);
+
+    // 3.5. MEDIA MAPPER (Claude maps now; DB write deferred until question_raw exists)
+    const mediaMap = await runStage("mapping_media", async () => {
+      if (assetManifest.length === 0) {
+        console.log("[MEDIA MAPPER] sem assets — pulado");
+        return [];
+      }
+      const started = Date.now();
+      const m = await runMediaMapper(assetManifest, blocks, profile);
+      const sec = ((Date.now() - started) / 1000).toFixed(1);
+      const uniqueQuestions = new Set(m.map((x) => x.question_number)).size;
+      console.log(
+        `[MEDIA MAPPER] ${m.length} imagens mapeadas para ${uniqueQuestions} questões (${sec}s)`,
+      );
+      return m;
+    });
 
     // 4. ASSEMBLER
     const questionsRaw = await runStage("assembling", async () => {
@@ -1252,6 +1809,14 @@ async function main(examId: string) {
     console.log(`[INSERT] ${rows.length} questões inseridas em question_raw, ${flagged} flagged`);
 
     await supabase.from("extraction_jobs").update({ extracted_questions: rows.length }).eq("id", jobId);
+
+    // 5.5. Persist media mapping now that question_raw rows have IDs.
+    if (mediaMap.length > 0) {
+      const started = Date.now();
+      const mappedQuestions = await persistMedia(examId, assetManifest, mediaMap);
+      const sec = ((Date.now() - started) / 1000).toFixed(1);
+      console.log(`[MEDIA MAPPER] persistido: ${mappedQuestions} questões com mídia (${sec}s)`);
+    }
 
     // 6. GABARITO LINKER
     let gabaritoOut: Awaited<ReturnType<typeof runGabaritoLinker>> | null = null;
@@ -1309,7 +1874,37 @@ async function main(examId: string) {
       return e;
     });
 
-    // 10. Mark done
+    // 10. INSERTER — move approved+enriched rows into questions.
+    const { data: examMetaRow, error: examMetaErr } = await supabase
+      .from("exams")
+      .select("banca, ano, versao")
+      .eq("id", examId)
+      .single();
+    if (examMetaErr || !examMetaRow) {
+      throw new Error(`inserter exam meta: ${examMetaErr?.message ?? "not found"}`);
+    }
+    const examMeta: ExamMeta = {
+      banca: examMetaRow.banca as string,
+      ano: examMetaRow.ano as number,
+      versao: (examMetaRow.versao as string | null) ?? null,
+    };
+
+    const inserterOut = await runStage("inserting", async () => {
+      const started = Date.now();
+      const r = await runInserter(examId, jobId, examMeta);
+      const sec = ((Date.now() - started) / 1000).toFixed(1);
+      console.log(
+        `[INSERTER] ${r.inserted} inseridas, ${r.deduped_exact} duplicatas exatas, ${r.flagged_near_dup} prováveis (${sec}s)`,
+      );
+      if (r.skipped_no_enrichment > 0) {
+        console.log(
+          `[INSERTER] ${r.skipped_no_enrichment} puladas por falta de enrichment`,
+        );
+      }
+      return r;
+    });
+
+    // 11. Mark done
     await supabase
       .from("extraction_jobs")
       .update({
@@ -1331,6 +1926,9 @@ async function main(examId: string) {
 
     console.log(
       `\n[RESUMO] ${rows.length} extraídas, ${validatorOut.approved} approved, ${validatorOut.flagged} flagged, ${criticalTotal} com issues críticos`,
+    );
+    console.log(
+      `[RESUMO] Inserter: ${inserterOut.inserted} inseridas em questions, ${inserterOut.deduped_exact} dedup exatas, ${inserterOut.flagged_near_dup} prováveis`,
     );
     console.log(`[RESUMO] Distribuição: ${distLine || "(sem classificações)"}`);
 

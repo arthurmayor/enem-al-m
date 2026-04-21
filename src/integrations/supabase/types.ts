@@ -92,6 +92,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "answer_history_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_questions_ready"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "answer_history_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -577,6 +584,47 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_files: {
+        Row: {
+          checksum: string | null
+          created_at: string | null
+          exam_id: string
+          file_size_bytes: number | null
+          file_type: string
+          id: string
+          page_count: number | null
+          storage_path: string
+        }
+        Insert: {
+          checksum?: string | null
+          created_at?: string | null
+          exam_id: string
+          file_size_bytes?: number | null
+          file_type: string
+          id?: string
+          page_count?: number | null
+          storage_path: string
+        }
+        Update: {
+          checksum?: string | null
+          created_at?: string | null
+          exam_id?: string
+          file_size_bytes?: number | null
+          file_type?: string
+          id?: string
+          page_count?: number | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_files_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exam_results: {
         Row: {
           correct_answers: number
@@ -620,6 +668,134 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exams: {
+        Row: {
+          ano: number
+          banca: string
+          created_at: string | null
+          exam_type: string | null
+          fase: string | null
+          has_images: boolean | null
+          has_note_e_adote: boolean | null
+          has_shared_context: boolean | null
+          id: string
+          language: string | null
+          option_label_pattern: string | null
+          profile_json: Json | null
+          source_format: string | null
+          total_questions_detected: number | null
+          versao: string | null
+        }
+        Insert: {
+          ano: number
+          banca: string
+          created_at?: string | null
+          exam_type?: string | null
+          fase?: string | null
+          has_images?: boolean | null
+          has_note_e_adote?: boolean | null
+          has_shared_context?: boolean | null
+          id?: string
+          language?: string | null
+          option_label_pattern?: string | null
+          profile_json?: Json | null
+          source_format?: string | null
+          total_questions_detected?: number | null
+          versao?: string | null
+        }
+        Update: {
+          ano?: number
+          banca?: string
+          created_at?: string | null
+          exam_type?: string | null
+          fase?: string | null
+          has_images?: boolean | null
+          has_note_e_adote?: boolean | null
+          has_shared_context?: boolean | null
+          id?: string
+          language?: string | null
+          option_label_pattern?: string | null
+          profile_json?: Json | null
+          source_format?: string | null
+          total_questions_detected?: number | null
+          versao?: string | null
+        }
+        Relationships: []
+      }
+      extraction_jobs: {
+        Row: {
+          approved_questions: number | null
+          completed_at: string | null
+          created_at: string | null
+          current_stage: string | null
+          errors_count: number | null
+          exam_id: string
+          extracted_questions: number | null
+          flagged_questions: number | null
+          gabarito_storage_path: string | null
+          id: string
+          pre_parser_pages: Json | null
+          profile_json: Json | null
+          prova_storage_path: string | null
+          segmenter_blocks_json: Json | null
+          stages_log: Json | null
+          started_at: string | null
+          status: string | null
+          total_questions: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          approved_questions?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          current_stage?: string | null
+          errors_count?: number | null
+          exam_id: string
+          extracted_questions?: number | null
+          flagged_questions?: number | null
+          gabarito_storage_path?: string | null
+          id?: string
+          pre_parser_pages?: Json | null
+          profile_json?: Json | null
+          prova_storage_path?: string | null
+          segmenter_blocks_json?: Json | null
+          stages_log?: Json | null
+          started_at?: string | null
+          status?: string | null
+          total_questions?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          approved_questions?: number | null
+          completed_at?: string | null
+          created_at?: string | null
+          current_stage?: string | null
+          errors_count?: number | null
+          exam_id?: string
+          extracted_questions?: number | null
+          flagged_questions?: number | null
+          gabarito_storage_path?: string | null
+          id?: string
+          pre_parser_pages?: Json | null
+          profile_json?: Json | null
+          prova_storage_path?: string | null
+          segmenter_blocks_json?: Json | null
+          stages_log?: Json | null
+          started_at?: string | null
+          status?: string | null
+          total_questions?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extraction_jobs_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
             referencedColumns: ["id"]
           },
         ]
@@ -784,41 +960,414 @@ export type Database = {
           },
         ]
       }
-      questions: {
+      question_issues: {
+        Row: {
+          agent: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          issue_type: string
+          job_id: string | null
+          question_raw_id: string
+          resolution: string | null
+          resolved: boolean | null
+          severity: string | null
+        }
+        Insert: {
+          agent?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          issue_type: string
+          job_id?: string | null
+          question_raw_id: string
+          resolution?: string | null
+          resolved?: boolean | null
+          severity?: string | null
+        }
+        Update: {
+          agent?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          issue_type?: string
+          job_id?: string | null
+          question_raw_id?: string
+          resolution?: string | null
+          resolved?: boolean | null
+          severity?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_issues_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "extraction_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_issues_question_raw_id_fkey"
+            columns: ["question_raw_id"]
+            isOneToOne: false
+            referencedRelation: "question_raw"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_media: {
+        Row: {
+          bbox: Json | null
+          caption: string | null
+          created_at: string | null
+          exam_id: string
+          file_hash: string | null
+          file_name: string | null
+          flagged: boolean | null
+          height: number | null
+          id: string
+          media_type: string
+          option_label: string | null
+          order_index: number | null
+          page: number | null
+          question_raw_id: string
+          role: string | null
+          storage_path: string | null
+          width: number | null
+        }
+        Insert: {
+          bbox?: Json | null
+          caption?: string | null
+          created_at?: string | null
+          exam_id: string
+          file_hash?: string | null
+          file_name?: string | null
+          flagged?: boolean | null
+          height?: number | null
+          id?: string
+          media_type: string
+          option_label?: string | null
+          order_index?: number | null
+          page?: number | null
+          question_raw_id: string
+          role?: string | null
+          storage_path?: string | null
+          width?: number | null
+        }
+        Update: {
+          bbox?: Json | null
+          caption?: string | null
+          created_at?: string | null
+          exam_id?: string
+          file_hash?: string | null
+          file_name?: string | null
+          flagged?: boolean | null
+          height?: number | null
+          id?: string
+          media_type?: string
+          option_label?: string | null
+          order_index?: number | null
+          page?: number | null
+          question_raw_id?: string
+          role?: string | null
+          storage_path?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_media_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_media_question_raw_id_fkey"
+            columns: ["question_raw_id"]
+            isOneToOne: false
+            referencedRelation: "question_raw"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_occurrences: {
         Row: {
           created_at: string | null
+          exam_id: string | null
+          id: string
+          numero_na_prova: number
+          question_id: string
+          raw_question_id: string | null
+          source: string | null
+          source_pages: number[] | null
+          versao: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          exam_id?: string | null
+          id?: string
+          numero_na_prova: number
+          question_id: string
+          raw_question_id?: string | null
+          source?: string | null
+          source_pages?: number[] | null
+          versao?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          exam_id?: string | null
+          id?: string
+          numero_na_prova?: number
+          question_id?: string
+          raw_question_id?: string | null
+          source?: string | null
+          source_pages?: number[] | null
+          versao?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_occurrences_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_occurrences_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_occurrences_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "v_questions_ready"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_occurrences_raw_question_id_fkey"
+            columns: ["raw_question_id"]
+            isOneToOne: false
+            referencedRelation: "question_raw"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_raw: {
+        Row: {
+          confidence_score: number | null
+          content_hash: string | null
+          correct_answer: string | null
+          created_at: string | null
+          enrichment: Json | null
+          exam_id: string
+          id: string
+          is_annulled: boolean | null
+          job_id: string | null
+          media_map: Json | null
+          needs_manual_review: boolean | null
+          normalized_hash: string | null
+          note_e_adote: string | null
+          numero: number
+          options: Json | null
+          question_type: string | null
+          reviewer_corrections: Json | null
+          segmenter_blocks: Json | null
+          shared_context: string | null
+          source_pages: number[] | null
+          status: string | null
+          stem: string
+          updated_at: string | null
+          validator_result: Json | null
+        }
+        Insert: {
+          confidence_score?: number | null
+          content_hash?: string | null
+          correct_answer?: string | null
+          created_at?: string | null
+          enrichment?: Json | null
+          exam_id: string
+          id?: string
+          is_annulled?: boolean | null
+          job_id?: string | null
+          media_map?: Json | null
+          needs_manual_review?: boolean | null
+          normalized_hash?: string | null
+          note_e_adote?: string | null
+          numero: number
+          options?: Json | null
+          question_type?: string | null
+          reviewer_corrections?: Json | null
+          segmenter_blocks?: Json | null
+          shared_context?: string | null
+          source_pages?: number[] | null
+          status?: string | null
+          stem: string
+          updated_at?: string | null
+          validator_result?: Json | null
+        }
+        Update: {
+          confidence_score?: number | null
+          content_hash?: string | null
+          correct_answer?: string | null
+          created_at?: string | null
+          enrichment?: Json | null
+          exam_id?: string
+          id?: string
+          is_annulled?: boolean | null
+          job_id?: string | null
+          media_map?: Json | null
+          needs_manual_review?: boolean | null
+          normalized_hash?: string | null
+          note_e_adote?: string | null
+          numero?: number
+          options?: Json | null
+          question_type?: string | null
+          reviewer_corrections?: Json | null
+          segmenter_blocks?: Json | null
+          shared_context?: string | null
+          source_pages?: number[] | null
+          status?: string | null
+          stem?: string
+          updated_at?: string | null
+          validator_result?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_raw_exam_id_fkey"
+            columns: ["exam_id"]
+            isOneToOne: false
+            referencedRelation: "exams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_raw_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "extraction_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      question_raw_history: {
+        Row: {
+          change_description: string | null
+          changed_at: string | null
+          changed_by: string | null
+          id: string
+          previous_options: Json | null
+          previous_shared_context: string | null
+          previous_stem: string | null
+          question_raw_id: string
+          version: number
+        }
+        Insert: {
+          change_description?: string | null
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          previous_options?: Json | null
+          previous_shared_context?: string | null
+          previous_stem?: string | null
+          question_raw_id: string
+          version: number
+        }
+        Update: {
+          change_description?: string | null
+          changed_at?: string | null
+          changed_by?: string | null
+          id?: string
+          previous_options?: Json | null
+          previous_shared_context?: string | null
+          previous_stem?: string | null
+          question_raw_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_raw_history_question_raw_id_fkey"
+            columns: ["question_raw_id"]
+            isOneToOne: false
+            referencedRelation: "question_raw"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questions: {
+        Row: {
+          content_hash: string | null
+          created_at: string | null
           difficulty: number | null
+          exam_id: string | null
           exam_type: string
           explanation: string | null
           id: string
+          ingestion_version: number | null
+          media_refs: Json | null
+          needs_manual_review: boolean | null
+          normalized_hash: string | null
+          note_e_adote: string | null
           options: Json
           question_text: string
+          question_type: string | null
+          raw_question_id: string | null
+          shared_context: string | null
+          source: string | null
+          source_pages: number[] | null
+          status: string | null
           subject: string
           subtopic: string
           tags: string[] | null
           year: number | null
         }
         Insert: {
+          content_hash?: string | null
           created_at?: string | null
           difficulty?: number | null
+          exam_id?: string | null
           exam_type: string
           explanation?: string | null
           id?: string
+          ingestion_version?: number | null
+          media_refs?: Json | null
+          needs_manual_review?: boolean | null
+          normalized_hash?: string | null
+          note_e_adote?: string | null
           options: Json
           question_text: string
+          question_type?: string | null
+          raw_question_id?: string | null
+          shared_context?: string | null
+          source?: string | null
+          source_pages?: number[] | null
+          status?: string | null
           subject: string
           subtopic: string
           tags?: string[] | null
           year?: number | null
         }
         Update: {
+          content_hash?: string | null
           created_at?: string | null
           difficulty?: number | null
+          exam_id?: string | null
           exam_type?: string
           explanation?: string | null
           id?: string
+          ingestion_version?: number | null
+          media_refs?: Json | null
+          needs_manual_review?: boolean | null
+          normalized_hash?: string | null
+          note_e_adote?: string | null
           options?: Json
           question_text?: string
+          question_type?: string | null
+          raw_question_id?: string | null
+          shared_context?: string | null
+          source?: string | null
+          source_pages?: number[] | null
+          status?: string | null
           subject?: string
           subtopic?: string
           tags?: string[] | null
@@ -945,7 +1494,33 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_questions_ready: {
+        Row: {
+          content_hash: string | null
+          created_at: string | null
+          difficulty: number | null
+          exam_id: string | null
+          exam_type: string | null
+          explanation: string | null
+          id: string | null
+          ingestion_version: number | null
+          media_refs: Json | null
+          normalized_hash: string | null
+          note_e_adote: string | null
+          options: Json | null
+          question_text: string | null
+          raw_question_id: string | null
+          shared_context: string | null
+          source: string | null
+          source_pages: number[] | null
+          status: string | null
+          subject: string | null
+          subtopic: string | null
+          tags: string[] | null
+          year: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       complete_mission_atomic: {

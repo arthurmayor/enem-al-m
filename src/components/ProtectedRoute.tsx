@@ -10,6 +10,15 @@ const profileCache: { userId: string | null; onboardingComplete: boolean | null 
   onboardingComplete: null,
 };
 
+// Keep the cache in sync when callers mutate `profiles.onboarding_complete`
+// (e.g. after finishing onboarding or generating the first study plan).
+// Without this, the guard below keeps reading a stale `false` and bounces
+// the user back to /onboarding after the diagnostic.
+export function setOnboardingCache(userId: string, value: boolean) {
+  profileCache.userId = userId;
+  profileCache.onboardingComplete = value;
+}
+
 const DevBanner = () => (
   <div className="fixed top-0 left-0 right-0 z-[9999] bg-red-600 text-white text-center text-xs font-semibold py-1 tracking-wide">
     MODO TESTE — Autenticação desativada

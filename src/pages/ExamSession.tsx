@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import SubjectBadge from "@/components/ui/SubjectBadge";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { getSubjectColor } from "@/lib/subjectColors";
+import { useInvalidateDashboard } from "@/hooks/dashboard/useInvalidateDashboard";
 
 interface Question { id: string; subject: string; subtopic: string; difficulty: number; question_text: string; options: { label: string; text: string; is_correct: boolean }[]; explanation: string; }
 interface PerSubjectScore { subject: string; correct: number; total: number; percent: number; }
@@ -43,6 +44,7 @@ const ExamSession = () => {
   const { examId } = useParams<{ examId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const invalidateDashboard = useInvalidateDashboard();
   const fallbackConfig = EXAM_CONFIGS[examId || ""] || EXAM_CONFIGS["enem-rapido"];
 
   const [config, setConfig] = useState(fallbackConfig);
@@ -194,7 +196,14 @@ const ExamSession = () => {
     if (prof) {
       await supabase.from("profiles").update({ total_xp: (prof.total_xp || 0) + xpEarned, exams_completed: (prof.exams_completed || 0) + 1, last_activity_date: new Date().toISOString().split("T")[0] }).eq("id", user.id);
     }
-  }, [submitted, user, questions, answers, timeLeft, config]);
+
+    // Dashboard consumes exam_results (useExamHighlights / useExamsEvolution /
+    // useDashboardMetrics.total_exams, best/last_exam_score), answer_history
+    // (useAccuracy*, useQuestions*, useProficiency*) and profiles.total_xp —
+    // all of which we just mutated. Mark the dashboard queries stale so the
+    // user sees the updated numbers when they navigate back.
+    invalidateDashboard();
+  }, [submitted, user, questions, answers, timeLeft, config, invalidateDashboard]);
 
   useEffect(() => {
     if (submitted || loading) return;

@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/trackEvent";
 import { MISSION_STATUSES } from "@/lib/constants";
+import { useInvalidateDashboard } from "@/hooks/dashboard/useInvalidateDashboard";
 import SubjectBadge from "@/components/ui/SubjectBadge";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { getSubjectColor } from "@/lib/subjectColors";
@@ -301,6 +302,7 @@ const MissionPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const invalidateDashboard = useInvalidateDashboard();
 
   const [mission, setMission] = useState<MissionData | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -677,7 +679,12 @@ const MissionPage = () => {
       p_xp_earned: xpEarned,
     });
 
-    // 5. Track event
+    // 5. Mark dashboard queries stale so the counters, ring, queue,
+    //    accuracy sparkline, proficiency and xp all refetch on the
+    //    next dashboard mount (SPA navigation doesn't fire window focus).
+    invalidateDashboard();
+
+    // 6. Track event
     trackEvent("mission_completed", {
       type: mission?.mission_type,
       subject: mission?.subject,
@@ -700,6 +707,8 @@ const MissionPage = () => {
       p_score: 100,
       p_xp_earned: xpEarned,
     });
+
+    invalidateDashboard();
 
     trackEvent("mission_completed", { type: mission?.mission_type, subject: mission?.subject, score: 100, mission_id: id }, user.id);
   };

@@ -67,32 +67,61 @@ function stemNeedsContext(stem: string): boolean {
   );
 }
 
+async function withRetry<T>(
+  label: string,
+  fn: () => PromiseLike<{ data: T | null; error: { message: string } | null }>,
+): Promise<T | null> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const { data, error } = await fn();
+    if (!error) return data;
+    if (!/DNS cache overflow|ENOTFOUND|ECONNRESET|fetch failed|UND_ERR|timeout/i.test(error.message)) {
+      throw new Error(`${label}: ${error.message}`);
+    }
+    const d = 500 * Math.pow(2, Math.min(attempt, 5));
+    console.warn(`[RETRY ${label}] ${error.message} — retry in ${d}ms`);
+    await new Promise((r) => setTimeout(r, d));
+  }
+  throw new Error(`${label}: exceeded retries`);
+}
+
 async function main(examId: string) {
   // 1. Load latest job's segmenter blocks.
-  const { data: job, error: jobErr } = await supabase
-    .from("extraction_jobs")
-    .select("id, segmenter_blocks_json")
-    .eq("exam_id", examId)
-    .not("segmenter_blocks_json", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (jobErr || !job) throw new Error(`no job: ${jobErr?.message}`);
-  const blocks = job.segmenter_blocks_json as Block[];
+  const job = await withRetry<{ id: string; segmenter_blocks_json: Block[] | null }>(
+    "load job",
+    () => supabase
+      .from("extraction_jobs")
+      .select("id, segmenter_blocks_json")
+      .eq("exam_id", examId)
+      .not("segmenter_blocks_json", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  );
+  if (!job) throw new Error(`no job for exam ${examId}`);
+  const blocks = (job.segmenter_blocks_json ?? []) as Block[];
   console.log(`[REC] job=${job.id} blocks=${blocks.length}`);
 
-  // 2. Load all question_raw rows that have an unresolved
-  //    shared_context_ausente issue.
-  const { data: issueRows, error: issErr } = await supabase
-    .from("question_issues")
-    .select(
-      "id, question_raw_id, severity, description, question_raw:question_raw_id(id, numero, stem, source_pages, shared_context, media_map, status)",
-    )
-    .eq("issue_type", "shared_context_ausente")
-    .eq("resolved", false);
-  if (issErr) throw new Error(`issues: ${issErr.message}`);
-  const targets = (issueRows ?? []).filter((r) => {
-    const qr = r.question_raw as unknown as {
+  // 2a. Load question_raw IDs for THIS exam only — the previous version
+  //     of this script queried question_issues globally and attempted to
+  //     resolve issues across every prova using one prova's segmenter
+  //     blocks, which could copy another prova's shared_context onto a
+  //     row whose numero happened to collide.
+  const rawIdRows = await withRetry<Array<{ id: string }>>(
+    "exam raw ids",
+    () => supabase.from("question_raw").select("id").eq("exam_id", examId),
+  );
+  const examRawIds = new Set((rawIdRows ?? []).map((r) => r.id));
+
+  // 2b. Load unresolved shared_context_ausente issues for THIS exam only.
+  //     PostgREST .in() chokes above ~80 ids so we batch.
+  const CHUNK = 60;
+  const idsArr = [...examRawIds];
+  type IssueRow = {
+    id: string;
+    question_raw_id: string;
+    severity: string | null;
+    description: string | null;
+    question_raw: {
       id: string;
       numero: number;
       stem: string;
@@ -101,6 +130,26 @@ async function main(examId: string) {
       media_map: unknown;
       status: string;
     } | null;
+  };
+  const issueRows: IssueRow[] = [];
+  for (let i = 0; i < idsArr.length; i += CHUNK) {
+    const slice = idsArr.slice(i, i + CHUNK);
+    const part = (await withRetry<unknown[]>(
+      `issues ${i}-${i + slice.length}`,
+      () => supabase
+        .from("question_issues")
+        .select(
+          "id, question_raw_id, severity, description, question_raw:question_raw_id(id, numero, stem, source_pages, shared_context, media_map, status)",
+        )
+        .eq("issue_type", "shared_context_ausente")
+        .eq("resolved", false)
+        .in("question_raw_id", slice),
+    )) as IssueRow[] | null;
+    issueRows.push(...(part ?? []));
+  }
+
+  const targets = issueRows.filter((r) => {
+    const qr = r.question_raw;
     return qr && (qr.status === "approved" || qr.status === "flagged");
   });
   console.log(`[REC] ${targets.length} questões com shared_context_ausente`);
@@ -160,14 +209,8 @@ async function main(examId: string) {
   }> = [];
 
   for (const row of targets) {
-    const qr = row.question_raw as unknown as {
-      id: string;
-      numero: number;
-      stem: string;
-      source_pages: number[] | null;
-      shared_context: string | null;
-      media_map: unknown;
-    };
+    const qr = row.question_raw;
+    if (!qr) continue;
 
     // 4a. Try direct match by numero (question_hint or range header).
     const direct = scByNumero.get(qr.numero);

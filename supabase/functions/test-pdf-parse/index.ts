@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import pdfParse from "https://esm.sh/pdf-parse@1.1.1";
+import { extractText, getDocumentProxy } from "https://esm.sh/unpdf@0.12.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,25 +35,14 @@ serve(async (req) => {
 
     const buffer = new Uint8Array(await file.arrayBuffer());
 
-    const charsPerPage: number[] = [];
-    const data = await pdfParse(buffer, {
-      pagerender: async (pageData: {
-        getTextContent: (opts: { normalizeWhitespace: boolean; disableCombineTextItems: boolean }) => Promise<{
-          items: Array<{ str: string }>;
-        }>;
-      }) => {
-        const textContent = await pageData.getTextContent({
-          normalizeWhitespace: false,
-          disableCombineTextItems: false,
-        });
-        const pageText = textContent.items.map((item) => item.str).join(" ");
-        charsPerPage.push(pageText.length);
-        return pageText;
-      },
-    });
+    const pdf = await getDocumentProxy(buffer);
+    const result = await extractText(pdf, { mergePages: false });
 
-    const totalPages: number = data.numpages ?? 0;
-    const fullText: string = data.text ?? "";
+    const pages: string[] = Array.isArray(result.text) ? result.text : [String(result.text ?? "")];
+    const totalPages: number = result.totalPages ?? pages.length;
+
+    const charsPerPage = pages.map((p) => p.length);
+    const fullText = pages.join("\n");
     const sampleText = fullText.slice(0, 2000);
     const totalChars = charsPerPage.reduce((sum, n) => sum + n, 0);
     const avgCharsPerPage = totalPages > 0 ? totalChars / totalPages : 0;
@@ -67,6 +56,7 @@ serve(async (req) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return jsonResponse({ error: `Falha ao processar PDF: ${message}` }, 500);
+    const stack = err instanceof Error ? err.stack : undefined;
+    return jsonResponse({ error: `Falha ao processar PDF: ${message}`, stack }, 500);
   }
 });

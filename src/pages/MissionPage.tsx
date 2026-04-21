@@ -222,13 +222,13 @@ async function fetchMissionQuestions(
   const recentIds = new Set((recentAnswers || []).map(a => a.question_id));
 
   async function fetchBoth(
-    diagFilter: (q: ReturnType<ReturnType<typeof supabase.from>["select"]>) => typeof q,
-    questFilter: (q: ReturnType<ReturnType<typeof supabase.from>["select"]>) => typeof q,
+    diagFilter: (q: any) => any,
+    questFilter: (q: any) => any,
     fetchLimit: number
   ): Promise<Question[]> {
     const [diagResult, questResult] = await Promise.all([
-      diagFilter(supabase.from("diagnostic_questions").select("*").eq("is_active", true)).limit(fetchLimit),
-      questFilter(supabase.from("questions").select("*")).limit(fetchLimit),
+      diagFilter(supabase.from("diagnostic_questions").select("*").eq("is_active", true)).limit(fetchLimit) as Promise<any>,
+      questFilter(supabase.from("questions").select("*")).limit(fetchLimit) as Promise<any>,
     ]);
     const seen = new Set<string>();
     const combined: Question[] = [];

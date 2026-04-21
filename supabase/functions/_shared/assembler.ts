@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { Block } from "./segmenter.ts";
 import type { ProfileResult } from "./profiler.ts";
-import { callClaude, parseJsonResponse } from "./anthropic.ts";
+import { callClaude, parseJsonResponse, ANTHROPIC_FAST_MODEL } from "./anthropic.ts";
 
 const QUESTIONS_PER_CHUNK = 30;
 
@@ -11,7 +11,8 @@ que aparecem nos blocos.
 Question types válidos: multiple_choice_single,
 multiple_choice_image_options, multiple_choice_shared_context.
 Se incerto sobre qualquer campo: flagged = true.
-Retorne APENAS JSON array (sem markdown, sem backticks):
+NUNCA use markdown, NUNCA envolva a resposta em \`\`\` ou \`\`\`json.
+Retorne APENAS o array JSON bruto, começando com '[' e terminando com ']':
 [{"numero":1,"question_type":"multiple_choice_single",
   "shared_context":null,"stem":"texto completo do enunciado",
   "options":[{"label":"A","text":"texto da alternativa","media_ref":null}],
@@ -74,10 +75,23 @@ function chunkBlocksByQuestionHint(
 async function assembleChunk(
   chunkBlocks: Block[],
   profile: ProfileResult,
+  chunkIndex: number,
 ): Promise<AssembledQuestion[]> {
   const user = `Profile: ${profileSummary(profile)}\n\nBlocos:\n${JSON.stringify(chunkBlocks)}`;
-  const raw = await callClaude({ system: SYSTEM_PROMPT, user, maxTokens: 8192 });
-  return parseJsonResponse<AssembledQuestion[]>(raw, "Assembler");
+  const started = Date.now();
+  console.log(`[assembler] chunk ${chunkIndex} start blocks=${chunkBlocks.length}`);
+  const raw = await callClaude({
+    system: SYSTEM_PROMPT,
+    user,
+    maxTokens: 8192,
+    model: ANTHROPIC_FAST_MODEL,
+  });
+  const parsed = parseJsonResponse<AssembledQuestion[]>(raw, "Assembler");
+  const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+  console.log(
+    `[assembler] chunk ${chunkIndex} done in ${elapsed}s questions=${parsed.length}`,
+  );
+  return parsed;
 }
 
 export interface AssemblerResult {
@@ -93,11 +107,13 @@ export async function runAssembler(
   profile: ProfileResult,
 ): Promise<AssemblerResult> {
   const chunks = chunkBlocksByQuestionHint(blocks, QUESTIONS_PER_CHUNK);
+  console.log(
+    `[assembler] starting: blocks=${blocks.length} chunks=${chunks.length}`,
+  );
 
-  const chunkResults: AssembledQuestion[][] = [];
-  for (const c of chunks) {
-    chunkResults.push(await assembleChunk(c, profile));
-  }
+  const chunkResults = await Promise.all(
+    chunks.map((c, i) => assembleChunk(c, profile, i)),
+  );
   const questions = chunkResults.flat();
 
   if (questions.length === 0) {

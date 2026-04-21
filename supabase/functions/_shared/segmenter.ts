@@ -1,8 +1,9 @@
 import type { ParsedPage } from "./pre-parser.ts";
 import type { ProfileResult } from "./profiler.ts";
-import { callClaude, parseJsonResponse } from "./anthropic.ts";
+import { callClaude, parseJsonResponse, ANTHROPIC_FAST_MODEL } from "./anthropic.ts";
 
-const CHUNK_PAGES = 8;
+const CHUNK_PAGES = 4;
+const SEGMENTER_MAX_TOKENS = 16384;
 
 // Segmenter now returns block metadata only — line ranges into the
 // original page text — instead of copying the text literal into the
@@ -21,7 +22,8 @@ Blocos ambíguos: flagged = true.
 Um bloco deve ficar sempre dentro de uma única página. Se um trecho
 atravessa páginas, gere um bloco por página.
 
-Retorne APENAS JSON (sem markdown, sem backticks):
+NUNCA use markdown, NUNCA envolva a resposta em \`\`\` ou \`\`\`json.
+Retorne APENAS o objeto JSON bruto, começando com '{' e terminando com '}':
 {"blocks":[
   {"block_id":"b001","type":"stem","question_hint":1,
    "page":2,"line_start":3,"line_end":7,
@@ -115,11 +117,25 @@ export function hydrateBlockText(
 async function segmentChunk(
   chunk: ParsedPage[],
   profile: ProfileResult,
+  chunkIndex: number,
 ): Promise<SegmenterBlock[]> {
   const pagesText = buildChunkPayload(chunk);
   const user = `Profile: ${profileSummary(profile)}\n\nTexto:\n${pagesText}`;
-  const raw = await callClaude({ system: SYSTEM_PROMPT, user, maxTokens: 8192 });
+  const started = Date.now();
+  console.log(
+    `[segmenter] chunk ${chunkIndex} start pages=${chunk.map((p) => p.page_number).join(",")}`,
+  );
+  const raw = await callClaude({
+    system: SYSTEM_PROMPT,
+    user,
+    maxTokens: SEGMENTER_MAX_TOKENS,
+    model: ANTHROPIC_FAST_MODEL,
+  });
   const parsed = parseJsonResponse<SegmenterChunkResponse>(raw, "Segmenter");
+  const elapsed = ((Date.now() - started) / 1000).toFixed(1);
+  console.log(
+    `[segmenter] chunk ${chunkIndex} done in ${elapsed}s blocks=${parsed.blocks?.length ?? 0}`,
+  );
   return parsed.blocks ?? [];
 }
 
@@ -128,14 +144,15 @@ export async function runSegmenter(
   profile: ProfileResult,
 ): Promise<{ blocks: Block[] }> {
   const chunks = chunkPages(pages, CHUNK_PAGES);
+  console.log(
+    `[segmenter] starting: pages=${pages.length} chunks=${chunks.length} chunkSize=${CHUNK_PAGES}`,
+  );
 
-  // Sequential: distributes CPU/network across the function's runtime
-  // instead of racing the Anthropic rate limit with N parallel calls.
-  // Responses are now small (metadata only), so each chunk is quick.
-  const chunkResults: SegmenterBlock[][] = [];
-  for (const c of chunks) {
-    chunkResults.push(await segmentChunk(c, profile));
-  }
+  // Parallel: responses are now metadata-only (small), so running all
+  // chunks concurrently fits well under the Edge Function walltime.
+  const chunkResults = await Promise.all(
+    chunks.map((c, i) => segmentChunk(c, profile, i)),
+  );
 
   const pagesByNumber = new Map<number, ParsedPage>();
   for (const p of pages) pagesByNumber.set(p.page_number, p);

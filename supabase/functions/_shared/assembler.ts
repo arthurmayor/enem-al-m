@@ -94,7 +94,10 @@ export async function runAssembler(
 ): Promise<AssemblerResult> {
   const chunks = chunkBlocksByQuestionHint(blocks, QUESTIONS_PER_CHUNK);
 
-  const chunkResults = await Promise.all(chunks.map((c) => assembleChunk(c, profile)));
+  const chunkResults: AssembledQuestion[][] = [];
+  for (const c of chunks) {
+    chunkResults.push(await assembleChunk(c, profile));
+  }
   const questions = chunkResults.flat();
 
   if (questions.length === 0) {

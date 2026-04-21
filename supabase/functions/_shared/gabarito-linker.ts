@@ -38,7 +38,7 @@ export async function runGabaritoLinker(
   supabase: SupabaseClient,
   examId: string,
   jobId: string,
-  gabaritoStoragePath: string | undefined,
+  gabaritoStoragePath: string | undefined | null,
 ): Promise<GabaritoLinkerResult> {
   if (!gabaritoStoragePath) {
     return { skipped: true, reason: "gabarito não fornecido" };

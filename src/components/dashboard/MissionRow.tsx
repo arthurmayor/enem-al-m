@@ -36,10 +36,13 @@ export default function MissionRow({
         ? "#B45309"
         : "#888780";
 
+  // `question_ids` is populated lazily the first time the user opens the
+  // mission (see MissionPage). While it's null we don't know the real count
+  // yet, so we simply omit the "· N questões" suffix instead of guessing.
   const qCount = mission.question_ids?.length ?? null;
   const detailParts: string[] = [];
   if (mission.subtopic) detailParts.push(mission.subtopic);
-  detailParts.push(`${qCount ?? "?"} questões`);
+  if (qCount != null) detailParts.push(`${qCount} questões`);
   const detail = detailParts.join(" · ");
 
   const containerClass = [

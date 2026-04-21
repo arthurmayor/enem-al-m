@@ -252,12 +252,17 @@ async function generateAndSavePlan(
       const dateStr = d.toISOString().split("T")[0];
       let orderWithinDay = 1;
       for (const mission of dayObj.missions ?? []) {
+        const subject = mission.subject ?? "Geral";
+        // `subtopic` is a NOT NULL string column, so we can't pass null; we
+        // fall back to the subject name so the dashboard's Hero never
+        // renders an empty title when the edge function doesn't supply one.
+        const subtopic = mission.subtopic?.trim() ? mission.subtopic : subject;
         missionsToInsert.push({
           user_id: userId,
           study_plan_id: savedPlan.id,
           date: dateStr,
-          subject: mission.subject ?? "Geral",
-          subtopic: mission.subtopic ?? "",
+          subject,
+          subtopic,
           mission_type: mission.type ?? "questions",
           status: MISSION_STATUSES.PENDING,
           estimated_minutes: mission.estimated_minutes ?? 15,

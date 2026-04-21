@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type AccuracyPeriod = "week" | "month" | "6m" | "year" | "all";
 
@@ -24,9 +25,14 @@ export interface AccuracyResult {
 }
 
 export function useAccuracyByPeriod(period: AccuracyPeriod) {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
   return useQuery<AccuracyResult>({
-    queryKey: ["dashboard-accuracy", period],
+    queryKey: ["dashboard-accuracy", userId, period],
+    enabled: !!userId,
     queryFn: async () => {
+      if (!userId) return { current: null, delta: null };
       const days = daysForPeriod(period);
       const now = Date.now();
 
@@ -37,6 +43,7 @@ export function useAccuracyByPeriod(period: AccuracyPeriod) {
       const { data: current, error: currentErr } = await supabase
         .from("answer_history")
         .select("is_correct")
+        .eq("user_id", userId)
         .gte("created_at", currentCutoff);
 
       if (currentErr) throw currentErr;
@@ -55,6 +62,7 @@ export function useAccuracyByPeriod(period: AccuracyPeriod) {
       const { data: prev } = await supabase
         .from("answer_history")
         .select("is_correct")
+        .eq("user_id", userId)
         .gte("created_at", prevStart)
         .lt("created_at", prevEnd);
 

@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type ProficiencyPeriod = "all" | "week" | "month" | "6m";
 
@@ -16,12 +17,18 @@ const DAYS_BACK: Record<Exclude<ProficiencyPeriod, "all">, number> = {
 };
 
 export function useProficiencyBySubject(period: ProficiencyPeriod) {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
   return useQuery<SubjectProficiency[]>({
-    queryKey: ["dashboard-proficiency", period],
+    queryKey: ["dashboard-proficiency", userId, period],
+    enabled: !!userId,
     queryFn: async () => {
+      if (!userId) return [];
       const { data: rows, error } = await supabase
         .from("proficiency_scores")
         .select("subject, subtopic, score, measured_at")
+        .eq("user_id", userId)
         .order("measured_at", { ascending: false });
 
       if (error) throw error;

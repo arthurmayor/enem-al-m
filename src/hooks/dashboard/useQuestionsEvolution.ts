@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type EvolutionPeriod = "week" | "month" | "6m" | "year" | "all";
 
@@ -25,9 +26,14 @@ export function useQuestionsEvolution(
   period: EvolutionPeriod,
   subject: string | null,
 ) {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
   return useQuery<EvolutionPoint[]>({
-    queryKey: ["dashboard-evolution", period, subject ?? "all"],
+    queryKey: ["dashboard-evolution", userId, period, subject ?? "all"],
+    enabled: !!userId,
     queryFn: async () => {
+      if (!userId) return [];
       const days = DAYS[period];
       const cutoff = new Date(Date.now() - days * 86400000).toISOString();
 
@@ -36,6 +42,7 @@ export function useQuestionsEvolution(
       const { data, error } = await supabase
         .from("answer_history")
         .select("created_at, questions!inner(subject)")
+        .eq("user_id", userId)
         .gte("created_at", cutoff)
         .order("created_at", { ascending: true });
 

@@ -99,6 +99,36 @@ const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROL
   global: { fetch: supabaseFetch },
 });
 
+// Call-site retry for supabase-js operations that surface transient errors
+// (e.g. "DNS cache overflow" from Node's c-ares resolver under load) as
+// `{ error: { message: ... } }` instead of throwing. The fetch wrapper
+// above only sees errors that bubble up through fetch itself — some paths
+// in postgrest-js swallow the throw and return it as an error object,
+// bypassing the retry entirely. Wrapping the call site catches those too.
+const SUPABASE_OP_RETRIES = 6;
+async function withSupaRetry<T>(
+  label: string,
+  op: () => PromiseLike<{ error: { message: string } | null; data?: T | null }>,
+): Promise<T | null> {
+  const transient =
+    /DNS cache overflow|ENOTFOUND|ECONNRESET|FetchError|fetch failed|UND_ERR|ETIMEDOUT|socket hang up|EAI_AGAIN|other side closed/i;
+  let lastMsg = "";
+  for (let attempt = 0; attempt < SUPABASE_OP_RETRIES; attempt++) {
+    const { error, data } = await op();
+    if (!error) return (data ?? null) as T | null;
+    lastMsg = error.message;
+    if (!transient.test(lastMsg)) {
+      throw new Error(`${label}: ${lastMsg}`);
+    }
+    const delay = 500 * Math.pow(2, Math.min(attempt, 5));
+    console.warn(
+      `[SUPABASE-OP] ${label}: ${lastMsg} — retry ${attempt + 1}/${SUPABASE_OP_RETRIES} em ${delay}ms`,
+    );
+    await new Promise((r) => setTimeout(r, delay));
+  }
+  throw new Error(`${label}: ${lastMsg} (esgotadas ${SUPABASE_OP_RETRIES} tentativas)`);
+}
+
 // ───────────────────── shared types ─────────────────────
 interface ParsedPage {
   page_number: number;
@@ -2330,8 +2360,11 @@ async function main(examId: string) {
       status: "raw",
     }));
     if (rows.length) {
-      const { error } = await supabase.from("question_raw").upsert(rows, { onConflict: "exam_id,numero" });
-      if (error) throw new Error(`Falha upsert question_raw: ${error.message}`);
+      await withSupaRetry("Falha upsert question_raw", () =>
+        supabase
+          .from("question_raw")
+          .upsert(rows, { onConflict: "exam_id,numero" }),
+      );
     }
     const flagged = questions.filter((q) => q.flagged).length;
     console.log(`[INSERT] ${rows.length} questões inseridas em question_raw, ${flagged} flagged`);

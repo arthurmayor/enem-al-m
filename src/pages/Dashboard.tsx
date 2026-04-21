@@ -40,7 +40,6 @@ import { useAccuracyTrend } from "@/hooks/dashboard/useAccuracyTrend";
 import { useQuestionsCumulative } from "@/hooks/dashboard/useQuestionsCumulative";
 import { useLatestDiagnostic } from "@/hooks/dashboard/useLatestDiagnostic";
 import { useExamHighlights } from "@/hooks/dashboard/useExamHighlights";
-import { MISSION_STATUSES } from "@/lib/constants";
 
 // ─── Period mapping tables ────────────────────────────────────────────────────
 
@@ -151,21 +150,19 @@ export default function Dashboard() {
   const firstName = metrics?.name?.split(" ")[0] ?? null;
   const today = formatDate(new Date());
 
-  const missionsQueue = queuedMissions ?? [];
-  const todayMissions = missionsQueue.filter((m) => m.isToday);
-  const overdueMissions = missionsQueue.filter((m) => m.isOverdue);
-  const hasMissions = missionsQueue.length > 0;
-  const nextPendingIndex = missionsQueue.findIndex(
-    (m) =>
-      m.status === MISSION_STATUSES.PENDING ||
-      m.status === MISSION_STATUSES.IN_PROGRESS,
-  );
-  const allCompleted = false; // queue only includes pending/in_progress rows
-  const heroMission =
-    nextPendingIndex >= 0 ? missionsQueue[nextPendingIndex] : null;
-
-  const missionsTodayCompleted = metrics?.missions_today_completed ?? 0;
-  const missionsTodayTotal = metrics?.missions_today_total ?? 0;
+  // Unified mission data — `useMissionsQueue` is the single source.
+  // `todayTotal`/`todayCompleted` come from the same fetch as the active
+  // queue, so the hero ring and the "Suas Missões" list can never diverge.
+  const overdueMissions = queuedMissions?.overdueMissions ?? [];
+  const activeQueue = queuedMissions?.activeQueue ?? [];
+  const missionsTodayTotal = queuedMissions?.todayTotal ?? 0;
+  const missionsTodayCompleted = queuedMissions?.todayCompleted ?? 0;
+  const hasPendingWork = activeQueue.length > 0;
+  const hasAnyTodayMissions = missionsTodayTotal > 0;
+  const allCompleted =
+    hasAnyTodayMissions && missionsTodayCompleted >= missionsTodayTotal;
+  const heroMission = activeQueue[0] ?? null;
+  const nextPendingIndex = heroMission ? 0 : -1;
   const todayPct =
     missionsTodayTotal > 0
       ? Math.round((missionsTodayCompleted / missionsTodayTotal) * 100)
@@ -257,7 +254,7 @@ export default function Dashboard() {
           {/* coral top ribbon */}
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-coral" />
 
-          {hasMissions && heroMission ? (
+          {hasPendingWork && heroMission ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 px-7 pt-8 pb-6 items-center">
                 {/* Left: action info */}
@@ -268,12 +265,12 @@ export default function Dashboard() {
                       Próxima missão
                     </span>
                     <span className="text-[12px] text-[#B4B2A9]">
-                      {nextPendingIndex + 1} de {missionsQueue.length} na fila
+                      {nextPendingIndex + 1} de {activeQueue.length} na fila
                     </span>
                   </div>
 
                   <h2 className="text-[28px] md:text-[32px] font-bold tracking-[-0.6px] leading-tight mb-2 text-[#2C2C2A]">
-                    {heroMission.subtopic ?? heroMission.subject}
+                    {heroMission.subtopic || heroMission.subject}
                   </h2>
                   <p className="text-[14px] text-[#888780] mb-5 max-w-[440px] leading-[1.45]">
                     {heroMission.subject}
@@ -312,29 +309,26 @@ export default function Dashboard() {
               </div>
 
               {/* Queue preview strip */}
-              {missionsQueue.length > 1 && (
+              {activeQueue.length > 1 && (
                 <div className="border-t border-[#EFECE6] bg-[#F7F6F3] px-7 py-3 flex items-center gap-4 flex-wrap text-[12px] text-[#888780]">
                   <span className="font-semibold text-[#2C2C2A] tracking-[0.2px]">
                     Depois:
                   </span>
-                  {missionsQueue
-                    .filter((_, i) => i !== nextPendingIndex)
-                    .slice(0, 4)
-                    .map((m) => (
-                      <span key={m.id} className="flex items-center gap-1.5">
-                        <span
-                          className="h-1.5 w-1.5 rounded-full shrink-0"
-                          style={{
-                            backgroundColor: m.isOverdue ? "#B45309" : "#888780",
-                          }}
-                        />
-                        <span className="text-[#2C2C2A]">
-                          {m.subject}
-                          {m.subtopic ? ` · ${m.subtopic}` : ""}
-                          {m.isOverdue ? " · atrasada" : ""}
-                        </span>
+                  {activeQueue.slice(1, 5).map((m) => (
+                    <span key={m.id} className="flex items-center gap-1.5">
+                      <span
+                        className="h-1.5 w-1.5 rounded-full shrink-0"
+                        style={{
+                          backgroundColor: m.isOverdue ? "#B45309" : "#888780",
+                        }}
+                      />
+                      <span className="text-[#2C2C2A]">
+                        {m.subject}
+                        {m.subtopic ? ` · ${m.subtopic}` : ""}
+                        {m.isOverdue ? " · atrasada" : ""}
                       </span>
-                    ))}
+                    </span>
+                  ))}
                 </div>
               )}
             </>
@@ -558,10 +552,12 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
-            {!hasMissions ? (
+            {!hasPendingWork ? (
               <div>
                 <p className="text-[13px] text-[#888780]">
-                  Nenhuma missão pendente.
+                  {allCompleted
+                    ? "Tudo feito por hoje. Bom trabalho!"
+                    : "Nenhuma missão pendente."}
                 </p>
                 {!hasActivePlan && (
                   <button
@@ -575,20 +571,15 @@ export default function Dashboard() {
               </div>
             ) : (
               <div>
-                {missionsQueue.map((m, i) => (
+                {activeQueue.map((m, i) => (
                   <MissionRow
                     key={m.id}
                     mission={m}
-                    isNext={i === nextPendingIndex}
+                    isNext={i === 0}
                     isOverdue={m.isOverdue}
                   />
                 ))}
               </div>
-            )}
-            {todayMissions.length === 0 && overdueMissions.length > 0 && (
-              <p className="text-[11px] text-[#B4B2A9] mt-2">
-                Nenhuma missão programada para hoje — termine as atrasadas antes.
-              </p>
             )}
           </section>
         </div>
@@ -728,26 +719,24 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Next exam CTA — section 7.3 */}
+              {/* Simple "Ver simulados" link back to /exams — the old
+                  "Próximo simulado" card claimed 75 min / sábado / "Mini X"
+                  but none of that comes from the backend, so we dropped it
+                  until there's a real scheduled-exam source. */}
               <button
                 type="button"
                 onClick={() => navigate("/exams")}
-                className="w-full bg-white border border-[#E8E6E1] rounded-[12px] px-3.5 py-3 flex items-center gap-3 hover:bg-[#F7F6F3] transition-colors text-left"
+                className="w-full bg-white border border-dashed border-[#E8E6E1] rounded-[12px] px-3.5 py-3 flex items-center gap-3 hover:bg-[#F7F6F3] transition-colors text-left"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#888780]">
-                    Próximo
-                  </div>
-                  <div className="text-[13px] font-semibold text-[#2C2C2A] mt-0.5 truncate">
-                    Mini {metrics?.exam_name ?? "Simulado"}
+                  <div className="text-[12px] font-semibold text-[#2C2C2A]">
+                    Ver simulados
                   </div>
                   <div className="text-[11px] text-[#B4B2A9] mt-0.5">
-                    75 min · recomendado sábado
+                    Realizar um novo simulado
                   </div>
                 </div>
-                <span className="inline-flex items-center gap-1.5 bg-coral text-white rounded-[10px] px-3 py-2 text-[13px] font-semibold shrink-0 hover:brightness-110 transition-all">
-                  Iniciar <ArrowRight className="h-3.5 w-3.5" />
-                </span>
+                <ArrowRight className="h-4 w-4 text-coral shrink-0" />
               </button>
             </div>
 

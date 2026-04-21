@@ -588,6 +588,496 @@ async function runGabaritoLinker(
   };
 }
 
+// ───────────────────── reviewer ─────────────────────
+const REVIEWER_BATCH_SIZE = 12;
+const REVIEWER_MAX_TOKENS = 16384;
+
+const REV_SYSTEM = `Compare as questões montadas com o texto original da prova.
+Para cada questão, verifique:
+1. O stem não contém texto de questão vizinha (contaminação)
+2. As alternativas pertencem à questão correta
+3. shared_context está nas questões corretas
+4. Nenhum texto foi reescrito ou parafraseado
+5. O gabarito é coerente com as alternativas
+Se encontrar problemas, liste-os.
+Se a questão está OK, marque approved=true e issues=[].
+Chame a tool submit_review com um item por questão recebida.
+issue_type válidos: contaminacao, alternativa_faltante, alternativa_vazia,
+alternativas_incorretas, gabarito_invalido, shared_context_ausente, texto_truncado.
+severity válidos: low, medium, high, critical.
+corrections: null se não há correções; caso contrário objeto opcional com
+campos stem / options / shared_context propostos.`;
+
+const REVIEW_ISSUE_TYPES = [
+  "contaminacao",
+  "alternativa_faltante",
+  "alternativa_vazia",
+  "alternativas_incorretas",
+  "gabarito_invalido",
+  "shared_context_ausente",
+  "texto_truncado",
+];
+
+const REVIEW_SCHEMA = {
+  type: "object",
+  properties: {
+    reviews: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          numero: { type: "integer" },
+          approved: { type: "boolean" },
+          corrections: {
+            type: ["object", "null"],
+            properties: {
+              stem: { type: ["string", "null"] },
+              options: { type: ["array", "null"] },
+              shared_context: { type: ["string", "null"] },
+            },
+          },
+          issues: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                issue_type: { type: "string", enum: REVIEW_ISSUE_TYPES },
+                severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
+                description: { type: "string" },
+              },
+              required: ["issue_type", "severity", "description"],
+            },
+          },
+        },
+        required: ["numero", "approved", "issues"],
+      },
+    },
+  },
+  required: ["reviews"],
+};
+
+interface ReviewIssue {
+  issue_type: string;
+  severity: string;
+  description: string;
+}
+interface ReviewItem {
+  numero: number;
+  approved: boolean;
+  corrections: Record<string, unknown> | null;
+  issues: ReviewIssue[];
+}
+
+interface QuestionForReview {
+  id: string;
+  numero: number;
+  stem: string;
+  options: AssembledOption[] | null;
+  correct_answer: string | null;
+  shared_context: string | null;
+}
+
+async function reviewBatch(batch: QuestionForReview[]): Promise<ReviewItem[]> {
+  const payload = batch.map((q) => ({
+    numero: q.numero,
+    stem: q.stem,
+    options: q.options,
+    correct_answer: q.correct_answer,
+    shared_context: q.shared_context,
+  }));
+  const { input } = await callTool<{ reviews?: ReviewItem[] }>({
+    system: REV_SYSTEM,
+    user: `Revise as seguintes questões:\n${JSON.stringify(payload)}`,
+    maxTokens: REVIEWER_MAX_TOKENS,
+    model: MODEL_SONNET,
+    toolName: "submit_review",
+    toolDescription: "Submit reviews for a batch of questions.",
+    schema: REVIEW_SCHEMA,
+  });
+  return input.reviews ?? [];
+}
+
+interface ReviewerSummary {
+  approved_clean: number;
+  with_issues: number;
+  total_issues: number;
+  critical_issues: number;
+}
+
+async function runReviewer(examId: string, jobId: string): Promise<ReviewerSummary> {
+  const { data, error } = await supabase
+    .from("question_raw")
+    .select("id, numero, stem, options, correct_answer, shared_context")
+    .eq("exam_id", examId)
+    .eq("status", "raw")
+    .order("numero", { ascending: true });
+  if (error) throw new Error(`reviewer load: ${error.message}`);
+  const questions = (data ?? []) as QuestionForReview[];
+  if (questions.length === 0) {
+    return { approved_clean: 0, with_issues: 0, total_issues: 0, critical_issues: 0 };
+  }
+
+  const byNumero = new Map<number, QuestionForReview>();
+  for (const q of questions) byNumero.set(q.numero, q);
+
+  const batches: QuestionForReview[][] = [];
+  for (let i = 0; i < questions.length; i += REVIEWER_BATCH_SIZE) {
+    batches.push(questions.slice(i, i + REVIEWER_BATCH_SIZE));
+  }
+  console.log(`[REVIEWER] ${questions.length} questões em ${batches.length} batches`);
+
+  const allReviews = (
+    await Promise.all(
+      batches.map(async (batch, i) => {
+        const started = Date.now();
+        const reviews = await reviewBatch(batch);
+        const sec = ((Date.now() - started) / 1000).toFixed(1);
+        console.log(
+          `[REVIEWER] batch ${i + 1}/${batches.length} (${reviews.length} reviews, ${sec}s)`,
+        );
+        return reviews;
+      }),
+    )
+  ).flat();
+
+  let approvedClean = 0;
+  let withIssues = 0;
+  let criticalIssues = 0;
+  const issueRows: Record<string, unknown>[] = [];
+
+  for (const r of allReviews) {
+    const q = byNumero.get(r.numero);
+    if (!q) continue;
+    const issues = r.issues ?? [];
+    const hasIssues = issues.length > 0;
+
+    const update: Record<string, unknown> = { status: "reviewed" };
+    if (r.corrections && typeof r.corrections === "object") {
+      update.reviewer_corrections = r.corrections;
+    }
+    await supabase.from("question_raw").update(update).eq("id", q.id);
+
+    if (r.approved && !hasIssues) {
+      approvedClean++;
+    } else {
+      withIssues++;
+      for (const issue of issues) {
+        if (issue.severity === "critical") criticalIssues++;
+        issueRows.push({
+          question_raw_id: q.id,
+          job_id: jobId,
+          issue_type: issue.issue_type,
+          severity: issue.severity,
+          description: issue.description,
+          agent: "reviewer",
+        });
+      }
+    }
+  }
+
+  if (issueRows.length) {
+    const { error: issErr } = await supabase.from("question_issues").insert(issueRows);
+    if (issErr) throw new Error(`reviewer issues insert: ${issErr.message}`);
+  }
+
+  return {
+    approved_clean: approvedClean,
+    with_issues: withIssues,
+    total_issues: issueRows.length,
+    critical_issues: criticalIssues,
+  };
+}
+
+// ───────────────────── validator (pure code) ─────────────────────
+interface ValidatorSummary {
+  approved: number;
+  flagged: number;
+  total_issues: number;
+}
+
+async function runValidator(examId: string, jobId: string): Promise<ValidatorSummary> {
+  const { data, error } = await supabase
+    .from("question_raw")
+    .select("id, numero, stem, options, correct_answer, confidence_score")
+    .eq("exam_id", examId)
+    .eq("status", "reviewed")
+    .order("numero", { ascending: true });
+  if (error) throw new Error(`validator load: ${error.message}`);
+  const questions = data ?? [];
+  if (questions.length === 0) return { approved: 0, flagged: 0, total_issues: 0 };
+
+  // Pre-compute duplicate stems.
+  const stemCount = new Map<string, number>();
+  for (const q of questions) {
+    const key = String(q.stem ?? "").trim();
+    if (!key) continue;
+    stemCount.set(key, (stemCount.get(key) ?? 0) + 1);
+  }
+
+  let approved = 0;
+  let flagged = 0;
+  const issues: Record<string, unknown>[] = [];
+
+  for (const q of questions) {
+    const problems: Array<{ issue_type: string; severity: string; description: string }> = [];
+
+    const stem = String(q.stem ?? "");
+    if (stem.trim().length < 20) {
+      problems.push({
+        issue_type: "texto_truncado",
+        severity: "high",
+        description: `stem com apenas ${stem.trim().length} chars (mínimo 20)`,
+      });
+    }
+
+    const opts = Array.isArray(q.options) ? (q.options as AssembledOption[]) : [];
+    if (opts.length !== 5) {
+      problems.push({
+        issue_type: "alternativa_faltante",
+        severity: "high",
+        description: `options tem ${opts.length} elementos (esperado 5)`,
+      });
+    } else {
+      for (let i = 0; i < opts.length; i++) {
+        const o = opts[i];
+        const label = String(o?.label ?? "").trim();
+        const text = String(o?.text ?? "").trim();
+        if (!label || !text) {
+          problems.push({
+            issue_type: "alternativa_vazia",
+            severity: "high",
+            description: `option[${i}] label ou text vazio (label='${label}', text_len=${text.length})`,
+          });
+        }
+      }
+    }
+
+    const labels = opts.map((o) => String(o?.label ?? "").trim());
+    const ans = String(q.correct_answer ?? "").trim();
+    if (!ans) {
+      problems.push({
+        issue_type: "gabarito_invalido",
+        severity: "medium",
+        description: "correct_answer ausente",
+      });
+    } else if (ans !== "*" && !labels.includes(ans)) {
+      problems.push({
+        issue_type: "gabarito_invalido",
+        severity: "high",
+        description: `correct_answer '${ans}' não bate com labels [${labels.join(",")}]`,
+      });
+    }
+
+    if ((stemCount.get(stem.trim()) ?? 0) > 1) {
+      problems.push({
+        issue_type: "contaminacao",
+        severity: "high",
+        description: "stem duplicado em outra questão do mesmo exam",
+      });
+    }
+
+    const conf =
+      typeof q.confidence_score === "number"
+        ? q.confidence_score
+        : typeof q.confidence_score === "string"
+          ? parseFloat(q.confidence_score)
+          : NaN;
+    if (!Number.isFinite(conf) || conf < 0.7) {
+      problems.push({
+        issue_type: "texto_truncado",
+        severity: "low",
+        description: `confidence_score baixo (${q.confidence_score ?? "null"})`,
+      });
+    }
+
+    const passed = problems.length === 0;
+    const validator_result = {
+      passed,
+      checked_at: new Date().toISOString(),
+      checks: {
+        stem_length: stem.trim().length,
+        options_count: opts.length,
+        correct_answer_valid: !!ans && (ans === "*" || labels.includes(ans)),
+        confidence: Number.isFinite(conf) ? conf : null,
+        duplicate_stem: (stemCount.get(stem.trim()) ?? 0) > 1,
+      },
+      issues: problems,
+    };
+
+    await supabase
+      .from("question_raw")
+      .update({
+        status: passed ? "approved" : "flagged",
+        validator_result,
+      })
+      .eq("id", q.id);
+
+    if (passed) {
+      approved++;
+    } else {
+      flagged++;
+      for (const p of problems) {
+        issues.push({
+          question_raw_id: q.id,
+          job_id: jobId,
+          issue_type: p.issue_type,
+          severity: p.severity,
+          description: p.description,
+          agent: "validator",
+        });
+      }
+    }
+  }
+
+  if (issues.length) {
+    const { error: issErr } = await supabase.from("question_issues").insert(issues);
+    if (issErr) throw new Error(`validator issues insert: ${issErr.message}`);
+  }
+
+  return { approved, flagged, total_issues: issues.length };
+}
+
+// ───────────────────── enricher ─────────────────────
+const ENRICHER_BATCH_SIZE = 15;
+const ENRICHER_MAX_TOKENS = 8192;
+
+const SUBJECTS = [
+  "Português",
+  "Matemática",
+  "História",
+  "Geografia",
+  "Biologia",
+  "Física",
+  "Química",
+  "Inglês",
+  "Filosofia",
+  "Sociologia",
+  "Artes",
+];
+
+const ENR_SYSTEM = `Classifique cada questão por matéria e subtópico.
+NÃO altere o texto das questões.
+Subjects válidos: ${SUBJECTS.join(", ")}.
+Difficulty: 1 (fácil) a 5 (muito difícil).
+Chame a tool submit_enrichment com um item por questão recebida.
+Campos:
+- numero: inteiro igual ao recebido.
+- subject: um dos subjects válidos.
+- subtopic: string curta (ex.: "geometria espacial", "literatura modernista").
+- difficulty: 1..5.
+- tags: array de 1-5 palavras-chave.
+- competency: descrição curta da competência avaliada.`;
+
+const ENRICHMENT_SCHEMA = {
+  type: "object",
+  properties: {
+    enrichments: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          numero: { type: "integer" },
+          subject: { type: "string", enum: SUBJECTS },
+          subtopic: { type: "string" },
+          difficulty: { type: "integer", minimum: 1, maximum: 5 },
+          tags: { type: "array", items: { type: "string" } },
+          competency: { type: "string" },
+        },
+        required: ["numero", "subject", "subtopic", "difficulty"],
+      },
+    },
+  },
+  required: ["enrichments"],
+};
+
+interface EnrichmentItem {
+  numero: number;
+  subject: string;
+  subtopic: string;
+  difficulty: number;
+  tags?: string[];
+  competency?: string;
+}
+
+interface QuestionForEnrichment {
+  id: string;
+  numero: number;
+  stem: string;
+  options: AssembledOption[] | null;
+  shared_context: string | null;
+}
+
+async function enrichBatch(batch: QuestionForEnrichment[]): Promise<EnrichmentItem[]> {
+  const payload = batch.map((q) => ({
+    numero: q.numero,
+    stem: q.stem,
+    options: q.options,
+    shared_context: q.shared_context,
+  }));
+  const { input } = await callTool<{ enrichments?: EnrichmentItem[] }>({
+    system: ENR_SYSTEM,
+    user: `Classifique as seguintes questões:\n${JSON.stringify(payload)}`,
+    maxTokens: ENRICHER_MAX_TOKENS,
+    model: MODEL_SONNET,
+    toolName: "submit_enrichment",
+    toolDescription: "Submit subject/subtopic classification for a batch of questions.",
+    schema: ENRICHMENT_SCHEMA,
+  });
+  return input.enrichments ?? [];
+}
+
+interface EnricherSummary {
+  count: number;
+  by_subject: Record<string, number>;
+}
+
+async function runEnricher(examId: string): Promise<EnricherSummary> {
+  const { data, error } = await supabase
+    .from("question_raw")
+    .select("id, numero, stem, options, shared_context")
+    .eq("exam_id", examId)
+    .eq("status", "approved")
+    .order("numero", { ascending: true });
+  if (error) throw new Error(`enricher load: ${error.message}`);
+  const questions = (data ?? []) as QuestionForEnrichment[];
+  if (questions.length === 0) return { count: 0, by_subject: {} };
+
+  const byNumero = new Map<number, QuestionForEnrichment>();
+  for (const q of questions) byNumero.set(q.numero, q);
+
+  const batches: QuestionForEnrichment[][] = [];
+  for (let i = 0; i < questions.length; i += ENRICHER_BATCH_SIZE) {
+    batches.push(questions.slice(i, i + ENRICHER_BATCH_SIZE));
+  }
+  console.log(`[ENRICHER] ${questions.length} questões em ${batches.length} batches`);
+
+  const allEnrichments = (
+    await Promise.all(
+      batches.map(async (batch, i) => {
+        const started = Date.now();
+        const enrichments = await enrichBatch(batch);
+        const sec = ((Date.now() - started) / 1000).toFixed(1);
+        console.log(
+          `[ENRICHER] batch ${i + 1}/${batches.length} (${enrichments.length} itens, ${sec}s)`,
+        );
+        return enrichments;
+      }),
+    )
+  ).flat();
+
+  const bySubject: Record<string, number> = {};
+  let persisted = 0;
+  for (const e of allEnrichments) {
+    const q = byNumero.get(e.numero);
+    if (!q) continue;
+    await supabase.from("question_raw").update({ enrichment: e }).eq("id", q.id);
+    bySubject[e.subject] = (bySubject[e.subject] ?? 0) + 1;
+    persisted++;
+  }
+
+  return { count: persisted, by_subject: bySubject };
+}
+
 // ───────────────────── main ─────────────────────
 async function main(examId: string) {
   // Fetch exam and resolve storage paths from the most recent job that has them
@@ -779,13 +1269,70 @@ async function main(examId: string) {
       console.log("[GABARITO] sem gabarito_storage_path — pulado");
     }
 
-    // 7. Mark done
-    await supabase.from("extraction_jobs").update({
-      status: "done",
-      current_stage: "done",
-      completed_at: new Date().toISOString(),
-      extracted_questions: rows.length,
-    }).eq("id", jobId);
+    // 7. REVIEWER
+    const reviewerOut = await runStage("reviewing", async () => {
+      const started = Date.now();
+      const r = await runReviewer(examId, jobId);
+      const sec = ((Date.now() - started) / 1000).toFixed(1);
+      console.log(
+        `[REVIEWER] ${r.approved_clean} aprovadas sem issues, ${r.with_issues} com issues, ${r.total_issues} issues totais (${r.critical_issues} críticos, ${sec}s)`,
+      );
+      return r;
+    });
+
+    // 8. VALIDATOR (pure code)
+    const validatorOut = await runStage("validating", async () => {
+      const started = Date.now();
+      const v = await runValidator(examId, jobId);
+      const sec = ((Date.now() - started) / 1000).toFixed(1);
+      console.log(
+        `[VALIDATOR] ${v.approved} approved, ${v.flagged} flagged, ${v.total_issues} issues (${sec}s)`,
+      );
+      return v;
+    });
+
+    await supabase
+      .from("extraction_jobs")
+      .update({
+        total_questions: rows.length,
+        approved_questions: validatorOut.approved,
+        flagged_questions: validatorOut.flagged,
+      })
+      .eq("id", jobId);
+
+    // 9. ENRICHER
+    const enricherOut = await runStage("enriching", async () => {
+      const started = Date.now();
+      const e = await runEnricher(examId);
+      const sec = ((Date.now() - started) / 1000).toFixed(1);
+      console.log(`[ENRICHER] ${e.count} questões enriquecidas (${sec}s)`);
+      return e;
+    });
+
+    // 10. Mark done
+    await supabase
+      .from("extraction_jobs")
+      .update({
+        status: "done",
+        current_stage: "done",
+        completed_at: new Date().toISOString(),
+        extracted_questions: rows.length,
+      })
+      .eq("id", jobId);
+
+    const criticalTotal =
+      reviewerOut.critical_issues +
+      // validator issues default to low/medium/high; count those flagged as critical if any sneak in
+      0;
+    const distLine = Object.entries(enricherOut.by_subject)
+      .sort((a, b) => b[1] - a[1])
+      .map(([s, n]) => `${s} ${n}`)
+      .join(", ");
+
+    console.log(
+      `\n[RESUMO] ${rows.length} extraídas, ${validatorOut.approved} approved, ${validatorOut.flagged} flagged, ${criticalTotal} com issues críticos`,
+    );
+    console.log(`[RESUMO] Distribuição: ${distLine || "(sem classificações)"}`);
 
     console.log(`\n✅ Job ${jobId} done. ${rows.length} questões em question_raw. ${flagged} flagged.`);
     if (gabaritoOut) {

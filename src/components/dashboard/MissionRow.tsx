@@ -9,12 +9,22 @@ export interface DashboardMission {
   score: number | null;
   mission_type: string;
   question_ids: string[] | null;
+  estimated_minutes?: number | null;
 }
 
 interface MissionRowProps {
   mission: DashboardMission;
   isNext: boolean;
   isOverdue?: boolean;
+}
+
+/** Treats literal placeholder subtopics ("geral", "") as absent. */
+function displaySubtopic(subtopic: string | null | undefined): string | null {
+  if (!subtopic) return null;
+  const trimmed = subtopic.trim();
+  if (!trimmed) return null;
+  if (trimmed.toLowerCase() === "geral") return null;
+  return trimmed;
 }
 
 export default function MissionRow({
@@ -36,13 +46,19 @@ export default function MissionRow({
         ? "#B45309"
         : "#888780";
 
-  // `question_ids` is populated lazily the first time the user opens the
-  // mission (see MissionPage). While it's null we don't know the real count
-  // yet, so we simply omit the "· N questões" suffix instead of guessing.
+  // `question_ids` is populated lazily on first open of the mission, so
+  // until then we don't know the actual count. Show "~N min" from
+  // `estimated_minutes` as a fallback instead of an honest-but-ugly
+  // "0 questões" / "? questões".
   const qCount = mission.question_ids?.length ?? null;
+  const subtopicText = displaySubtopic(mission.subtopic);
   const detailParts: string[] = [];
-  if (mission.subtopic) detailParts.push(mission.subtopic);
-  if (qCount != null) detailParts.push(`${qCount} questões`);
+  if (subtopicText) detailParts.push(subtopicText);
+  if (qCount != null && qCount > 0) {
+    detailParts.push(`${qCount} questões`);
+  } else if (mission.estimated_minutes && mission.estimated_minutes > 0) {
+    detailParts.push(`~${mission.estimated_minutes} min`);
+  }
   const detail = detailParts.join(" · ");
 
   const containerClass = [
@@ -75,7 +91,9 @@ export default function MissionRow({
               </span>
             )}
           </div>
-          <div className="text-xs text-[#888780] truncate">{detail}</div>
+          {detail && (
+            <div className="text-xs text-[#888780] truncate">{detail}</div>
+          )}
         </div>
       </div>
 

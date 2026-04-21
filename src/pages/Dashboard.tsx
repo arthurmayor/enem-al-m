@@ -104,6 +104,21 @@ function formatShortDate(iso: string): string {
     .replace(".", "");
 }
 
+/**
+ * The QA seed populates `daily_missions.subtopic` with the literal string
+ * "geral" (see scripts/qa-parte2-seed.mjs); a handful of earlier ad-hoc
+ * missions stored "" for the same thing. Both are placeholders, not real
+ * subtopics — we treat them as absent so the Hero title falls back to
+ * the subject name.
+ */
+function displaySubtopic(subtopic: string | null | undefined): string | null {
+  if (!subtopic) return null;
+  const trimmed = subtopic.trim();
+  if (!trimmed) return null;
+  if (trimmed.toLowerCase() === "geral") return null;
+  return trimmed;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -300,13 +315,15 @@ export default function Dashboard() {
                   </div>
 
                   <h2 className="text-[28px] md:text-[32px] font-bold tracking-[-0.6px] leading-tight mb-2 text-[#2C2C2A]">
-                    {heroMission.subtopic || heroMission.subject}
+                    {displaySubtopic(heroMission.subtopic) ?? heroMission.subject}
                   </h2>
                   <p className="text-[14px] text-[#888780] mb-5 max-w-[440px] leading-[1.45]">
                     {heroMission.subject}
                     {heroMission.question_ids?.length
                       ? ` · ${heroMission.question_ids.length} questões`
-                      : ""}
+                      : heroMission.estimated_minutes
+                        ? ` · ~${heroMission.estimated_minutes} min`
+                        : ""}
                   </p>
 
                   <button
@@ -344,21 +361,24 @@ export default function Dashboard() {
                   <span className="font-semibold text-[#2C2C2A] tracking-[0.2px]">
                     Depois:
                   </span>
-                  {activeQueue.slice(1, 5).map((m) => (
-                    <span key={m.id} className="flex items-center gap-1.5">
-                      <span
-                        className="h-1.5 w-1.5 rounded-full shrink-0"
-                        style={{
-                          backgroundColor: m.isOverdue ? "#B45309" : "#888780",
-                        }}
-                      />
-                      <span className="text-[#2C2C2A]">
-                        {m.subject}
-                        {m.subtopic ? ` · ${m.subtopic}` : ""}
-                        {m.isOverdue ? " · atrasada" : ""}
+                  {activeQueue.slice(1, 5).map((m) => {
+                    const st = displaySubtopic(m.subtopic);
+                    return (
+                      <span key={m.id} className="flex items-center gap-1.5">
+                        <span
+                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: m.isOverdue ? "#B45309" : "#888780",
+                          }}
+                        />
+                        <span className="text-[#2C2C2A]">
+                          {m.subject}
+                          {st ? ` · ${st}` : ""}
+                          {m.isOverdue ? " · atrasada" : ""}
+                        </span>
                       </span>
-                    </span>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -519,46 +539,48 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── 4. Two-column: Evolution + Missions queue ─────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-[1.35fr_1fr] gap-3.5 mb-3.5">
-          {/* Evolution chart */}
-          <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5">
-            <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-              <div>
-                <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
-                  Evolução de questões
-                </div>
-                <div className="text-[11px] text-[#B4B2A9] mt-0.5">
-                  Questões respondidas por período
-                </div>
+        {/* ── 4a. Evolution (full width) — chart left + donut right ─────── */}
+        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+            <div>
+              <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+                Evolução de questões
               </div>
-              <SegmentedControl
-                options={EVO_PERIOD_OPTIONS}
-                active={evoLabel}
-                onChange={setEvoLabel}
-              />
+              <div className="text-[11px] text-[#B4B2A9] mt-0.5">
+                Questões respondidas por período
+              </div>
             </div>
-            {totalQuestions === 0 ? (
-              <p className="text-[13px] text-[#888780] py-10 text-center">
-                Responda questões para ver sua evolução.
-              </p>
-            ) : (
-              <EvolutionChart data={evoData ?? []} height={180} />
-            )}
-
-            {/* Mini donut — section 4.3 */}
-            <div className="mt-4 pt-4 border-t border-[#EFECE6] flex items-center gap-4">
-              <AccuracyDonut accuracyPct={periodAccuracyPct} size={64} />
-              <div className="text-[13px] text-[#2C2C2A]">
+            <SegmentedControl
+              options={EVO_PERIOD_OPTIONS}
+              active={evoLabel}
+              onChange={setEvoLabel}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-6 items-center mt-2">
+            <div>
+              {totalQuestions === 0 ? (
+                <p className="text-[13px] text-[#888780] py-10 text-center">
+                  Responda questões para ver sua evolução.
+                </p>
+              ) : (
+                <EvolutionChart data={evoData ?? []} height={180} />
+              )}
+            </div>
+            <div className="flex md:flex-col items-center gap-3 md:gap-2 md:border-l md:border-[#EFECE6] md:pl-6">
+              <AccuracyDonut accuracyPct={periodAccuracyPct} size={96} />
+              <div className="text-[12px] text-[#2C2C2A] text-center md:text-left">
                 {periodAccuracyPct != null && periodErrorPct != null ? (
                   <>
-                    <span className="font-semibold text-[#059669]">
-                      {periodAccuracyPct}% Acertadas
-                    </span>{" "}
-                    <span className="text-[#888780]">·</span>{" "}
-                    <span className="font-semibold text-[#DC2626]">
-                      {periodErrorPct}% Erradas
-                    </span>
+                    <div>
+                      <span className="font-semibold text-[#059669]">
+                        {periodAccuracyPct}% Acertadas
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-[#DC2626]">
+                        {periodErrorPct}% Erradas
+                      </span>
+                    </div>
                   </>
                 ) : (
                   <span className="text-[#888780]">
@@ -567,21 +589,22 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Suas Missões */}
-          <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5">
-            <div className="flex items-center justify-between mb-3.5">
-              <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
-                Suas Missões
-              </div>
-              {overdueMissions.length > 0 && (
-                <span className="text-[11px] font-semibold text-[#8A5A0B] bg-[#FBE7C6] px-2 py-0.5 rounded-md">
-                  {overdueMissions.length} atrasada
-                  {overdueMissions.length > 1 ? "s" : ""}
-                </span>
-              )}
+        {/* ── 4b. Suas Missões (full width) ──────────────────────────────── */}
+        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+              Suas Missões
             </div>
+            {overdueMissions.length > 0 && (
+              <span className="text-[11px] font-semibold text-[#8A5A0B] bg-[#FBE7C6] px-2 py-0.5 rounded-md">
+                {overdueMissions.length} atrasada
+                {overdueMissions.length > 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
             {!hasPendingWork ? (
               <div>
                 <p className="text-[13px] text-[#888780]">
@@ -611,8 +634,7 @@ export default function Dashboard() {
                 ))}
               </div>
             )}
-          </section>
-        </div>
+        </section>
 
         {/* ── 5. Proficiência por matéria ───────────────────────────────── */}
         <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">

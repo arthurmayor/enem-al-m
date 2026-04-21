@@ -1,10 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { runPreParser } from "./pre-parser.ts";
-import { runProfiler, type ProfileResult } from "./profiler.ts";
-import { runSegmenter } from "./segmenter.ts";
-import { runAssembler } from "./assembler.ts";
-import { runGabaritoLinker } from "./gabarito-linker.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { runPreParser } from "../_shared/pre-parser.ts";
+import { runProfiler, type ProfileResult } from "../_shared/profiler.ts";
+import { runStage, markJobError } from "../_shared/stages.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -25,88 +23,33 @@ interface RequestBody {
   exam_id?: string;
   prova_storage_path?: string;
   gabarito_storage_path?: string;
+  // If true, return after persisting phase-1 state without invoking phase 2.
+  // Useful for debugging or for callers that want to trigger phase 2 themselves.
+  skip_phase_two?: boolean;
 }
 
-interface StageLogEntry {
-  stage: string;
-  started_at: string;
-  completed_at: string;
-  status: "done" | "error";
-  error?: string;
-}
-
-async function appendStageLog(
-  supabase: SupabaseClient,
-  jobId: string,
-  entry: StageLogEntry,
-) {
-  const { data, error } = await supabase
-    .from("extraction_jobs")
-    .select("stages_log")
-    .eq("id", jobId)
-    .single();
-  if (error) throw new Error(`Falha ao ler stages_log do job: ${error.message}`);
-
-  const log = Array.isArray(data?.stages_log) ? data.stages_log : [];
-  log.push(entry);
-
-  const { error: updErr } = await supabase
-    .from("extraction_jobs")
-    .update({ stages_log: log })
-    .eq("id", jobId);
-  if (updErr) throw new Error(`Falha ao escrever stages_log: ${updErr.message}`);
-}
-
-async function runStage<T>(
-  supabase: SupabaseClient,
-  jobId: string,
-  stageName: string,
-  fn: () => Promise<T>,
-): Promise<T> {
-  const started_at = new Date().toISOString();
-  await supabase
-    .from("extraction_jobs")
-    .update({ current_stage: stageName })
-    .eq("id", jobId);
-
-  try {
-    const result = await fn();
-    await appendStageLog(supabase, jobId, {
-      stage: stageName,
-      started_at,
-      completed_at: new Date().toISOString(),
-      status: "done",
-    });
-    return result;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    await appendStageLog(supabase, jobId, {
-      stage: stageName,
-      started_at,
-      completed_at: new Date().toISOString(),
-      status: "error",
-      error: message,
-    });
-    throw err;
-  }
-}
-
-async function markJobError(supabase: SupabaseClient, jobId: string, message: string) {
-  await appendStageLog(supabase, jobId, {
-    stage: "terminated",
-    started_at: new Date().toISOString(),
-    completed_at: new Date().toISOString(),
-    status: "error",
-    error: message,
+// Fire-and-forget invocation of the phase-2 function. We don't await the
+// response — that would block this function on the 60s budget of phase 2.
+// Instead we just kick off the request; Supabase's runtime keeps the fetch
+// alive for us.
+async function triggerPhaseTwo(jobId: string) {
+  const url = `${SUPABASE_URL}/functions/v1/extract-exam-process`;
+  const req = fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+    },
+    body: JSON.stringify({ job_id: jobId }),
   });
-  await supabase
-    .from("extraction_jobs")
-    .update({
-      status: "error",
-      errors_count: 1,
-      completed_at: new Date().toISOString(),
-    })
-    .eq("id", jobId);
+
+  // Swallow the promise so it doesn't become an unhandled rejection if the
+  // caller returns before the fetch settles. Errors inside phase 2 are
+  // persisted to extraction_jobs.stages_log by that function itself.
+  req.catch((err) => {
+    console.error(`[extract-exam] triggerPhaseTwo fetch failed: ${err}`);
+  });
 }
 
 serve(async (req) => {
@@ -130,7 +73,7 @@ serve(async (req) => {
     return jsonResponse({ error: "Body inválido — esperado JSON" }, 400);
   }
 
-  const { exam_id, prova_storage_path, gabarito_storage_path } = body;
+  const { exam_id, prova_storage_path, gabarito_storage_path, skip_phase_two } = body;
   if (!exam_id || !prova_storage_path) {
     return jsonResponse(
       { error: "Campos obrigatórios: exam_id, prova_storage_path" },
@@ -147,6 +90,8 @@ serve(async (req) => {
       status: "pending",
       current_stage: "pending",
       started_at: new Date().toISOString(),
+      prova_storage_path,
+      gabarito_storage_path: gabarito_storage_path ?? null,
     })
     .select("id")
     .single();
@@ -218,37 +163,31 @@ serve(async (req) => {
       );
     }
 
-    // ───── SEGMENTER ─────
-    const segResult = await runStage(supabase, jobId, "segmenting", () =>
-      runSegmenter(preResult.pages, profile),
-    );
-
-    // ───── ASSEMBLER ─────
-    const asmResult = await runStage(supabase, jobId, "assembling", () =>
-      runAssembler(supabase, exam_id, jobId, segResult.blocks, profile),
-    );
-
-    // ───── GABARITO LINKER ─────
-    const gabaritoResult = await runStage(supabase, jobId, "linking_gabarito", () =>
-      runGabaritoLinker(supabase, exam_id, jobId, gabarito_storage_path),
-    );
-
-    // Pipeline paused here — next modules (validator/enrichment) continue from gabarito_done
-    await supabase
+    // Persist phase-1 output so phase 2 can resume from here.
+    const { error: persistErr } = await supabase
       .from("extraction_jobs")
-      .update({ current_stage: "gabarito_done", status: "pending" })
+      .update({
+        pre_parser_pages: preResult.pages,
+        profile_json: profile,
+        current_stage: "phase_one_done",
+      })
       .eq("id", jobId);
+    if (persistErr) {
+      throw new Error(`Falha ao persistir estado phase-1: ${persistErr.message}`);
+    }
+
+    if (!skip_phase_two) {
+      await triggerPhaseTwo(jobId);
+    }
 
     return jsonResponse({
       job_id: jobId,
       status: "pending",
-      current_stage: "gabarito_done",
+      current_stage: skip_phase_two ? "phase_one_done" : "segmenting",
+      phase_two_triggered: !skip_phase_two,
       total_pages: preResult.total_pages,
       total_chars: preResult.total_chars,
       profile,
-      blocks_count: segResult.blocks.length,
-      questions_extracted: asmResult.inserted_count,
-      gabarito: gabaritoResult,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

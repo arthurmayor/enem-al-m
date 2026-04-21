@@ -1444,7 +1444,7 @@ async function runInserter(
   const { data: questions, error } = await supabase
     .from("question_raw")
     .select(
-      "id, numero, stem, options, shared_context, note_e_adote, correct_answer, source_pages, confidence_score, enrichment",
+      "id, numero, stem, options, shared_context, note_e_adote, correct_answer, source_pages, confidence_score, enrichment, media_map",
     )
     .eq("exam_id", examId)
     .eq("status", "approved")
@@ -1576,6 +1576,7 @@ async function runInserter(
         exam_id: examId,
         raw_question_id: q.id,
         source_pages: Array.isArray(q.source_pages) ? q.source_pages : null,
+        media_refs: Array.isArray(q.media_map) ? q.media_map : null,
         content_hash: contentHash,
         normalized_hash: normalizedHash,
         ingestion_version: 1,

@@ -40,6 +40,47 @@ const EMPTY: MissionsQueue = {
 const COLS =
   "id, subject, subtopic, mission_type, status, score, mission_order, question_ids, estimated_minutes, date";
 
+type RawMission = Omit<QueuedMission, "isOverdue" | "isToday">;
+
+/**
+ * Pure derivation — exported only for tests. Takes the raw today / overdue
+ * rows pulled from `daily_missions` and shapes them into the dashboard's
+ * view model. Keeping this separate from the I/O lets us unit-test the
+ * "completed today vs. still-pending today vs. overdue" split without
+ * standing up a React Query harness.
+ */
+export function deriveMissionsQueue(
+  todayRows: RawMission[],
+  overdueRows: RawMission[],
+): MissionsQueue {
+  const todayMissions: QueuedMission[] = todayRows.map((m) => ({
+    ...m,
+    isOverdue: false,
+    isToday: true,
+  }));
+  const overdueMissions: QueuedMission[] = overdueRows.map((m) => ({
+    ...m,
+    isOverdue: true,
+    isToday: false,
+  }));
+
+  const todayActive = todayMissions.filter(
+    (m) => m.status !== MISSION_STATUSES.COMPLETED,
+  );
+  const activeQueue = [...overdueMissions, ...todayActive];
+  const todayCompleted = todayMissions.filter(
+    (m) => m.status === MISSION_STATUSES.COMPLETED,
+  ).length;
+
+  return {
+    todayMissions,
+    overdueMissions,
+    activeQueue,
+    todayTotal: todayMissions.length,
+    todayCompleted,
+  };
+}
+
 /**
  * Single source of truth for the dashboard's mission data. Returns today's
  * missions (including completed ones, so the hero ring can render a real
@@ -81,30 +122,13 @@ export function useMissionsQueue() {
       if (todayRes.error) throw todayRes.error;
       if (overdueRes.error) throw overdueRes.error;
 
-      const todayMissions: QueuedMission[] = (todayRes.data ?? []).map(
-        (m) => ({ ...m, isOverdue: false, isToday: true }),
+      return deriveMissionsQueue(
+        (todayRes.data ?? []) as RawMission[],
+        (overdueRes.data ?? []) as RawMission[],
       );
-      const overdueMissions: QueuedMission[] = (overdueRes.data ?? []).map(
-        (m) => ({ ...m, isOverdue: true, isToday: false }),
-      );
-
-      const todayActive = todayMissions.filter(
-        (m) => m.status !== MISSION_STATUSES.COMPLETED,
-      );
-      const activeQueue = [...overdueMissions, ...todayActive];
-      const todayCompleted = todayMissions.filter(
-        (m) => m.status === MISSION_STATUSES.COMPLETED,
-      ).length;
-
-      return {
-        todayMissions,
-        overdueMissions,
-        activeQueue,
-        todayTotal: todayMissions.length,
-        todayCompleted,
-      };
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 15_000,
   });
 }

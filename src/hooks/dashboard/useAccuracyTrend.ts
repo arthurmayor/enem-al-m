@@ -57,6 +57,7 @@ export function useAccuracyTrend(days = 7) {
       });
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 30_000,
   });
 }

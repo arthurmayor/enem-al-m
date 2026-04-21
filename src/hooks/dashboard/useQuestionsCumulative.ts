@@ -53,6 +53,7 @@ export function useQuestionsCumulative(days = 7) {
       });
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 30_000,
   });
 }

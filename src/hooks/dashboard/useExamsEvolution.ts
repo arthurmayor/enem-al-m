@@ -58,6 +58,7 @@ export function useExamsEvolution(period: ExamsPeriod, type: ExamsType) {
       }));
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 30_000,
   });
 }

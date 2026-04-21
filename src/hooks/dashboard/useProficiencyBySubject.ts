@@ -103,6 +103,7 @@ export function useProficiencyBySubject(period: ProficiencyPeriod) {
       return results.sort((a, b) => a.score - b.score);
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 30_000,
   });
 }

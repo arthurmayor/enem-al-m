@@ -39,6 +39,7 @@ export function useDashboardMetrics() {
       return (data ?? null) as DashboardMetrics | null;
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 30_000,
   });
 }

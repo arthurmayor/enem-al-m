@@ -76,6 +76,7 @@ export function useAccuracyByPeriod(period: AccuracyPeriod) {
       return { current: currentPct, delta };
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 30_000,
   });
 }

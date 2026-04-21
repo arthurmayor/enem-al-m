@@ -98,6 +98,7 @@ export function useQuestionsEvolution(
         .map((b) => ({ label: b.key, count: b.count }));
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 30_000,
   });
 }

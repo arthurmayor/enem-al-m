@@ -1,7 +1,12 @@
 import { Line, LineChart, ResponsiveContainer, YAxis } from "recharts";
 
 interface SparklineProps {
-  data: number[];
+  /**
+   * Time-ordered series (oldest → newest). One slot per time bucket; use
+   * `null` for buckets with no data so Recharts breaks the line at the
+   * gap and the sparkline visually reflects the real timeline.
+   */
+  data: (number | null)[];
   color?: string;
   height?: number;
   strokeWidth?: number;
@@ -9,7 +14,9 @@ interface SparklineProps {
 
 /**
  * Minimal non-interactive line chart used inside stat cards. No axes,
- * no tooltip, no grid — just the trend line.
+ * no tooltip, no grid — just the trend line. Renders nothing if the
+ * series has fewer than two non-null points (a single dot wouldn't
+ * convey a trend).
  */
 export default function Sparkline({
   data,
@@ -18,6 +25,8 @@ export default function Sparkline({
   strokeWidth = 1.5,
 }: SparklineProps) {
   if (!data || data.length < 2) return null;
+  const realPoints = data.filter((v): v is number => v != null).length;
+  if (realPoints < 2) return null;
 
   const points = data.map((v, i) => ({ i, v }));
 
@@ -36,6 +45,7 @@ export default function Sparkline({
             strokeWidth={strokeWidth}
             dot={false}
             isAnimationActive={false}
+            connectNulls={false}
           />
         </LineChart>
       </ResponsiveContainer>

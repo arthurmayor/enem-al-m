@@ -8,7 +8,7 @@
  *
  * Usage:
  *   ANTHROPIC_API_KEY=... SUPABASE_SERVICE_ROLE_KEY=... \
- *   npx tsx scripts/extract-exam-local.ts <exam_id>
+ *   npx tsx tools/extraction/extract-exam-local.ts <exam_id>
  */
 
 import { createHash } from "node:crypto";
@@ -2636,7 +2636,7 @@ async function main(examId: string) {
 
 const examId = process.argv[2];
 if (!examId) {
-  console.error("Uso: npx tsx scripts/extract-exam-local.ts <exam_id>");
+  console.error("Uso: npx tsx tools/extraction/extract-exam-local.ts <exam_id>");
   process.exit(1);
 }
 

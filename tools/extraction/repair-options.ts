@@ -6,7 +6,7 @@
  *
  * Usage:
  *   ANTHROPIC_API_KEY=... SUPABASE_SERVICE_ROLE_KEY=... \
- *   npx tsx scripts/repair-options.ts <exam_id> <n1,n2,...>
+ *   npx tsx tools/extraction/repair-options.ts <exam_id> <n1,n2,...>
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -251,7 +251,7 @@ const numeros = (process.argv[3] ?? "")
   .filter(Number.isFinite);
 
 if (!examId || numeros.length === 0) {
-  console.error("Uso: npx tsx scripts/repair-options.ts <exam_id> <n1,n2,...>");
+  console.error("Uso: npx tsx tools/extraction/repair-options.ts <exam_id> <n1,n2,...>");
   process.exit(1);
 }
 

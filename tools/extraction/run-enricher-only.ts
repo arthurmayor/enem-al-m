@@ -5,7 +5,7 @@
  *
  * Usage:
  *   ANTHROPIC_API_KEY=... SUPABASE_SERVICE_ROLE_KEY=... \
- *   npx tsx scripts/run-enricher-only.ts <exam_id>
+ *   npx tsx tools/extraction/run-enricher-only.ts <exam_id>
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -213,7 +213,7 @@ async function main(examId: string) {
 
 const examId = process.argv[2];
 if (!examId) {
-  console.error("Uso: npx tsx scripts/run-enricher-only.ts <exam_id>");
+  console.error("Uso: npx tsx tools/extraction/run-enricher-only.ts <exam_id>");
   process.exit(1);
 }
 main(examId).catch((err) => {

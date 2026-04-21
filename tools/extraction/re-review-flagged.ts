@@ -22,7 +22,7 @@
  *
  * Uso:
  *   ANTHROPIC_API_KEY=... SUPABASE_SERVICE_ROLE_KEY=... \
- *   npx tsx scripts/re-review-flagged.ts <exam_id> [<exam_id> ...]
+ *   npx tsx tools/extraction/re-review-flagged.ts <exam_id> [<exam_id> ...]
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -374,7 +374,7 @@ async function processExam(examId: string): Promise<void> {
 async function main() {
   const examIds = process.argv.slice(2);
   if (examIds.length === 0) {
-    console.error("Uso: npx tsx scripts/re-review-flagged.ts <exam_id> [<exam_id> ...]");
+    console.error("Uso: npx tsx tools/extraction/re-review-flagged.ts <exam_id> [<exam_id> ...]");
     process.exit(1);
   }
   for (const id of examIds) {

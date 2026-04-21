@@ -7,7 +7,7 @@
  *   2. Creates a seed extraction_jobs row carrying prova_storage_path
  *      and gabarito_storage_path — the main pipeline looks up the most
  *      recent seed to resolve the PDFs.
- *   3. Spawns `npx tsx scripts/extract-exam-local.ts <exam_id>` with
+ *   3. Spawns `npx tsx tools/extraction/extract-exam-local.ts <exam_id>` with
  *      inherited stdio so the operator sees every stage log live.
  *   4. On success or failure, records the per-prova result and continues
  *      to the next prova (a single failure never aborts the batch).
@@ -19,9 +19,9 @@
  *
  * Usage:
  *   SUPABASE_SERVICE_ROLE_KEY=... ANTHROPIC_API_KEY=... \
- *     npx tsx scripts/run-batch.ts '[{"banca":"Fuvest","ano":2026,"fase":"1","versao":"V1","prova":"exam-files/fuvest-2026-fase1-V1-prova.pdf","gabarito":"exam-files/fuvest-2026-fase1-gabarito.pdf"}]'
+ *     npx tsx tools/extraction/run-batch.ts '[{"banca":"Fuvest","ano":2026,"fase":"1","versao":"V1","prova":"exam-files/fuvest-2026-fase1-V1-prova.pdf","gabarito":"exam-files/fuvest-2026-fase1-gabarito.pdf"}]'
  *   SUPABASE_SERVICE_ROLE_KEY=... ANTHROPIC_API_KEY=... \
- *     npx tsx scripts/run-batch.ts --file provas.json
+ *     npx tsx tools/extraction/run-batch.ts --file provas.json
  */
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -126,7 +126,7 @@ function parseArgs(): ProvaInput[] {
   const argv = process.argv.slice(2);
   if (argv.length === 0) {
     console.error(
-      "Uso: npx tsx scripts/run-batch.ts '<JSON array>'  |  --file <path>",
+      "Uso: npx tsx tools/extraction/run-batch.ts '<JSON array>'  |  --file <path>",
     );
     process.exit(1);
   }

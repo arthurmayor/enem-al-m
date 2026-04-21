@@ -10,7 +10,7 @@
  *
  * Uso:
  *   SUPABASE_SERVICE_ROLE_KEY=... ANTHROPIC_API_KEY=... \
- *   npx tsx scripts/re-extract-range.ts <exam_id> <first> <last>
+ *   npx tsx tools/extraction/re-extract-range.ts <exam_id> <first> <last>
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -293,7 +293,7 @@ async function main() {
   const first = parseInt(process.argv[3], 10);
   const last = parseInt(process.argv[4], 10);
   if (!examId || !Number.isFinite(first) || !Number.isFinite(last)) {
-    console.error("Uso: npx tsx scripts/re-extract-range.ts <exam_id> <first> <last>");
+    console.error("Uso: npx tsx tools/extraction/re-extract-range.ts <exam_id> <first> <last>");
     process.exit(1);
   }
   const targetNumeros = Array.from({ length: last - first + 1 }, (_, i) => first + i);

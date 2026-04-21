@@ -46,7 +46,7 @@ if (!ANTHROPIC_API_KEY) {
   process.exit(1);
 }
 
-const MODEL_SONNET = "claude-sonnet-4-20250514";
+const MODEL_SONNET = "claude-sonnet-4-5-20250929";
 const BATCH_SIZE = 15;
 const MAX_TOKENS = 8192;
 const SUBJECTS = [

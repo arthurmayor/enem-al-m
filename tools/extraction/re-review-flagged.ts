@@ -30,7 +30,7 @@ import dns from "node:dns";
 
 dns.setDefaultResultOrder("ipv4first");
 
-const MODEL_SONNET = "claude-sonnet-4-20250514";
+const MODEL_SONNET = "claude-sonnet-4-5-20250929";
 const REVIEWER_BATCH_SIZE = 12;
 const REVIEWER_MAX_TOKENS = 16384;
 

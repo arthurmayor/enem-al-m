@@ -1,4 +1,4 @@
-export const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-4-20250514";
+export const ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-4-5-20250929";
 export const ANTHROPIC_FAST_MODEL = "claude-haiku-4-5-20251001";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight, ArrowRight, BookOpen, Clock } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/contexts/AuthContext";
+import { setOnboardingCache } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
 import { expectedAccuracy } from "@/lib/scoring";
@@ -176,9 +177,10 @@ async function generateAndSavePlan(
   const dayNames: Record<string, number> = {
     Domingo: 0, Segunda: 1, Terca: 2, Quarta: 3, Quinta: 4, Sexta: 5, Sabado: 6,
   };
+  // Schedule starting today so the dashboard shows missions on the same day
+  // the diagnostic is completed (if today's weekday is covered by the plan).
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() + 1);
   const firstOfWeekday: Record<number, Date> = {};
   for (let wd = 0; wd <= 6; wd++) {
     const d = new Date(start);
@@ -224,6 +226,16 @@ async function generateAndSavePlan(
   if (missionsToInsert.length > 0) {
     await supabase.from("daily_missions").insert(missionsToInsert);
   }
+
+  // Ensure the profile is flagged as onboarded and refresh the ProtectedRoute
+  // cache, otherwise the route guard would redirect /dashboard back to
+  // /onboarding using a stale cached value.
+  await supabase
+    .from("profiles")
+    .update({ onboarding_complete: true } as any)
+    .eq("id", userId);
+  setOnboardingCache(userId, true);
+
   trackEvent("plan_generated", { missions: missionsToInsert.length }, userId);
   navigate("/dashboard");
 }

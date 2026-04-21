@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { setOnboardingCache } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import ProgressIndicator from "@/components/onboarding/ProgressIndicator";
@@ -76,6 +77,7 @@ const Onboarding = () => {
       toast.error("Erro ao salvar. Tente novamente.");
     } else {
       localStorage.removeItem(STORAGE_KEY);
+      setOnboardingCache(user.id, true);
       trackEvent("onboarding_completed", {}, user?.id);
       navigate("/diagnostic/intro");
     }

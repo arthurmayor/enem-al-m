@@ -101,7 +101,7 @@ async function main(examId: string) {
       media_map: unknown;
       status: string;
     } | null;
-    return qr && qr.status === "approved";
+    return qr && (qr.status === "approved" || qr.status === "flagged");
   });
   console.log(`[REC] ${targets.length} questões com shared_context_ausente`);
 

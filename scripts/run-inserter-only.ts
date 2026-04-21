@@ -9,6 +9,29 @@
  */
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
+import dns from "node:dns";
+
+dns.setDefaultResultOrder("ipv4first");
+
+async function withRetry<T>(fn: () => Promise<T>, label: string, tries = 5): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/DNS cache overflow|ENOTFOUND|ECONNRESET|fetch failed|UND_ERR/i.test(msg)) {
+        const delay = 500 * Math.pow(2, i);
+        console.warn(`[RETRY ${label}] ${msg} — retry in ${delay}ms`);
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
 
 const SUPABASE_URL =
   process.env.SUPABASE_URL ?? "https://nbfgqrjcrzgrprzqedtl.supabase.co";
@@ -48,24 +71,28 @@ function computeNormalizedHash(stem: string, options: unknown[]): string {
 }
 
 async function loadExamMeta(examId: string) {
-  const { data, error } = await supabase
-    .from("exams")
-    .select("banca, ano, versao")
-    .eq("id", examId)
-    .single();
-  if (error || !data) throw new Error(`exam meta: ${error?.message}`);
-  return data as { banca: string; ano: number; versao: string | null };
+  return withRetry(async () => {
+    const { data, error } = await supabase
+      .from("exams")
+      .select("banca, ano, versao")
+      .eq("id", examId)
+      .single();
+    if (error || !data) throw new Error(`exam meta: ${error?.message}`);
+    return data as { banca: string; ano: number; versao: string | null };
+  }, "loadExamMeta");
 }
 
 async function loadJobId(examId: string) {
-  const { data } = await supabase
-    .from("extraction_jobs")
-    .select("id")
-    .eq("exam_id", examId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (data?.id as string | undefined) ?? null;
+  return withRetry(async () => {
+    const { data } = await supabase
+      .from("extraction_jobs")
+      .select("id")
+      .eq("exam_id", examId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return (data?.id as string | undefined) ?? null;
+  }, "loadJobId");
 }
 
 async function main(examId: string) {
@@ -76,7 +103,7 @@ async function main(examId: string) {
   const { data: questions, error } = await supabase
     .from("question_raw")
     .select(
-      "id, numero, stem, options, shared_context, note_e_adote, correct_answer, source_pages, confidence_score, enrichment, media_map",
+      "id, numero, stem, options, shared_context, note_e_adote, correct_answer, source_pages, confidence_score, enrichment, media_map, question_type, needs_manual_review",
     )
     .eq("exam_id", examId)
     .eq("status", "approved")
@@ -221,6 +248,9 @@ async function main(examId: string) {
         normalized_hash: normalizedHash,
         ingestion_version: 1,
         status: "approved",
+        question_type: (q as { question_type?: string }).question_type ?? "multiple_choice_single",
+        needs_manual_review:
+          (q as { needs_manual_review?: boolean }).needs_manual_review ?? false,
       })
       .select("id")
       .single();

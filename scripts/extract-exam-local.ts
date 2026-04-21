@@ -34,6 +34,18 @@ if (!ANTHROPIC_API_KEY) {
 const MODEL_SONNET = "claude-sonnet-4-20250514";
 const MODEL_HAIKU = "claude-haiku-4-5-20251001";
 
+// Issue types that block insertion into `questions` regardless of
+// severity. Used by the validator to decide status='validated' vs
+// 'flagged' and by the inserter to decide whether to skip a row.
+const CRITICAL_ISSUE_TYPES = new Set([
+  "contaminacao",
+  "imagem_incorreta",
+  "legenda_quebrada",
+  "alternativas_incorretas",
+  "gabarito_invalido",
+  "duplicata_provavel",
+]);
+
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -62,6 +74,8 @@ interface ProfileResult {
   column_layout?: string;
   structural_risks?: string[];
   recommended_strategy?: string;
+  running_header?: string;
+  running_footer?: string;
   [k: string]: unknown;
 }
 
@@ -174,7 +188,14 @@ function chunkPages<T>(arr: T[], size: number): T[][] {
 const PROFILE_SYSTEM = `Você é um profiler de provas de vestibulares brasileiros.
 Receba texto extraído e retorne análise estrutural via a tool submit_profile.
 NÃO extraia questões.
-Se texto vazio/ilegível: source_type = 'pdf_scanned'.`;
+Se texto vazio/ilegível: source_type = 'pdf_scanned'.
+
+CABEÇALHO/RODAPÉ RECORRENTE: se alguma string aparece no topo ou
+rodapé de TODAS ou quase todas as páginas (ex.: "FUVEST 2025",
+"PROVA DE CONHECIMENTOS GERAIS", nome do caderno), preencha
+"running_header" com esse texto exato. Mesmo para rodapé →
+"running_footer". Omita (ou deixe vazio) se não houver repetição clara.
+Não inclua texto de questão nem números de página individuais.`;
 
 const PROFILE_SCHEMA = {
   type: "object",
@@ -197,6 +218,8 @@ const PROFILE_SCHEMA = {
     column_layout: { type: "string" },
     structural_risks: { type: "array", items: { type: "string" } },
     recommended_strategy: { type: "string" },
+    running_header: { type: "string" },
+    running_footer: { type: "string" },
   },
   required: ["source_type"],
 };
@@ -226,18 +249,48 @@ submit_blocks com APENAS as coordenadas de cada bloco — NÃO copie o texto.
 
 Tipos de bloco: shared_context, question_start, stem, option_item,
 note_e_adote, figure_ref, caption, source_reference.
-CUIDADO com layout de 2 colunas — não misture questões.
-Blocos ambíguos: flagged = true.
-Um bloco deve ficar sempre dentro de uma única página. Se um trecho
-atravessa páginas, gere um bloco por página.
+
+REGRAS CRÍTICAS — respeite rigorosamente:
+
+1. IGNORE CABEÇALHOS/RODAPÉS DE PÁGINA. Linhas com o título da prova
+   repetido em todas as páginas (ex.: "FUVEST 2025", "PROVA DE
+   CONHECIMENTOS GERAIS"), números de página isolados (ex.: "14"),
+   URLs de rodapé, logos textuais — NÃO incluem em nenhum bloco.
+   O campo "running_header" / "running_footer" do Profile (se
+   presente no input) lista o texto exato a ignorar.
+
+2. STEM É UM ÚNICO BLOCO POR QUESTÃO. Para cada questão emita
+   EXATAMENTE UM bloco type="stem" cobrindo TODAS as linhas entre o
+   marcador de início da questão (ex.: "{27}", "27.", "27)" ) e a
+   PRIMEIRA alternativa "(A)" ou "A)". Inclua parágrafos múltiplos,
+   citações literais, versos, equações — tudo que vem ANTES de (A).
+   NUNCA quebre o stem em vários blocos stem.
+
+3. STEM NUNCA É VAZIO. line_end >= line_start SEMPRE. Se não houver
+   linhas entre o marcador da questão e (A), NÃO emita bloco stem.
+
+4. SHARED_CONTEXT É SEPARADO DO STEM. Só classifique como
+   shared_context um bloco explicitamente marcado como "TEXTO PARA AS
+   QUESTÕES X A Y" ou um bloco de contexto claramente separado ANTES
+   do marcador da primeira questão do grupo. Se texto aparece APÓS
+   o marcador {NN} e antes de (A), é STEM — não shared_context.
+
+5. NÃO MISTURE QUESTÕES em layout de 2 colunas.
+
+6. Um bloco fica dentro de uma única página. Se trecho atravessa
+   páginas, gere um bloco por página (mesmo type, mesmo question_hint).
+
+7. Blocos ambíguos: flagged = true.
 
 Campos:
-- block_id: identificador sequencial (será reatribuído depois, pode ser qualquer string).
+- block_id: identificador sequencial (será reatribuído depois).
 - type: um dos tipos listados acima.
 - question_hint: número da questão a que o bloco pertence (ou null).
 - page: número da página (o que aparece em "=== Página N ===").
-- line_start / line_end: números das linhas (Lx) inclusive, dentro da página.
-- label: para option_item, a letra/rótulo exatamente como aparece (A, B, C, D, E, a), ...); caso contrário null.
+- line_start / line_end: números das linhas (Lx) inclusive, dentro da
+  página. line_end >= line_start SEMPRE.
+- label: para option_item, a letra/rótulo exatamente como aparece
+  (A, B, C, D, E, a), ...); caso contrário null.
 - flagged: true se o bloco for ambíguo.`;
 
 const BLOCKS_SCHEMA = {
@@ -285,6 +338,30 @@ function profileSummary(p: ProfileResult): string {
     has_shared_context: p.has_shared_context,
     has_note_e_adote: p.has_note_e_adote,
     objective_question_count: p.objective_question_count,
+    running_header: p.running_header,
+    running_footer: p.running_footer,
+  });
+}
+
+// Strip lines that match a known page-level running header/footer or
+// are isolated page numbers. Preserves line count by leaving blank
+// lines in place — downstream Lx line numbering stays stable.
+function stripRunningHeaders(pages: ParsedPage[], profile: ProfileResult): ParsedPage[] {
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
+  const header = profile.running_header ? norm(profile.running_header) : "";
+  const footer = profile.running_footer ? norm(profile.running_footer) : "";
+  const isPageNumber = (s: string) => /^\s*\d{1,3}\s*$/.test(s);
+  return pages.map((p) => {
+    const lines = p.text.split("\n");
+    const cleaned = lines.map((line) => {
+      const n = norm(line);
+      if (!n) return line;
+      if (header && n === header) return "";
+      if (footer && n === footer) return "";
+      if (isPageNumber(line)) return "";
+      return line;
+    });
+    return { page_number: p.page_number, text: cleaned.join("\n") };
   });
 }
 
@@ -346,6 +423,17 @@ NÃO parafraseie. NÃO assuma labels — use exatamente os labels
 que aparecem nos blocos.
 Question types válidos: multiple_choice_single,
 multiple_choice_image_options, multiple_choice_shared_context.
+
+REGRAS CRÍTICAS:
+- O stem NUNCA começa com "(A)" / "A)" / outro rótulo de alternativa.
+  Se isso acontecer nos blocos recebidos, o bloco correto de stem é o
+  shared_context (faça a troca: use shared_context como stem, e deixe
+  shared_context=null a menos que haja OUTRO bloco shared_context).
+- NÃO inclua cabeçalhos/rodapés de página ("FUVEST 2025", números de
+  página isolados, etc.) em stem nem em shared_context.
+- Se um bloco stem está vazio mas existe shared_context, promova o
+  shared_context a stem (único) e defina shared_context=null.
+
 Se incerto sobre qualquer campo: flagged = true.
 Campos da questão:
 - numero: inteiro (deve bater com o question_hint dos blocos).
@@ -479,6 +567,70 @@ async function assembleOneQuestion(
   return null;
 }
 
+// Belt-and-suspenders: strip known running headers from a text field
+// and normalize whitespace. Safe no-op if no header is declared.
+function stripHeadersFromText(text: string | null, profile: ProfileResult): string | null {
+  if (!text) return text;
+  const header = profile.running_header?.trim();
+  const footer = profile.running_footer?.trim();
+  const patterns = [header, footer].filter((s): s is string => !!s);
+  let out = text;
+  for (const pat of patterns) {
+    // Escape regex specials, then build a case-insensitive whole-line matcher.
+    const esc = pat.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(new RegExp(`(^|\\n)\\s*${esc}\\s*(?=\\n|$)`, "gi"), "$1");
+  }
+  // Collapse runs of blank lines left by stripping.
+  out = out.replace(/\n{3,}/g, "\n\n").trim();
+  return out;
+}
+
+// Heuristic: does text start with an option label like "(A)", "A)" or
+// similar? We only swap when configured patterns match.
+function stemStartsWithOption(stem: string): boolean {
+  const s = stem.trim();
+  return /^\(?[A-Ea-e]\)\s+\S/.test(s);
+}
+
+function postProcessAssembled(q: AssembledQuestion, profile: ProfileResult): AssembledQuestion {
+  const out = { ...q };
+  out.stem = stripHeadersFromText(out.stem, profile) ?? "";
+  out.shared_context = stripHeadersFromText(out.shared_context, profile) ?? null;
+
+  // Normalize option labels: strip surrounding parens/brackets so
+  // gabarito "A" compares cleanly against option.label "A"
+  // (segmenter sometimes emits "(A)" verbatim).
+  if (Array.isArray(out.options)) {
+    out.options = out.options.map((o) => ({
+      ...o,
+      label: String(o?.label ?? "").replace(/[()[\]]/g, "").trim(),
+    }));
+  }
+
+  // ASM-2: if stem starts with an option label and shared_context has
+  // real text, swap them. This corrects a common segmenter bug where
+  // the first option line was promoted to stem and the real stem went
+  // into shared_context.
+  if (
+    stemStartsWithOption(out.stem) &&
+    out.shared_context &&
+    out.shared_context.trim().length >= 20
+  ) {
+    const newStem = out.shared_context.trim();
+    out.shared_context = null;
+    out.stem = newStem;
+  }
+
+  // SEG-4 fallback: if stem is trivially small but shared_context has
+  // meaningful text, promote shared_context to stem.
+  if (out.stem.trim().length < 20 && out.shared_context && out.shared_context.trim().length >= 40) {
+    out.stem = out.shared_context.trim();
+    out.shared_context = null;
+  }
+
+  return out;
+}
+
 async function runAssembler(blocks: Block[], profile: ProfileResult): Promise<AssembledQuestion[]> {
   const byNumero = blocksByNumero(blocks);
   const numeros = [...byNumero.keys()].sort((a, b) => a - b);
@@ -491,7 +643,7 @@ async function runAssembler(blocks: Block[], profile: ProfileResult): Promise<As
     const results = await Promise.all(
       slice.map((n) => assembleOneQuestion(n, byNumero.get(n) ?? [], profile)),
     );
-    for (const r of results) if (r) out.push(r);
+    for (const r of results) if (r) out.push(postProcessAssembled(r, profile));
     const sec = ((Date.now() - batchStarted) / 1000).toFixed(1);
     console.log(
       `[ASSEMBLER] batch ${Math.floor(i / ASSEMBLER_PARALLELISM) + 1} done (${slice.length} questões, ${sec}s)`,
@@ -603,6 +755,14 @@ Para cada questão, verifique:
 5. O gabarito é coerente com as alternativas
 Se encontrar problemas, liste-os.
 Se a questão está OK, marque approved=true e issues=[].
+
+ATENÇÃO question_type='multiple_choice_image_options': as alternativas
+são IMAGENS (gráficos, figuras). É ESPERADO que o texto das alternativas
+esteja em branco ou seja trivial (ex.: "A)"). NÃO reporte
+alternativa_vazia, alternativas_incorretas nem texto_truncado para
+alternativas desse tipo de questão — o conteúdo visual está no
+media_map e será revisado manualmente.
+
 Chame a tool submit_review com um item por questão recebida.
 issue_type válidos: contaminacao, alternativa_faltante, alternativa_vazia,
 alternativas_incorretas, gabarito_invalido, shared_context_ausente, texto_truncado.
@@ -677,11 +837,13 @@ interface QuestionForReview {
   options: AssembledOption[] | null;
   correct_answer: string | null;
   shared_context: string | null;
+  question_type?: string | null;
 }
 
 async function reviewBatch(batch: QuestionForReview[]): Promise<ReviewItem[]> {
   const payload = batch.map((q) => ({
     numero: q.numero,
+    question_type: q.question_type ?? "multiple_choice_single",
     stem: q.stem,
     options: q.options,
     correct_answer: q.correct_answer,
@@ -709,9 +871,9 @@ interface ReviewerSummary {
 async function runReviewer(examId: string, jobId: string): Promise<ReviewerSummary> {
   const { data, error } = await supabase
     .from("question_raw")
-    .select("id, numero, stem, options, correct_answer, shared_context")
+    .select("id, numero, stem, options, correct_answer, shared_context, question_type")
     .eq("exam_id", examId)
-    .eq("status", "raw")
+    .eq("status", "validated")
     .order("numero", { ascending: true });
   if (error) throw new Error(`reviewer load: ${error.message}`);
   const questions = (data ?? []) as QuestionForReview[];
@@ -752,8 +914,15 @@ async function runReviewer(examId: string, jobId: string): Promise<ReviewerSumma
     if (!q) continue;
     const issues = r.issues ?? [];
     const hasIssues = issues.length > 0;
+    const hasBlockingIssue = issues.some(
+      (i) =>
+        i.severity === "high" ||
+        i.severity === "critical" ||
+        ["contaminacao", "alternativas_incorretas", "gabarito_invalido"].includes(i.issue_type),
+    );
 
-    const update: Record<string, unknown> = { status: "reviewed" };
+    const nextStatus = r.approved && !hasBlockingIssue ? "approved" : "flagged";
+    const update: Record<string, unknown> = { status: nextStatus };
     if (r.corrections && typeof r.corrections === "object") {
       update.reviewer_corrections = r.corrections;
     }
@@ -797,12 +966,41 @@ interface ValidatorSummary {
   total_issues: number;
 }
 
-async function runValidator(examId: string, jobId: string): Promise<ValidatorSummary> {
+// Detects a multi-line block that looks entirely like charts/graphs
+// (q69 / q60 style where each option is an image). Used by the
+// validator to tag question_type and permit insertion with a
+// needs_manual_review flag instead of blocking on empty text.
+function looksLikeImageOptions(options: AssembledOption[]): boolean {
+  if (options.length < 2) return false;
+  let shortCount = 0;
+  for (const o of options) {
+    const text = String(o?.text ?? "").trim();
+    // Consider "empty-ish": no text, or just the label (e.g., "A)"),
+    // or a single word shorter than 4 chars.
+    if (text.length <= 3) shortCount++;
+  }
+  return shortCount >= Math.ceil(options.length * 0.8);
+}
+
+function headerContaminates(text: string | null, header: string | null): boolean {
+  if (!text || !header) return false;
+  const h = header.trim();
+  if (h.length < 4) return false;
+  return text.toLowerCase().includes(h.toLowerCase());
+}
+
+async function runValidator(
+  examId: string,
+  jobId: string,
+  profile: ProfileResult | null,
+): Promise<ValidatorSummary> {
   const { data, error } = await supabase
     .from("question_raw")
-    .select("id, numero, stem, options, correct_answer, confidence_score")
+    .select(
+      "id, numero, stem, shared_context, options, correct_answer, confidence_score, question_type",
+    )
     .eq("exam_id", examId)
-    .eq("status", "reviewed")
+    .eq("status", "raw")
     .order("numero", { ascending: true });
   if (error) throw new Error(`validator load: ${error.message}`);
   const questions = data ?? [];
@@ -816,14 +1014,68 @@ async function runValidator(examId: string, jobId: string): Promise<ValidatorSum
     stemCount.set(key, (stemCount.get(key) ?? 0) + 1);
   }
 
+  const runningHeader = profile?.running_header ?? null;
+  const runningFooter = profile?.running_footer ?? null;
+
   let approved = 0;
   let flagged = 0;
   const issues: Record<string, unknown>[] = [];
 
   for (const q of questions) {
     const problems: Array<{ issue_type: string; severity: string; description: string }> = [];
+    const opts = Array.isArray(q.options) ? (q.options as AssembledOption[]) : [];
+    const isImageOptions = looksLikeImageOptions(opts);
 
-    const stem = String(q.stem ?? "");
+    // If the assembler did not tag it but the shape looks like image
+    // options, promote the question_type here so the reviewer sees it.
+    const detectedQuestionType = isImageOptions
+      ? "multiple_choice_image_options"
+      : String(q.question_type ?? "multiple_choice_single");
+    const needsManualReview = isImageOptions;
+
+    let stem = String(q.stem ?? "");
+    let sharedContext = q.shared_context as string | null;
+
+    // Auto-swap: if validator sees stem starting with an option label
+    // while shared_context has real text, swap them (assembler already
+    // tries this, but this is a last-chance safety net).
+    let stemIsOption = false;
+    if (stemStartsWithOption(stem) && sharedContext && sharedContext.trim().length >= 20) {
+      const newStem = sharedContext.trim();
+      sharedContext = null;
+      stem = newStem;
+      stemIsOption = true;
+    }
+
+    // Auto-promote SC -> stem when stem is trivially small.
+    let promotedFromSharedContext = false;
+    if (
+      stem.trim().length < 20 &&
+      sharedContext &&
+      sharedContext.trim().length >= 40
+    ) {
+      stem = sharedContext.trim();
+      sharedContext = null;
+      promotedFromSharedContext = true;
+    }
+
+    // Persist the swap/promotion/type updates on question_raw so
+    // downstream stages see the corrected shape.
+    const mutated =
+      stemIsOption ||
+      promotedFromSharedContext ||
+      detectedQuestionType !== (q.question_type ?? "multiple_choice_single") ||
+      needsManualReview;
+    if (mutated) {
+      const upd: Record<string, unknown> = {
+        stem,
+        shared_context: sharedContext,
+        question_type: detectedQuestionType,
+      };
+      if (needsManualReview) upd.needs_manual_review = true;
+      await supabase.from("question_raw").update(upd).eq("id", q.id);
+    }
+
     if (stem.trim().length < 20) {
       problems.push({
         issue_type: "texto_truncado",
@@ -832,14 +1084,49 @@ async function runValidator(examId: string, jobId: string): Promise<ValidatorSum
       });
     }
 
-    const opts = Array.isArray(q.options) ? (q.options as AssembledOption[]) : [];
+    // Header contamination (non-blocking, low severity).
+    if (headerContaminates(stem, runningHeader) || headerContaminates(stem, runningFooter)) {
+      problems.push({
+        issue_type: "texto_truncado",
+        severity: "low",
+        description: "stem contém cabeçalho/rodapé de página",
+      });
+    }
+    if (
+      headerContaminates(sharedContext, runningHeader) ||
+      headerContaminates(sharedContext, runningFooter)
+    ) {
+      problems.push({
+        issue_type: "texto_truncado",
+        severity: "low",
+        description: "shared_context contém cabeçalho/rodapé de página",
+      });
+    }
+
+    if (stemIsOption) {
+      problems.push({
+        issue_type: "texto_truncado",
+        severity: "low",
+        description: "stem original começava com rótulo de alternativa; shared_context promovido a stem",
+      });
+    }
+
+    if (promotedFromSharedContext) {
+      problems.push({
+        issue_type: "texto_truncado",
+        severity: "low",
+        description: "stem estava vazio/trivial; shared_context promovido a stem",
+      });
+    }
+
     if (opts.length !== 5) {
       problems.push({
         issue_type: "alternativa_faltante",
         severity: "high",
         description: `options tem ${opts.length} elementos (esperado 5)`,
       });
-    } else {
+    } else if (!isImageOptions) {
+      // Só cobre alternativa_vazia para questões de texto.
       for (let i = 0; i < opts.length; i++) {
         const o = opts[i];
         const label = String(o?.label ?? "").trim();
@@ -849,6 +1136,18 @@ async function runValidator(examId: string, jobId: string): Promise<ValidatorSum
             issue_type: "alternativa_vazia",
             severity: "high",
             description: `option[${i}] label ou text vazio (label='${label}', text_len=${text.length})`,
+          });
+        }
+      }
+    } else {
+      // Alternativas-imagem: labels devem existir mas texto pode estar vazio.
+      for (let i = 0; i < opts.length; i++) {
+        const label = String(opts[i]?.label ?? "").trim();
+        if (!label) {
+          problems.push({
+            issue_type: "alternativa_faltante",
+            severity: "high",
+            description: `option[${i}] label vazio em questão image_options`,
           });
         }
       }
@@ -870,7 +1169,7 @@ async function runValidator(examId: string, jobId: string): Promise<ValidatorSum
       });
     }
 
-    if ((stemCount.get(stem.trim()) ?? 0) > 1) {
+    if ((stemCount.get(String(q.stem ?? "").trim()) ?? 0) > 1) {
       problems.push({
         issue_type: "contaminacao",
         severity: "high",
@@ -892,16 +1191,31 @@ async function runValidator(examId: string, jobId: string): Promise<ValidatorSum
       });
     }
 
-    const passed = problems.length === 0;
+    // Passed = nenhum problema BLOQUEANTE (high/critical ou tipo crítico).
+    const hasBlocker = problems.some(
+      (p) =>
+        p.severity === "high" ||
+        p.severity === "critical" ||
+        CRITICAL_ISSUE_TYPES.has(p.issue_type),
+    );
+    const passed = !hasBlocker;
     const validator_result = {
       passed,
       checked_at: new Date().toISOString(),
+      question_type: detectedQuestionType,
+      needs_manual_review: needsManualReview,
       checks: {
         stem_length: stem.trim().length,
         options_count: opts.length,
         correct_answer_valid: !!ans && (ans === "*" || labels.includes(ans)),
         confidence: Number.isFinite(conf) ? conf : null,
-        duplicate_stem: (stemCount.get(stem.trim()) ?? 0) > 1,
+        duplicate_stem: (stemCount.get(String(q.stem ?? "").trim()) ?? 0) > 1,
+        image_options: isImageOptions,
+        header_contamination:
+          headerContaminates(stem, runningHeader) ||
+          headerContaminates(stem, runningFooter) ||
+          headerContaminates(sharedContext, runningHeader) ||
+          headerContaminates(sharedContext, runningFooter),
       },
       issues: problems,
     };
@@ -909,7 +1223,7 @@ async function runValidator(examId: string, jobId: string): Promise<ValidatorSum
     await supabase
       .from("question_raw")
       .update({
-        status: passed ? "approved" : "flagged",
+        status: passed ? "validated" : "flagged",
         validator_result,
       })
       .eq("id", q.id);
@@ -918,16 +1232,17 @@ async function runValidator(examId: string, jobId: string): Promise<ValidatorSum
       approved++;
     } else {
       flagged++;
-      for (const p of problems) {
-        issues.push({
-          question_raw_id: q.id,
-          job_id: jobId,
-          issue_type: p.issue_type,
-          severity: p.severity,
-          description: p.description,
-          agent: "validator",
-        });
-      }
+    }
+
+    for (const p of problems) {
+      issues.push({
+        question_raw_id: q.id,
+        job_id: jobId,
+        issue_type: p.issue_type,
+        severity: p.severity,
+        description: p.description,
+        agent: "validator",
+      });
     }
   }
 
@@ -1393,15 +1708,6 @@ async function persistMedia(
 }
 
 // ───────────────────── inserter ─────────────────────
-const CRITICAL_ISSUE_TYPES = new Set([
-  "contaminacao",
-  "imagem_incorreta",
-  "legenda_quebrada",
-  "alternativas_incorretas",
-  "gabarito_invalido",
-  "duplicata_provavel",
-]);
-
 interface InserterSummary {
   inserted: number;
   deduped_exact: number;
@@ -1444,7 +1750,7 @@ async function runInserter(
   const { data: questions, error } = await supabase
     .from("question_raw")
     .select(
-      "id, numero, stem, options, shared_context, note_e_adote, correct_answer, source_pages, confidence_score, enrichment, media_map",
+      "id, numero, stem, options, shared_context, note_e_adote, correct_answer, source_pages, confidence_score, enrichment, media_map, question_type, needs_manual_review",
     )
     .eq("exam_id", examId)
     .eq("status", "approved")
@@ -1581,6 +1887,8 @@ async function runInserter(
         normalized_hash: normalizedHash,
         ingestion_version: 1,
         status: "approved",
+        question_type: (q.question_type as string | null) ?? "multiple_choice_single",
+        needs_manual_review: (q.needs_manual_review as boolean | null) ?? false,
       })
       .select("id")
       .single();
@@ -1734,9 +2042,15 @@ async function main(examId: string) {
     });
 
     // 3. SEGMENTER
+    const segPages = stripRunningHeaders(pages, profile);
+    if (profile.running_header || profile.running_footer) {
+      console.log(
+        `[SEGMENTER] removidos cabeçalho='${profile.running_header ?? ""}' rodapé='${profile.running_footer ?? ""}'`,
+      );
+    }
     const blocks = await runStage("segmenting", async () => {
       const started = Date.now();
-      const bs = await runSegmenter(pages, profile);
+      const bs = await runSegmenter(segPages, profile);
       const sec = ((Date.now() - started) / 1000).toFixed(1);
       console.log(`[SEGMENTER] total ${bs.length} blocos (${sec}s)`);
       return bs;
@@ -1835,7 +2149,20 @@ async function main(examId: string) {
       console.log("[GABARITO] sem gabarito_storage_path — pulado");
     }
 
-    // 7. REVIEWER
+    // 7. VALIDATOR (pure code) — runs FIRST to tag image_options,
+    //    apply stem/SC swaps, and filter out structurally-broken rows
+    //    before spending LLM tokens on the reviewer.
+    const validatorOut = await runStage("validating", async () => {
+      const started = Date.now();
+      const v = await runValidator(examId, jobId, profile);
+      const sec = ((Date.now() - started) / 1000).toFixed(1);
+      console.log(
+        `[VALIDATOR] ${v.approved} validated, ${v.flagged} flagged, ${v.total_issues} issues (${sec}s)`,
+      );
+      return v;
+    });
+
+    // 8. REVIEWER — LLM review on validated rows only.
     const reviewerOut = await runStage("reviewing", async () => {
       const started = Date.now();
       const r = await runReviewer(examId, jobId);
@@ -1844,17 +2171,6 @@ async function main(examId: string) {
         `[REVIEWER] ${r.approved_clean} aprovadas sem issues, ${r.with_issues} com issues, ${r.total_issues} issues totais (${r.critical_issues} críticos, ${sec}s)`,
       );
       return r;
-    });
-
-    // 8. VALIDATOR (pure code)
-    const validatorOut = await runStage("validating", async () => {
-      const started = Date.now();
-      const v = await runValidator(examId, jobId);
-      const sec = ((Date.now() - started) / 1000).toFixed(1);
-      console.log(
-        `[VALIDATOR] ${v.approved} approved, ${v.flagged} flagged, ${v.total_issues} issues (${sec}s)`,
-      );
-      return v;
     });
 
     await supabase

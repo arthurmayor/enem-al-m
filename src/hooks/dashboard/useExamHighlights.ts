@@ -54,6 +54,7 @@ export function useExamHighlights() {
       };
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 30_000,
   });
 }

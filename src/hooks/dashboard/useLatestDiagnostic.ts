@@ -37,6 +37,7 @@ export function useLatestDiagnostic() {
       return (data as LatestDiagnostic | null) ?? null;
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 60_000,
   });
 }

@@ -206,15 +206,17 @@ async function updateSpacedReviewAfterReview(userId: string, subject: string, su
   } as any).eq("id", existing.id);
 }
 
-// ─── Persist completion (RPC with explicit-update fallback) ────────────────
+// ─── Persist completion (explicit, verified) ────────────────────────────────
 
 /**
- * Writes mission completion + xp to Supabase. Tries the
- * `complete_mission_atomic` RPC first (single transaction), and falls back
- * to two separate updates (`daily_missions` + `profiles`) if the RPC is
- * absent or fails. Returns `true` only when the mission row was actually
- * flipped to `completed` — the callers use that to decide whether to
- * invalidate the dashboard + navigate.
+ * Marks a mission as completed and increments user XP. Returns `true`
+ * only when the daily_missions row was *actually* updated — the previous
+ * version called `complete_mission_atomic` RPC and trusted a missing
+ * `error` as success, but in environments where the RPC was a silent
+ * no-op (or RLS rejected the underlying UPDATE) the row stayed pending,
+ * the dashboard refetched, and showed the same mission. We now do an
+ * explicit UPDATE … RETURNING and refuse to report success unless at
+ * least one row came back.
  */
 async function persistMissionCompletion(
   userId: string,
@@ -222,46 +224,52 @@ async function persistMissionCompletion(
   score: number,
   xpEarned: number,
 ): Promise<boolean> {
-  const { error: rpcError } = await supabase.rpc("complete_mission_atomic", {
-    p_user_id: userId,
-    p_mission_id: missionId,
-    p_score: score,
-    p_xp_earned: xpEarned,
-  });
-  if (!rpcError) return true;
+  const completedAt = new Date().toISOString();
 
-  console.warn(
-    "[persistMissionCompletion] complete_mission_atomic failed, falling back",
-    rpcError,
-  );
-
-  const { error: missionError } = await supabase
+  const { data: updatedRows, error: missionError } = await supabase
     .from("daily_missions")
     .update({
       status: MISSION_STATUSES.COMPLETED,
       score,
-      completed_at: new Date().toISOString(),
+      completed_at: completedAt,
     } as Record<string, unknown>)
     .eq("id", missionId)
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("id, status, score");
 
   if (missionError) {
-    console.error("[persistMissionCompletion] fallback update failed", missionError);
+    console.error("[persistMissionCompletion] update failed", missionError);
     toast.error(`Falha ao concluir missão: ${missionError.message}`);
     return false;
   }
+  if (!updatedRows || updatedRows.length === 0) {
+    console.error(
+      "[persistMissionCompletion] update returned 0 rows — RLS or wrong id",
+      { missionId, userId },
+    );
+    toast.error("Não foi possível salvar a conclusão da missão.");
+    return false;
+  }
 
+  // XP is best-effort — the mission has already been persisted as completed
+  // even if this fails, and we'd rather show the user as having finished
+  // than block on a secondary write.
   const { data: prof, error: profReadError } = await supabase
     .from("profiles")
     .select("total_xp")
     .eq("id", userId)
     .maybeSingle();
   if (profReadError) {
-    console.warn("[persistMissionCompletion] profile read failed (xp skipped)", profReadError);
+    console.warn(
+      "[persistMissionCompletion] profile read failed (xp skipped)",
+      profReadError,
+    );
   } else if (prof) {
     const { error: profUpdError } = await supabase
       .from("profiles")
-      .update({ total_xp: (prof.total_xp || 0) + xpEarned } as Record<string, unknown>)
+      .update({
+        total_xp: (prof.total_xp || 0) + xpEarned,
+      } as Record<string, unknown>)
       .eq("id", userId);
     if (profUpdError) {
       console.warn("[persistMissionCompletion] xp update failed", profUpdError);

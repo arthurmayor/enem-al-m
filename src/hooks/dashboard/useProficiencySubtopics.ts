@@ -40,6 +40,7 @@ export function useProficiencySubtopics(subject: string | null) {
       return result.sort((a, b) => a.score - b.score);
     },
     refetchOnWindowFocus: true,
+    refetchOnMount: "always",
     staleTime: 30_000,
   });
 }

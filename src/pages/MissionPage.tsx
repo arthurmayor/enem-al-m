@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { trackEvent } from "@/lib/trackEvent";
 import { MISSION_STATUSES } from "@/lib/constants";
+import { useInvalidateDashboard } from "@/hooks/dashboard/useInvalidateDashboard";
 import SubjectBadge from "@/components/ui/SubjectBadge";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { getSubjectColor } from "@/lib/subjectColors";
@@ -205,6 +206,71 @@ async function updateSpacedReviewAfterReview(userId: string, subject: string, su
   } as any).eq("id", existing.id);
 }
 
+// ─── Persist completion (RPC with explicit-update fallback) ────────────────
+
+/**
+ * Writes mission completion + xp to Supabase. Tries the
+ * `complete_mission_atomic` RPC first (single transaction), and falls back
+ * to two separate updates (`daily_missions` + `profiles`) if the RPC is
+ * absent or fails. Returns `true` only when the mission row was actually
+ * flipped to `completed` — the callers use that to decide whether to
+ * invalidate the dashboard + navigate.
+ */
+async function persistMissionCompletion(
+  userId: string,
+  missionId: string,
+  score: number,
+  xpEarned: number,
+): Promise<boolean> {
+  const { error: rpcError } = await supabase.rpc("complete_mission_atomic", {
+    p_user_id: userId,
+    p_mission_id: missionId,
+    p_score: score,
+    p_xp_earned: xpEarned,
+  });
+  if (!rpcError) return true;
+
+  console.warn(
+    "[persistMissionCompletion] complete_mission_atomic failed, falling back",
+    rpcError,
+  );
+
+  const { error: missionError } = await supabase
+    .from("daily_missions")
+    .update({
+      status: MISSION_STATUSES.COMPLETED,
+      score,
+      completed_at: new Date().toISOString(),
+    } as Record<string, unknown>)
+    .eq("id", missionId)
+    .eq("user_id", userId);
+
+  if (missionError) {
+    console.error("[persistMissionCompletion] fallback update failed", missionError);
+    toast.error(`Falha ao concluir missão: ${missionError.message}`);
+    return false;
+  }
+
+  const { data: prof, error: profReadError } = await supabase
+    .from("profiles")
+    .select("total_xp")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profReadError) {
+    console.warn("[persistMissionCompletion] profile read failed (xp skipped)", profReadError);
+  } else if (prof) {
+    const { error: profUpdError } = await supabase
+      .from("profiles")
+      .update({ total_xp: (prof.total_xp || 0) + xpEarned } as Record<string, unknown>)
+      .eq("id", userId);
+    if (profUpdError) {
+      console.warn("[persistMissionCompletion] xp update failed", profUpdError);
+    }
+  }
+
+  return true;
+}
+
 // ─── Fetch questions ─────────────────────────────────────────────────────────
 
 async function fetchMissionQuestions(
@@ -301,6 +367,7 @@ const MissionPage = () => {
   const { type, id } = useParams<{ type: string; id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const invalidateDashboard = useInvalidateDashboard();
 
   const [mission, setMission] = useState<MissionData | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -668,16 +735,32 @@ const MissionPage = () => {
       console.error("Calibration/review error:", err);
     }
 
-    // 4. Atomic conclusion via RPC (updates mission + profile in one transaction)
+    // 4. Persist completion. Try the atomic RPC first; if it errors (it's
+    //    not committed in the repo's migrations and may be absent in some
+    //    environments, or RLS/etc. may refuse it) fall back to an explicit
+    //    update + xp increment. Without this check the RPC was failing
+    //    silently: `setCompleted(true)` flipped the UI to "Missão concluída",
+    //    the user navigated back, and the dashboard faithfully re-fetched
+    //    the still-pending row.
     const xpEarned = 10 + Math.round(finalScore * 0.5);
-    await supabase.rpc("complete_mission_atomic", {
-      p_user_id: user.id,
-      p_mission_id: id,
-      p_score: finalScore,
-      p_xp_earned: xpEarned,
-    });
+    const completedPersisted = await persistMissionCompletion(
+      user.id,
+      id,
+      finalScore,
+      xpEarned,
+    );
+    if (!completedPersisted) {
+      // Roll back the optimistic UI so the user knows something failed.
+      setCompleted(false);
+      return;
+    }
 
-    // 5. Track event
+    // 5. Mark dashboard queries stale so the counters, ring, queue,
+    //    accuracy sparkline, proficiency and xp all refetch on the
+    //    next dashboard mount (SPA navigation doesn't fire window focus).
+    await invalidateDashboard();
+
+    // 6. Track event
     trackEvent("mission_completed", {
       type: mission?.mission_type,
       subject: mission?.subject,
@@ -692,14 +775,14 @@ const MissionPage = () => {
     if (!user || !id) return;
     setCompleted(true);
 
-    // Atomic conclusion via RPC (score=100 for summaries, xp=15)
     const xpEarned = 15;
-    await supabase.rpc("complete_mission_atomic", {
-      p_user_id: user.id,
-      p_mission_id: id,
-      p_score: 100,
-      p_xp_earned: xpEarned,
-    });
+    const ok = await persistMissionCompletion(user.id, id, 100, xpEarned);
+    if (!ok) {
+      setCompleted(false);
+      return;
+    }
+
+    await invalidateDashboard();
 
     trackEvent("mission_completed", { type: mission?.mission_type, subject: mission?.subject, score: 100, mission_id: id }, user.id);
   };

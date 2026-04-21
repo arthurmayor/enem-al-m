@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface DashboardMetrics {
   user_id: string | null;
@@ -22,9 +23,17 @@ export interface DashboardMetrics {
 }
 
 export function useDashboardMetrics() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
   return useQuery<DashboardMetrics | null>({
-    queryKey: ["dashboard-metrics"],
+    // userId must be in the key — the RPC uses auth.uid() so the cached
+    // payload is user-specific. Without this, a second account on the
+    // same tab would serve stale data from the first account.
+    queryKey: ["dashboard-metrics", userId],
+    enabled: !!userId,
     queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.rpc as any)("get_dashboard_metrics");
       if (error) throw error;
       return (data ?? null) as DashboardMetrics | null;

@@ -12,6 +12,7 @@ export interface QueuedMission {
   score: number | null;
   mission_order: number | null;
   question_ids: string[] | null;
+  estimated_minutes: number | null;
   date: string;
   isOverdue: boolean;
   isToday: boolean;
@@ -37,7 +38,7 @@ const EMPTY: MissionsQueue = {
 };
 
 const COLS =
-  "id, subject, subtopic, mission_type, status, score, mission_order, question_ids, date";
+  "id, subject, subtopic, mission_type, status, score, mission_order, question_ids, estimated_minutes, date";
 
 /**
  * Single source of truth for the dashboard's mission data. Returns today's

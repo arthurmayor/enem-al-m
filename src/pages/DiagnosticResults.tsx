@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { setOnboardingCache } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/trackEvent";
+import { useInvalidateDashboard } from "@/hooks/dashboard/useInvalidateDashboard";
 import { expectedAccuracy } from "@/lib/scoring";
 import { MISSION_STATUSES, PLAN_STATUSES } from "@/lib/constants";
 import SubjectBadge from "@/components/ui/SubjectBadge";
@@ -115,6 +116,7 @@ async function generateAndSavePlan(
   examConfigData: { phase2_subjects: string[]; cutoff_mean: number; competition_ratio: number; subject_distribution: Record<string, unknown>; total_questions: number },
   navigate: (path: string) => void,
   setGenerating: (v: boolean) => void,
+  invalidateDashboard: () => void,
 ) {
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
@@ -310,6 +312,12 @@ async function generateAndSavePlan(
   }
   setOnboardingCache(userId, true);
 
+  // Dashboard just saw: new study_plan row, daily_missions insert, a fresh
+  // diagnostic_result already existed before this call — all of which the
+  // dashboard reads. Mark the queries stale before navigating so the
+  // landing dashboard shows the new plan immediately.
+  invalidateDashboard();
+
   trackEvent("plan_generated", { missions: insertedMissions.length }, userId);
   navigate("/dashboard");
 }
@@ -320,6 +328,7 @@ const DiagnosticResults = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const invalidateDashboard = useInvalidateDashboard();
   const [data, setData] = useState<DiagnosticState | null>(null);
   const [routerData, setRouterData] = useState<RouterState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -389,6 +398,7 @@ const DiagnosticResults = () => {
         { phase2_subjects: ec.phase2_subjects || [], cutoff_mean: ec.cutoff_mean, competition_ratio: ec.competition_ratio, subject_distribution: ec.subject_distribution, total_questions: ec.total_questions },
         navigate,
         setGeneratingPlan,
+        invalidateDashboard,
       );
     } catch (err) {
       console.error(err);
@@ -433,6 +443,7 @@ const DiagnosticResults = () => {
         { phase2_subjects: ec.phase2_subjects || [], cutoff_mean: ec.cutoff_mean, competition_ratio: ec.competition_ratio, subject_distribution: ec.subject_distribution, total_questions: ec.total_questions },
         navigate,
         setGeneratingPlan,
+        invalidateDashboard,
       );
     } catch (err) {
       console.error(err);

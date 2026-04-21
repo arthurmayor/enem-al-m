@@ -58,9 +58,14 @@ const Onboarding = () => {
   const handleFinish = async () => {
     if (!user) return;
     setLoading(true);
+    // Use upsert so users whose profile row wasn't created at signup
+    // (e.g. email-confirmation flow) still end up with a valid row; a
+    // plain .update would silently no-op in that case and every
+    // downstream write (diagnostic, plan, missions) would also fail.
     const { error } = await supabase
       .from("profiles")
-      .update({
+      .upsert({
+        id: user.id,
         exam_config_id: data.exam_config_id,
         school_stage: data.school_stage,
         hours_per_day: data.hours_per_day,
@@ -69,8 +74,7 @@ const Onboarding = () => {
         self_declared_blocks: data.self_declared_blocks,
         onboarding_completed_at: new Date().toISOString(),
         onboarding_complete: true,
-      } as any)
-      .eq("id", user.id);
+      } as any, { onConflict: "id" });
     setLoading(false);
     if (error) {
       console.error(error);

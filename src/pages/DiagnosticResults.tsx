@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight, ArrowRight, BookOpen, Clock } from "lucide-react";
 import BottomNav from "@/components/BottomNav";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { setOnboardingCache } from "@/components/ProtectedRoute";
 import { supabase } from "@/integrations/supabase/client";
@@ -115,11 +116,26 @@ async function generateAndSavePlan(
   navigate: (path: string) => void,
   setGenerating: (v: boolean) => void,
 ) {
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("name, education_goal, desired_course, exam_date, hours_per_day, study_days, available_days, self_declared_blocks")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
+  if (profileError) {
+    console.error("[generateAndSavePlan] profile fetch failed", profileError);
+    throw new Error(`Falha ao carregar perfil: ${profileError.message}`);
+  }
+  if (!profile) {
+    // No profile row exists — downstream FKs would all fail silently.
+    // Fall back to a minimal row so the plan/mission writes can succeed.
+    const { error: createProfileError } = await supabase
+      .from("profiles")
+      .upsert({ id: userId, onboarding_complete: true } as any, { onConflict: "id" });
+    if (createProfileError) {
+      console.error("[generateAndSavePlan] could not create missing profile row", createProfileError);
+      throw new Error(`Perfil não encontrado: ${createProfileError.message}`);
+    }
+  }
   // available_days is the primary source; study_days is the legacy fallback
   const profileData = profile as Record<string, unknown> | null;
   const numDays = Array.isArray(profileData?.available_days)
@@ -138,26 +154,48 @@ async function generateAndSavePlan(
   const { data: plan, error: invokeError } = await supabase.functions.invoke("generate-study-plan", {
     body: { proficiencyScores, userProfile, diagnosticResult, examConfig: examConfigData },
   });
-  if (invokeError) throw new Error(invokeError.message);
-  if (plan?.error) throw new Error(plan.error);
+  if (invokeError) {
+    console.error("[generateAndSavePlan] edge function invoke failed", invokeError);
+    throw new Error(`Falha ao gerar plano (edge): ${invokeError.message}`);
+  }
+  if (plan?.error) {
+    console.error("[generateAndSavePlan] edge function returned error", plan.error);
+    throw new Error(`Falha ao gerar plano: ${plan.error}`);
+  }
+  if (!plan || !Array.isArray(plan.weeks) || plan.weeks.length === 0) {
+    console.error("[generateAndSavePlan] edge function returned empty plan", plan);
+    throw new Error("O gerador retornou um plano vazio.");
+  }
 
   // Supersede existing active plan (if any) instead of deleting
-  const { data: existingPlan } = await supabase
+  const { data: existingPlan, error: existingPlanError } = await supabase
     .from("study_plans")
     .select("id")
     .eq("user_id", userId)
     .eq("is_current", true)
     .limit(1);
+  if (existingPlanError) {
+    console.error("[generateAndSavePlan] existing plan lookup failed", existingPlanError);
+    throw new Error(`Falha ao verificar plano atual: ${existingPlanError.message}`);
+  }
   if (existingPlan && existingPlan.length > 0) {
-    await supabase.from("study_plans")
+    const { error: supersedePlanError } = await supabase.from("study_plans")
       .update({ status: PLAN_STATUSES.SUPERSEDED, is_current: false } as any)
       .eq("user_id", userId)
       .eq("is_current", true);
+    if (supersedePlanError) {
+      console.error("[generateAndSavePlan] superseding old plan failed", supersedePlanError);
+      throw new Error(`Falha ao substituir plano anterior: ${supersedePlanError.message}`);
+    }
     // Supersede old pending missions (preserve history)
-    await supabase.from("daily_missions")
+    const { error: supersedeMissionsError } = await supabase.from("daily_missions")
       .update({ status: MISSION_STATUSES.SUPERSEDED } as any)
       .eq("user_id", userId)
       .eq("status", MISSION_STATUSES.PENDING);
+    if (supersedeMissionsError) {
+      console.error("[generateAndSavePlan] superseding old missions failed", supersedeMissionsError);
+      throw new Error(`Falha ao substituir missões anteriores: ${supersedeMissionsError.message}`);
+    }
   }
 
   const { data: savedPlan, error: planError } = await supabase
@@ -172,7 +210,10 @@ async function generateAndSavePlan(
     })
     .select("id")
     .single();
-  if (planError) throw new Error(planError.message);
+  if (planError || !savedPlan?.id) {
+    console.error("[generateAndSavePlan] study_plans insert failed", planError);
+    throw new Error(`Falha ao salvar plano: ${planError?.message ?? "sem id retornado"}`);
+  }
 
   const dayNames: Record<string, number> = {
     Domingo: 0, Segunda: 1, Terca: 2, Quarta: 3, Quinta: 4, Sexta: 5, Sabado: 6,
@@ -223,20 +264,44 @@ async function generateAndSavePlan(
     }
   }
 
-  if (missionsToInsert.length > 0) {
-    await supabase.from("daily_missions").insert(missionsToInsert);
+  if (missionsToInsert.length === 0) {
+    console.error("[generateAndSavePlan] plan returned no missions to insert", plan);
+    throw new Error("O plano gerado não contém missões.");
+  }
+
+  const { data: insertedMissions, error: missionsInsertError } = await supabase
+    .from("daily_missions")
+    .insert(missionsToInsert)
+    .select("id");
+  if (missionsInsertError) {
+    console.error("[generateAndSavePlan] daily_missions insert failed", missionsInsertError, {
+      sample: missionsToInsert[0],
+      count: missionsToInsert.length,
+    });
+    throw new Error(`Falha ao salvar missões: ${missionsInsertError.message}`);
+  }
+  if (!insertedMissions || insertedMissions.length === 0) {
+    console.error("[generateAndSavePlan] daily_missions insert returned no rows", {
+      sample: missionsToInsert[0],
+      count: missionsToInsert.length,
+    });
+    throw new Error("Missões não foram criadas (verifique as políticas de acesso).");
   }
 
   // Ensure the profile is flagged as onboarded and refresh the ProtectedRoute
   // cache, otherwise the route guard would redirect /dashboard back to
   // /onboarding using a stale cached value.
-  await supabase
+  const { error: profileUpdateError } = await supabase
     .from("profiles")
     .update({ onboarding_complete: true } as any)
     .eq("id", userId);
+  if (profileUpdateError) {
+    // Non-fatal — the cache below lets the user through for this session
+    console.warn("[generateAndSavePlan] profile onboarding flag update failed", profileUpdateError);
+  }
   setOnboardingCache(userId, true);
 
-  trackEvent("plan_generated", { missions: missionsToInsert.length }, userId);
+  trackEvent("plan_generated", { missions: insertedMissions.length }, userId);
   navigate("/dashboard");
 }
 
@@ -318,6 +383,8 @@ const DiagnosticResults = () => {
       );
     } catch (err) {
       console.error(err);
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error(`Não foi possível gerar o plano: ${message}`);
       setGeneratingPlan(false);
     }
   };
@@ -360,6 +427,8 @@ const DiagnosticResults = () => {
       );
     } catch (err) {
       console.error(err);
+      const message = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error(`Não foi possível gerar o plano: ${message}`);
       setGeneratingPlan(false);
     }
   };

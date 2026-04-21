@@ -414,7 +414,12 @@ async function renderPagePng(
 ): Promise<Buffer> {
   // unpdf 0.12.x option is `canvas` (a factory returning @napi-rs/canvas);
   // newer unpdf renames it to `canvasImport`. We target 0.12.x.
-  const ab = await renderPageAsImage(pdfBuffer, pageNumber, {
+  //
+  // pdfjs transfers the buffer into its worker each call and detaches the
+  // caller's view. Slice() a fresh copy for every page so the next
+  // iteration still has a live buffer to hand to renderPageAsImage.
+  const fresh = pdfBuffer.slice();
+  const ab = await renderPageAsImage(fresh, pageNumber, {
     scale,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     canvas: () => import("@napi-rs/canvas") as any,
@@ -2527,7 +2532,13 @@ async function main(examId: string) {
     // 1. PRE-PARSER
     const preParseResult = await runStage("pre_parsing", async () => {
       const buf = await downloadPdf(exam.prova_storage_path as string);
-      const ps = await extractPdfPages(buf);
+      // extractText / pdfjs transfers the underlying ArrayBuffer into its
+      // worker and detaches the original view, which breaks the later
+      // renderPageAsImage call in runVisionFallback ("Cannot transfer
+      // object of unsupported type"). Feed a slice() clone to pdfjs and
+      // keep the pristine copy for the Vision fallback.
+      const parseBuf = buf.slice();
+      const ps = await extractPdfPages(parseBuf);
       const totalChars = ps.reduce((s, p) => s + p.text.length, 0);
       console.log(`[PRE-PARSER] ${ps.length} páginas, ${totalChars} chars`);
       return { pages: ps, pdfBuffer: buf };

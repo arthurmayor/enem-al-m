@@ -1,8 +1,14 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { DEV_SKIP_AUTH } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+
+// Module-level cache survives component unmounts
+const profileCache: { userId: string | null; onboardingComplete: boolean | null } = {
+  userId: null,
+  onboardingComplete: null,
+};
 
 const DevBanner = () => (
   <div className="fixed top-0 left-0 right-0 z-[9999] bg-red-600 text-white text-center text-xs font-semibold py-1 tracking-wide">
@@ -13,18 +19,24 @@ const DevBanner = () => (
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const fetchedForUser = useRef<string | null>(null);
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(
+    user && profileCache.userId === user.id ? profileCache.onboardingComplete : null
+  );
+  const [profileLoading, setProfileLoading] = useState(
+    !(user && profileCache.userId === user.id)
+  );
 
   useEffect(() => {
     if (!user) {
-      fetchedForUser.current = null;
       setOnboardingComplete(null);
+      setProfileLoading(false);
       return;
     }
-    // Skip re-fetch if we already loaded for this user
-    if (fetchedForUser.current === user.id) return;
+    if (profileCache.userId === user.id) {
+      setOnboardingComplete(profileCache.onboardingComplete);
+      setProfileLoading(false);
+      return;
+    }
     setProfileLoading(true);
     let cancelled = false;
     const fetchProfile = async () => {
@@ -34,9 +46,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
         .eq("id", user.id)
         .single();
       if (!cancelled) {
-        setOnboardingComplete(data?.onboarding_complete ?? false);
+        const val = data?.onboarding_complete ?? false;
+        profileCache.userId = user.id;
+        profileCache.onboardingComplete = val;
+        setOnboardingComplete(val);
         setProfileLoading(false);
-        fetchedForUser.current = user.id;
       }
     };
     fetchProfile();

@@ -53,9 +53,39 @@ if (!ANTHROPIC_API_KEY) {
   process.exit(1);
 }
 
+// Same retry wrapper used in extract-exam-local.ts — transient DNS / socket
+// failures are common on flaky networks and would otherwise abort the batch
+// before a single prova runs.
+const supabaseFetch: typeof fetch = async (input, init) => {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await fetch(input, init);
+    } catch (err) {
+      lastErr = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (
+        /DNS cache overflow|ENOTFOUND|ECONNRESET|fetch failed|UND_ERR|ETIMEDOUT|socket hang up|EAI_AGAIN/i.test(
+          msg,
+        )
+      ) {
+        const delay = 500 * Math.pow(2, attempt);
+        console.warn(
+          `[SUPABASE-FETCH] ${msg} — retry ${attempt + 1}/5 em ${delay}ms`,
+        );
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+};
+
 const supabase: SupabaseClient = createClient(
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
+  { global: { fetch: supabaseFetch } },
 );
 
 interface ProvaInput {

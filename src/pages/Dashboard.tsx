@@ -278,7 +278,7 @@ export default function Dashboard() {
               <SegmentedControl
                 options={ACERTO_OPTIONS}
                 active={acertoLabel}
-                onChange={setAcertoLabel}
+                onChange={(v) => setAcertoLabel(v)}
               />
             </div>
           </StatCard>
@@ -383,7 +383,7 @@ export default function Dashboard() {
             <SegmentedControl
               options={EVO_PERIOD_OPTIONS}
               active={evoLabel}
-              onChange={setEvoLabel}
+              onChange={(v) => setEvoLabel(v)}
             />
           </div>
           <div className="mb-3">
@@ -466,7 +466,7 @@ export default function Dashboard() {
               <SegmentedControl
                 options={PROF_OPTIONS}
                 active={profLabel}
-                onChange={setProfLabel}
+                onChange={(v) => setProfLabel(v)}
               />
             </div>
             <p className="text-[11px] text-[#B4B2A9] mb-2.5">
@@ -506,12 +506,12 @@ export default function Dashboard() {
               <SegmentedControl
                 options={SIM_TYPE_OPTIONS}
                 active={simTypeLabel}
-                onChange={setSimTypeLabel}
+                onChange={(v) => setSimTypeLabel(v)}
               />
               <SegmentedControl
                 options={SIM_PERIOD_OPTIONS}
                 active={simPeriodLabel}
-                onChange={setSimPeriodLabel}
+                onChange={(v) => setSimPeriodLabel(v)}
               />
             </div>
           </div>

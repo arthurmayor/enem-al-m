@@ -14,7 +14,7 @@ export interface PreParserResult {
 
 // Splits "bucket/path/to/file.pdf" → { bucket, path }. If only a single
 // segment is provided, defaults the bucket to "exam-files".
-function splitStoragePath(storagePath: string): { bucket: string; path: string } {
+export function splitStoragePath(storagePath: string): { bucket: string; path: string } {
   const trimmed = storagePath.replace(/^\/+/, "");
   const slash = trimmed.indexOf("/");
   if (slash === -1) {

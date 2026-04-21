@@ -1,7 +1,7 @@
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -29,16 +29,10 @@ export default function EvolutionChart({ data, height = 200 }: Props) {
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
-        <AreaChart
+        <LineChart
           data={data}
           margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
         >
-          <defs>
-            <linearGradient id="evo-coral" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#D85A30" stopOpacity={0.18} />
-              <stop offset="100%" stopColor="#D85A30" stopOpacity={0} />
-            </linearGradient>
-          </defs>
           <CartesianGrid vertical={false} stroke="#E8E6E1" />
           <XAxis
             dataKey="label"
@@ -61,16 +55,15 @@ export default function EvolutionChart({ data, height = 200 }: Props) {
             }}
             formatter={(v: number) => [`${v} questões`, "Respondidas"]}
           />
-          <Area
+          <Line
             type="monotone"
             dataKey="count"
             stroke="#D85A30"
             strokeWidth={2.5}
-            fill="url(#evo-coral)"
             dot={{ r: 3, fill: "#D85A30" }}
-            activeDot={{ r: 4 }}
+            activeDot={{ r: 5 }}
           />
-        </AreaChart>
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );

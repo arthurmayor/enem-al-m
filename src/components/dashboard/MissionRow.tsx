@@ -14,9 +14,14 @@ export interface DashboardMission {
 interface MissionRowProps {
   mission: DashboardMission;
   isNext: boolean;
+  isOverdue?: boolean;
 }
 
-export default function MissionRow({ mission, isNext }: MissionRowProps) {
+export default function MissionRow({
+  mission,
+  isNext,
+  isOverdue = false,
+}: MissionRowProps) {
   const navigate = useNavigate();
   const isDone = mission.status === MISSION_STATUSES.COMPLETED;
   const isPending =
@@ -27,7 +32,9 @@ export default function MissionRow({ mission, isNext }: MissionRowProps) {
     ? "#D85A30"
     : isDone
       ? "#1D9E75"
-      : "#888780";
+      : isOverdue
+        ? "#B45309"
+        : "#888780";
 
   const qCount = mission.question_ids?.length ?? null;
   const detailParts: string[] = [];
@@ -39,7 +46,9 @@ export default function MissionRow({ mission, isNext }: MissionRowProps) {
     "flex items-center justify-between gap-2.5 p-3 rounded-[10px] mb-1.5 last:mb-0 transition-all",
     isNext
       ? "border-2 border-coral bg-coral-light"
-      : "border border-[#E8E6E1] bg-white",
+      : isOverdue
+        ? "border border-[#F0D9A7] bg-[#FFF8EC]"
+        : "border border-[#E8E6E1] bg-white",
     isDone ? "opacity-55" : "",
   ]
     .filter(Boolean)
@@ -53,8 +62,15 @@ export default function MissionRow({ mission, isNext }: MissionRowProps) {
           style={{ backgroundColor: dotColor }}
         />
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-[#2C2C2A] truncate">
-            {mission.subject}
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-semibold text-[#2C2C2A] truncate">
+              {mission.subject}
+            </span>
+            {isOverdue && (
+              <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-[#FBE7C6] text-[#8A5A0B] uppercase tracking-[0.3px] shrink-0">
+                atrasada
+              </span>
+            )}
           </div>
           <div className="text-xs text-[#888780] truncate">{detail}</div>
         </div>

@@ -3,11 +3,10 @@ import { useNavigate } from "react-router-dom";
 import {
   Star,
   Flame,
-  Clock,
+  Calendar,
   ArrowRight,
   Target,
   CheckCircle2,
-  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { trackEvent } from "@/lib/trackEvent";
@@ -18,16 +17,15 @@ import EvolutionChart from "@/components/dashboard/EvolutionChart";
 import ProgressRing from "@/components/dashboard/ProgressRing";
 import SubjectProficiencyRow from "@/components/dashboard/SubjectProficiencyRow";
 import ExamsChart from "@/components/dashboard/ExamsChart";
-import { getDashboardSubjectColor } from "@/components/dashboard/subjectColors";
+import Sparkline from "@/components/dashboard/Sparkline";
+import AccuracyDonut from "@/components/dashboard/AccuracyDonut";
 import { useDashboardMetrics } from "@/hooks/dashboard/useDashboardMetrics";
-import {
-  useAccuracyByPeriod,
-} from "@/hooks/dashboard/useAccuracyByPeriod";
+import { useAccuracyByPeriod } from "@/hooks/dashboard/useAccuracyByPeriod";
 import {
   useQuestionsEvolution,
   type EvolutionPeriod,
 } from "@/hooks/dashboard/useQuestionsEvolution";
-import { useTodayMissions } from "@/hooks/dashboard/useTodayMissions";
+import { useMissionsQueue } from "@/hooks/dashboard/useMissionsQueue";
 import {
   useProficiencyBySubject,
   type ProficiencyPeriod,
@@ -38,7 +36,11 @@ import {
   type ExamsPeriod,
   type ExamsType,
 } from "@/hooks/dashboard/useExamsEvolution";
-import { MISSION_STATUSES, MISSION_TYPE_LABELS } from "@/lib/constants";
+import { useAccuracyTrend } from "@/hooks/dashboard/useAccuracyTrend";
+import { useQuestionsCumulative } from "@/hooks/dashboard/useQuestionsCumulative";
+import { useLatestDiagnostic } from "@/hooks/dashboard/useLatestDiagnostic";
+import { useExamHighlights } from "@/hooks/dashboard/useExamHighlights";
+import { MISSION_STATUSES } from "@/lib/constants";
 
 // ─── Period mapping tables ────────────────────────────────────────────────────
 
@@ -78,6 +80,13 @@ const simTypeMap: Record<SimFilterLabel, ExamsType> = {
   Fuvest: "fuvest",
 };
 
+// Brand amber used for every proficiency bar (section 6.1).
+const PROFICIENCY_BAR_COLOR = "#D97706";
+
+// Probability needs at least this many answered questions before we stop
+// showing the "estimativa inicial" badge. Matches the spec in section 3.2.
+const MIN_QUESTIONS_FOR_PROBABILITY = 60;
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function capitalize(s: string): string {
@@ -94,7 +103,11 @@ function formatDate(d: Date): string {
   );
 }
 
-const MIN_QUESTIONS_FOR_PROBABILITY = 60;
+function formatShortDate(iso: string): string {
+  return new Date(iso)
+    .toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })
+    .replace(".", "");
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -116,13 +129,18 @@ export default function Dashboard() {
   const examType = simTypeMap[simFilterLabel];
 
   const { data: metrics, isLoading: metricsLoading } = useDashboardMetrics();
-  const { data: acertoTrend } = useAccuracyByPeriod("week");
+  const { data: acertoWeek } = useAccuracyByPeriod("week");
+  const { data: acertoPeriod } = useAccuracyByPeriod(evoPeriod);
   const { data: evoData } = useQuestionsEvolution(evoPeriod, null);
-  const { data: todayMissions } = useTodayMissions();
+  const { data: queuedMissions } = useMissionsQueue();
   const { data: proficiency } = useProficiencyBySubject(profPeriod);
   const { data: subtopics, isLoading: subtopicsLoading } =
     useProficiencySubtopics(expandedSubject);
   const { data: examsData } = useExamsEvolution(examPeriod, examType);
+  const { data: accuracyTrend } = useAccuracyTrend(7);
+  const { data: questionsCumulative } = useQuestionsCumulative(7);
+  const { data: latestDiagnostic } = useLatestDiagnostic();
+  const { data: examHighlights } = useExamHighlights();
 
   useEffect(() => {
     if (user) trackEvent("dashboard_viewed", {}, user.id);
@@ -130,24 +148,21 @@ export default function Dashboard() {
 
   // ── Derived values ──────────────────────────────────────────────────────────
 
-  const firstName = metrics?.name?.split(" ")[0] ?? "";
+  const firstName = metrics?.name?.split(" ")[0] ?? null;
   const today = formatDate(new Date());
 
-  const missionsToday = todayMissions ?? [];
-  const activeMissions = missionsToday.filter(
-    (m) => m.status !== MISSION_STATUSES.SUPERSEDED,
-  );
-  const hasMissions = activeMissions.length > 0;
-  const nextPendingIndex = activeMissions.findIndex(
+  const missionsQueue = queuedMissions ?? [];
+  const todayMissions = missionsQueue.filter((m) => m.isToday);
+  const overdueMissions = missionsQueue.filter((m) => m.isOverdue);
+  const hasMissions = missionsQueue.length > 0;
+  const nextPendingIndex = missionsQueue.findIndex(
     (m) =>
       m.status === MISSION_STATUSES.PENDING ||
       m.status === MISSION_STATUSES.IN_PROGRESS,
   );
-  const allCompleted =
-    hasMissions &&
-    activeMissions.every((m) => m.status === MISSION_STATUSES.COMPLETED);
+  const allCompleted = false; // queue only includes pending/in_progress rows
   const heroMission =
-    nextPendingIndex >= 0 ? activeMissions[nextPendingIndex] : null;
+    nextPendingIndex >= 0 ? missionsQueue[nextPendingIndex] : null;
 
   const missionsTodayCompleted = metrics?.missions_today_completed ?? 0;
   const missionsTodayTotal = metrics?.missions_today_total ?? 0;
@@ -161,8 +176,15 @@ export default function Dashboard() {
   const overallAcertoPct =
     totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
 
+  // Section 3.2 — probability with countdown and initial-estimate badge.
   const hasEnoughForProb = totalQuestions >= MIN_QUESTIONS_FOR_PROBABILITY;
-  const probabilityPct = hasEnoughForProb ? overallAcertoPct : null;
+  const liveProbability = hasEnoughForProb ? overallAcertoPct : null;
+  const initialProbability = latestDiagnostic
+    ? Math.round((latestDiagnostic.probability ?? 0) * 100)
+    : null;
+  const probabilityPct = liveProbability ?? initialProbability;
+  const showInitialBadge =
+    !hasEnoughForProb && initialProbability != null;
   const questionsRemaining = Math.max(
     0,
     MIN_QUESTIONS_FOR_PROBABILITY - totalQuestions,
@@ -173,7 +195,18 @@ export default function Dashboard() {
 
   const daysUntilExam = metrics?.days_until_exam ?? null;
   const hasExamConfig = !!metrics?.exam_name;
-  const hasActivePlan = (metrics?.total_missions_generated ?? 0) > 0 || missionsTodayTotal > 0;
+  const hasActivePlan =
+    (metrics?.total_missions_generated ?? 0) > 0 || missionsTodayTotal > 0;
+
+  // Donut + period label for section 4.3
+  const periodAccuracyPct = acertoPeriod?.current ?? null;
+  const periodErrorPct =
+    periodAccuracyPct != null ? 100 - periodAccuracyPct : null;
+
+  // Sparkline series
+  const accuracySparkline = accuracyTrend ?? [];
+  const questionsSparkline = questionsCumulative ?? [];
+  const examsSparkline = (examsData ?? []).map((e) => e.pctAcerto);
 
   // ── Loading ─────────────────────────────────────────────────────────────────
 
@@ -194,12 +227,12 @@ export default function Dashboard() {
         {/* ── 1. Header ─────────────────────────────────────────────────── */}
         <header className="flex items-end justify-between flex-wrap gap-3 mb-5">
           <div>
-            <div className="text-[11.5px] font-medium tracking-[0.3px] text-[#888780] uppercase">
+            <h1 className="text-[22px] font-semibold tracking-[-0.4px] text-[#2C2C2A]">
+              Olá, {firstName ?? "Estudante"}.
+            </h1>
+            <div className="text-[11.5px] font-medium tracking-[0.3px] text-[#888780] uppercase mt-1">
               {today}
             </div>
-            <h1 className="text-[22px] font-semibold mt-0.5 tracking-[-0.4px] text-[#2C2C2A]">
-              Olá, {firstName || "Estudante"}.
-            </h1>
           </div>
           <div className="flex gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FFF3E6] text-[#854F0B]">
@@ -212,8 +245,8 @@ export default function Dashboard() {
             </span>
             {daysUntilExam != null && hasExamConfig && (
               <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FAECE7] text-[#993C1D]">
-                <Clock className="h-3 w-3" />
-                {daysUntilExam} dias · {metrics?.exam_name}
+                <Calendar className="h-3 w-3" />
+                {daysUntilExam} dias para {metrics?.exam_name}
               </span>
             )}
           </div>
@@ -224,7 +257,7 @@ export default function Dashboard() {
           {/* coral top ribbon */}
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-coral" />
 
-          {hasMissions && !allCompleted && heroMission ? (
+          {hasMissions && heroMission ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 px-7 pt-8 pb-6 items-center">
                 {/* Left: action info */}
@@ -235,7 +268,7 @@ export default function Dashboard() {
                       Próxima missão
                     </span>
                     <span className="text-[12px] text-[#B4B2A9]">
-                      {nextPendingIndex + 1} de {activeMissions.length} hoje
+                      {nextPendingIndex + 1} de {missionsQueue.length} na fila
                     </span>
                   </div>
 
@@ -244,7 +277,6 @@ export default function Dashboard() {
                   </h2>
                   <p className="text-[14px] text-[#888780] mb-5 max-w-[440px] leading-[1.45]">
                     {heroMission.subject}
-                    {heroMission.subtopic ? ` · ${MISSION_TYPE_LABELS[heroMission.mission_type] ?? heroMission.mission_type}` : ""}
                     {heroMission.question_ids?.length
                       ? ` · ${heroMission.question_ids.length} questões`
                       : ""}
@@ -280,39 +312,29 @@ export default function Dashboard() {
               </div>
 
               {/* Queue preview strip */}
-              {activeMissions.length > 1 && (
+              {missionsQueue.length > 1 && (
                 <div className="border-t border-[#EFECE6] bg-[#F7F6F3] px-7 py-3 flex items-center gap-4 flex-wrap text-[12px] text-[#888780]">
                   <span className="font-semibold text-[#2C2C2A] tracking-[0.2px]">
                     Depois:
                   </span>
-                  {activeMissions
+                  {missionsQueue
                     .filter((_, i) => i !== nextPendingIndex)
                     .slice(0, 4)
-                    .map((m) => {
-                      const isDone = m.status === MISSION_STATUSES.COMPLETED;
-                      return (
+                    .map((m) => (
+                      <span key={m.id} className="flex items-center gap-1.5">
                         <span
-                          key={m.id}
-                          className="flex items-center gap-1.5"
-                        >
-                          <span
-                            className="h-1.5 w-1.5 rounded-full shrink-0"
-                            style={{
-                              backgroundColor: isDone ? "#1D9E75" : "#888780",
-                            }}
-                          />
-                          <span
-                            style={{
-                              color: isDone ? "#B4B2A9" : "#2C2C2A",
-                              textDecoration: isDone ? "line-through" : "none",
-                            }}
-                          >
-                            {m.subject}
-                            {m.subtopic ? ` · ${m.subtopic}` : ""}
-                          </span>
+                          className="h-1.5 w-1.5 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: m.isOverdue ? "#B45309" : "#888780",
+                          }}
+                        />
+                        <span className="text-[#2C2C2A]">
+                          {m.subject}
+                          {m.subtopic ? ` · ${m.subtopic}` : ""}
+                          {m.isOverdue ? " · atrasada" : ""}
                         </span>
-                      );
-                    })}
+                      </span>
+                    ))}
                 </div>
               )}
             </>
@@ -361,29 +383,32 @@ export default function Dashboard() {
 
         {/* ── 3. Compact stat band ──────────────────────────────────────── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-3">
-          {/* % acerto */}
+          {/* % acerto (sem) */}
           <div className="bg-white border border-[#E8E6E1] rounded-[12px] px-3.5 py-3">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
               % Acerto (sem)
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
-                {acertoTrend?.current != null
-                  ? `${acertoTrend.current}%`
+                {acertoWeek?.current != null
+                  ? `${acertoWeek.current}%`
                   : "—"}
               </span>
-              {acertoTrend?.delta != null && (
+              {acertoWeek?.delta != null && (
                 <span
                   className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
-                    acertoTrend.delta >= 0
+                    acertoWeek.delta >= 0
                       ? "bg-[#E1F5EE] text-[#1D9E75]"
                       : "bg-[#FCEBEB] text-[#A32D2D]"
                   }`}
                 >
-                  {acertoTrend.delta >= 0 ? "+" : ""}
-                  {acertoTrend.delta}%
+                  {acertoWeek.delta >= 0 ? "+" : ""}
+                  {acertoWeek.delta}%
                 </span>
               )}
+            </div>
+            <div className="mt-1.5">
+              <Sparkline data={accuracySparkline} />
             </div>
           </div>
 
@@ -395,12 +420,24 @@ export default function Dashboard() {
             <div className="mt-1">
               {probabilityPct != null ? (
                 <>
-                  <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
-                    {probabilityPct}%
-                  </span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
+                      {probabilityPct}%
+                    </span>
+                    {showInitialBadge && (
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#FFF3E6] text-[#854F0B] uppercase tracking-[0.3px]">
+                        inicial
+                      </span>
+                    )}
+                  </div>
                   {hasExamConfig && metrics?.course_name && (
                     <div className="text-[11px] text-[#B4B2A9] mt-0.5 truncate">
                       {metrics.course_name}
+                    </div>
+                  )}
+                  {!hasEnoughForProb && questionsRemaining > 0 && (
+                    <div className="text-[11px] text-[#B4B2A9] mt-0.5">
+                      Mais {questionsRemaining}q para refinar
                     </div>
                   )}
                 </>
@@ -410,17 +447,17 @@ export default function Dashboard() {
                     —
                   </span>
                   <div className="text-[11px] text-[#B4B2A9] mt-0.5">
-                    +{questionsRemaining} q para calcular
+                    Complete o diagnóstico
                   </div>
                 </>
               )}
             </div>
           </div>
 
-          {/* Questões */}
+          {/* Questões Respondidas */}
           <div className="bg-white border border-[#E8E6E1] rounded-[12px] px-3.5 py-3">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
-              Questões
+              Questões Respondidas
             </div>
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
@@ -432,34 +469,29 @@ export default function Dashboard() {
                 {totalCorrect} ✓ · {totalQuestions - totalCorrect} ✗
               </div>
             )}
+            <div className="mt-1.5">
+              <Sparkline data={questionsSparkline} />
+            </div>
           </div>
 
           {/* Simulados */}
           <div className="bg-white border border-[#E8E6E1] rounded-[12px] px-3.5 py-3">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
-              {daysUntilExam != null && hasExamConfig
-                ? "Dias p/ prova"
-                : "Simulados"}
+              Simulados
             </div>
             <div className="flex items-baseline gap-1.5 mt-1">
-              {daysUntilExam != null && hasExamConfig ? (
-                <>
-                  <Clock className="h-4 w-4 text-coral mt-1" />
-                  <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
-                    {daysUntilExam}
-                  </span>
-                </>
-              ) : (
-                <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
-                  {totalExams}
-                </span>
-              )}
+              <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
+                {totalExams}
+              </span>
             </div>
             {lastExamScore != null && (
               <div className="text-[11px] text-[#B4B2A9] mt-0.5">
                 Último {lastExamScore}%
               </div>
             )}
+            <div className="mt-1.5">
+              <Sparkline data={examsSparkline} />
+            </div>
           </div>
         </div>
 
@@ -489,16 +521,48 @@ export default function Dashboard() {
             ) : (
               <EvolutionChart data={evoData ?? []} height={180} />
             )}
+
+            {/* Mini donut — section 4.3 */}
+            <div className="mt-4 pt-4 border-t border-[#EFECE6] flex items-center gap-4">
+              <AccuracyDonut accuracyPct={periodAccuracyPct} size={64} />
+              <div className="text-[13px] text-[#2C2C2A]">
+                {periodAccuracyPct != null && periodErrorPct != null ? (
+                  <>
+                    <span className="font-semibold text-[#059669]">
+                      {periodAccuracyPct}% Acertadas
+                    </span>{" "}
+                    <span className="text-[#888780]">·</span>{" "}
+                    <span className="font-semibold text-[#DC2626]">
+                      {periodErrorPct}% Erradas
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[#888780]">
+                    Sem questões respondidas neste período.
+                  </span>
+                )}
+              </div>
+            </div>
           </section>
 
-          {/* Missions queue */}
+          {/* Suas Missões */}
           <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5">
-            <div className="text-[14.5px] font-semibold text-[#2C2C2A] mb-3.5">
-              Fila de hoje
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+                Suas Missões
+              </div>
+              {overdueMissions.length > 0 && (
+                <span className="text-[11px] font-semibold text-[#8A5A0B] bg-[#FBE7C6] px-2 py-0.5 rounded-md">
+                  {overdueMissions.length} atrasada
+                  {overdueMissions.length > 1 ? "s" : ""}
+                </span>
+              )}
             </div>
             {!hasMissions ? (
               <div>
-                <p className="text-[13px] text-[#888780]">Sem missões hoje.</p>
+                <p className="text-[13px] text-[#888780]">
+                  Nenhuma missão pendente.
+                </p>
                 {!hasActivePlan && (
                   <button
                     type="button"
@@ -511,14 +575,20 @@ export default function Dashboard() {
               </div>
             ) : (
               <div>
-                {activeMissions.map((m, i) => (
+                {missionsQueue.map((m, i) => (
                   <MissionRow
                     key={m.id}
                     mission={m}
                     isNext={i === nextPendingIndex}
+                    isOverdue={m.isOverdue}
                   />
                 ))}
               </div>
+            )}
+            {todayMissions.length === 0 && overdueMissions.length > 0 && (
+              <p className="text-[11px] text-[#B4B2A9] mt-2">
+                Nenhuma missão programada para hoje — termine as atrasadas antes.
+              </p>
             )}
           </section>
         </div>
@@ -551,7 +621,7 @@ export default function Dashboard() {
                   subject={s.subject}
                   score={s.score}
                   delta={s.delta}
-                  color={getDashboardSubjectColor(s.subject)}
+                  color={PROFICIENCY_BAR_COLOR}
                   isExpanded={expandedSubject === s.subject}
                   onToggle={() =>
                     setExpandedSubject(
@@ -614,13 +684,17 @@ export default function Dashboard() {
                   <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
                     Melhor nota
                   </div>
-                  {metrics?.best_exam_score != null ? (
+                  {examHighlights?.best ? (
                     <>
                       <div className="text-[20px] font-bold text-[#1D9E75] mt-1.5 leading-none">
-                        {metrics.best_exam_score}
+                        {Math.round(examHighlights.best.score_percent)}
                         <span className="text-[12px] text-[#888780] font-medium">
                           %
                         </span>
+                      </div>
+                      <div className="text-[10.5px] text-[#B4B2A9] mt-1 truncate">
+                        {examHighlights.best.exam_name} ·{" "}
+                        {formatShortDate(examHighlights.best.created_at)}
                       </div>
                     </>
                   ) : (
@@ -633,13 +707,19 @@ export default function Dashboard() {
                   <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
                     Última nota
                   </div>
-                  {lastExamScore != null ? (
-                    <div className="text-[20px] font-bold text-[#2C2C2A] mt-1.5 leading-none">
-                      {lastExamScore}
-                      <span className="text-[12px] text-[#888780] font-medium">
-                        %
-                      </span>
-                    </div>
+                  {examHighlights?.latest ? (
+                    <>
+                      <div className="text-[20px] font-bold text-[#2C2C2A] mt-1.5 leading-none">
+                        {Math.round(examHighlights.latest.score_percent)}
+                        <span className="text-[12px] text-[#888780] font-medium">
+                          %
+                        </span>
+                      </div>
+                      <div className="text-[10.5px] text-[#B4B2A9] mt-1 truncate">
+                        {examHighlights.latest.exam_name} ·{" "}
+                        {formatShortDate(examHighlights.latest.created_at)}
+                      </div>
+                    </>
                   ) : (
                     <div className="text-[20px] font-bold text-[#2C2C2A] mt-1.5 leading-none">
                       —
@@ -648,20 +728,26 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* Next exam CTA — section 7.3 */}
               <button
                 type="button"
                 onClick={() => navigate("/exams")}
-                className="w-full bg-white border border-dashed border-[#E8E6E1] rounded-[12px] px-3.5 py-3 flex items-center gap-3 hover:bg-[#F7F6F3] transition-colors text-left"
+                className="w-full bg-white border border-[#E8E6E1] rounded-[12px] px-3.5 py-3 flex items-center gap-3 hover:bg-[#F7F6F3] transition-colors text-left"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-[12px] font-semibold text-[#2C2C2A]">
-                    Ver simulados
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.4px] text-[#888780]">
+                    Próximo
+                  </div>
+                  <div className="text-[13px] font-semibold text-[#2C2C2A] mt-0.5 truncate">
+                    Mini {metrics?.exam_name ?? "Simulado"}
                   </div>
                   <div className="text-[11px] text-[#B4B2A9] mt-0.5">
-                    Realizar um novo simulado
+                    75 min · recomendado sábado
                   </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-coral shrink-0" />
+                <span className="inline-flex items-center gap-1.5 bg-coral text-white rounded-[10px] px-3 py-2 text-[13px] font-semibold shrink-0 hover:brightness-110 transition-all">
+                  Iniciar <ArrowRight className="h-3.5 w-3.5" />
+                </span>
               </button>
             </div>
 
@@ -674,24 +760,7 @@ export default function Dashboard() {
                 Desempenho nos simulados realizados
               </div>
 
-              {!examsData || examsData.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-center">
-                  <Sparkles className="h-8 w-8 text-[#E8E6E1] mb-2" />
-                  <p className="text-[12px] text-[#B4B2A9]">
-                    Nenhum simulado realizado neste período.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/exams")}
-                    className="mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-coral hover:text-coral-dark transition-colors"
-                  >
-                    Fazer primeiro simulado{" "}
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <ExamsChart data={examsData} height={200} />
-              )}
+              <ExamsChart data={examsData ?? []} height={200} />
             </div>
           </div>
         </section>

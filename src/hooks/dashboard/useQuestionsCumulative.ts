@@ -3,8 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
- * Cumulative count of questions answered per day for the last N days,
- * oldest first. Used as the "Questões Respondidas" sparkline.
+ * Cumulative count of questions answered per day, oldest first, over
+ * exactly `days` calendar days (D-(days-1)…D0). Days with no activity
+ * repeat the previous day's total so the sparkline stays flat on idle
+ * days instead of skipping them.
  */
 export function useQuestionsCumulative(days = 7) {
   const { user } = useAuth();
@@ -15,28 +17,40 @@ export function useQuestionsCumulative(days = 7) {
     enabled: !!userId,
     queryFn: async () => {
       if (!userId) return [];
-      const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const gridKeys: string[] = [];
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        gridKeys.push(d.toISOString().split("T")[0]);
+      }
+
+      const cutoffIso = new Date(
+        today.getTime() - (days - 1) * 86400000,
+      ).toISOString();
+
       const { data, error } = await supabase
         .from("answer_history")
         .select("created_at")
         .eq("user_id", userId)
-        .gte("created_at", cutoff)
+        .gte("created_at", cutoffIso)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      if (!data || data.length === 0) return [];
 
       const perDay = new Map<string, number>();
-      for (const r of data) {
+      for (const r of data ?? []) {
         if (!r.created_at) continue;
         const key = r.created_at.split("T")[0];
         perDay.set(key, (perDay.get(key) ?? 0) + 1);
       }
 
-      const ordered = Array.from(perDay.entries()).sort(([a], [b]) =>
-        a < b ? -1 : 1,
-      );
       let acc = 0;
-      return ordered.map(([, count]) => (acc += count));
+      return gridKeys.map((k) => {
+        acc += perDay.get(k) ?? 0;
+        return acc;
+      });
     },
     refetchOnWindowFocus: true,
     staleTime: 30_000,

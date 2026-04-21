@@ -82,10 +82,6 @@ const simTypeMap: Record<SimFilterLabel, ExamsType> = {
 // Brand amber used for every proficiency bar (section 6.1).
 const PROFICIENCY_BAR_COLOR = "#D97706";
 
-// Probability needs at least this many answered questions before we stop
-// showing the "estimativa inicial" badge. Matches the spec in section 3.2.
-const MIN_QUESTIONS_FOR_PROBABILITY = 60;
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function capitalize(s: string): string {
@@ -170,25 +166,20 @@ export default function Dashboard() {
 
   const totalQuestions = metrics?.total_questions ?? 0;
   const totalCorrect = metrics?.total_correct ?? 0;
-  const overallAcertoPct =
-    totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
-
-  // Section 3.2 — probability with countdown and initial-estimate badge.
-  const hasEnoughForProb = totalQuestions >= MIN_QUESTIONS_FOR_PROBABILITY;
-  const liveProbability = hasEnoughForProb ? overallAcertoPct : null;
-  const initialProbability = latestDiagnostic
-    ? Math.round((latestDiagnostic.probability ?? 0) * 100)
-    : null;
-  const probabilityPct = liveProbability ?? initialProbability;
-  const showInitialBadge =
-    !hasEnoughForProb && initialProbability != null;
-  const questionsRemaining = Math.max(
-    0,
-    MIN_QUESTIONS_FOR_PROBABILITY - totalQuestions,
-  );
 
   const totalExams = metrics?.total_exams ?? 0;
   const lastExamScore = metrics?.last_exam_score;
+
+  // Approval probability is ALWAYS sourced from the last diagnostic_results
+  // row. We do not substitute total_correct/total_questions after N answered
+  // questions — that's an accuracy rate, not a probability. The initial
+  // estimate keeps its "estimativa inicial" badge until the user has
+  // completed at least one simulado (first signal we could use to refine).
+  const probabilityPct = latestDiagnostic
+    ? Math.round((latestDiagnostic.probability ?? 0) * 100)
+    : null;
+  const probabilityLabel = latestDiagnostic?.probability_label ?? null;
+  const showInitialBadge = probabilityPct != null && totalExams === 0;
 
   const daysUntilExam = metrics?.days_until_exam ?? null;
   const hasExamConfig = !!metrics?.exam_name;
@@ -406,7 +397,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Probabilidade de aprovação */}
+          {/* Probabilidade de aprovação — fonte: diagnostic_results */}
           <div className="bg-white border border-[#E8E6E1] rounded-[12px] px-3.5 py-3">
             <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
               Prob. aprovação
@@ -419,19 +410,19 @@ export default function Dashboard() {
                       {probabilityPct}%
                     </span>
                     {showInitialBadge && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#FFF3E6] text-[#854F0B] uppercase tracking-[0.3px]">
-                        inicial
+                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#FFF3E6] text-[#854F0B] uppercase tracking-[0.3px] whitespace-nowrap">
+                        estimativa inicial
                       </span>
                     )}
                   </div>
+                  {probabilityLabel && (
+                    <div className="text-[11px] text-[#888780] mt-0.5 truncate">
+                      {probabilityLabel}
+                    </div>
+                  )}
                   {hasExamConfig && metrics?.course_name && (
                     <div className="text-[11px] text-[#B4B2A9] mt-0.5 truncate">
                       {metrics.course_name}
-                    </div>
-                  )}
-                  {!hasEnoughForProb && questionsRemaining > 0 && (
-                    <div className="text-[11px] text-[#B4B2A9] mt-0.5">
-                      Mais {questionsRemaining}q para refinar
                     </div>
                   )}
                 </>
@@ -441,7 +432,7 @@ export default function Dashboard() {
                     —
                   </span>
                   <div className="text-[11px] text-[#B4B2A9] mt-0.5">
-                    Complete o diagnóstico
+                    Complete o diagnóstico para ver sua estimativa.
                   </div>
                 </>
               )}

@@ -2,6 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runPreParser } from "./pre-parser.ts";
 import { runProfiler, type ProfileResult } from "./profiler.ts";
+import { runSegmenter } from "./segmenter.ts";
+import { runAssembler } from "./assembler.ts";
+import { runGabaritoLinker } from "./gabarito-linker.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -113,7 +116,6 @@ serve(async (req) => {
   if (req.method !== "POST") {
     return jsonResponse({ error: "Method not allowed. Use POST with JSON body." }, 405);
   }
-
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return jsonResponse(
       { error: "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY não configurados" },
@@ -128,7 +130,7 @@ serve(async (req) => {
     return jsonResponse({ error: "Body inválido — esperado JSON" }, 400);
   }
 
-  const { exam_id, prova_storage_path } = body;
+  const { exam_id, prova_storage_path, gabarito_storage_path } = body;
   if (!exam_id || !prova_storage_path) {
     return jsonResponse(
       { error: "Campos obrigatórios: exam_id, prova_storage_path" },
@@ -138,7 +140,6 @@ serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-  // Create extraction job
   const { data: job, error: jobErr } = await supabase
     .from("extraction_jobs")
     .insert({
@@ -149,7 +150,6 @@ serve(async (req) => {
     })
     .select("id")
     .single();
-
   if (jobErr || !job) {
     return jsonResponse(
       { error: `Falha ao criar extraction_job: ${jobErr?.message ?? "unknown"}` },
@@ -184,7 +184,6 @@ serve(async (req) => {
       runProfiler(preResult.pages),
     );
 
-    // Persist profile on exam row
     const examUpdate: Record<string, unknown> = { profile_json: profile };
     if (typeof profile.objective_question_count === "number") {
       examUpdate.total_questions_detected = profile.objective_question_count;
@@ -219,19 +218,37 @@ serve(async (req) => {
       );
     }
 
-    // Pipeline paused here — future modules will continue from profiling_done
+    // ───── SEGMENTER ─────
+    const segResult = await runStage(supabase, jobId, "segmenting", () =>
+      runSegmenter(preResult.pages, profile),
+    );
+
+    // ───── ASSEMBLER ─────
+    const asmResult = await runStage(supabase, jobId, "assembling", () =>
+      runAssembler(supabase, exam_id, jobId, segResult.blocks, profile),
+    );
+
+    // ───── GABARITO LINKER ─────
+    const gabaritoResult = await runStage(supabase, jobId, "linking_gabarito", () =>
+      runGabaritoLinker(supabase, exam_id, jobId, gabarito_storage_path),
+    );
+
+    // Pipeline paused here — next modules (validator/enrichment) continue from gabarito_done
     await supabase
       .from("extraction_jobs")
-      .update({ current_stage: "profiling_done", status: "pending" })
+      .update({ current_stage: "gabarito_done", status: "pending" })
       .eq("id", jobId);
 
     return jsonResponse({
       job_id: jobId,
       status: "pending",
-      current_stage: "profiling_done",
+      current_stage: "gabarito_done",
       total_pages: preResult.total_pages,
       total_chars: preResult.total_chars,
       profile,
+      blocks_count: segResult.blocks.length,
+      questions_extracted: asmResult.inserted_count,
+      gabarito: gabaritoResult,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

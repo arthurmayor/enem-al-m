@@ -1,23 +1,77 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import type { Block } from "./segmenter.ts";
 import type { ProfileResult } from "./profiler.ts";
-import { callClaude, parseJsonResponse, ANTHROPIC_FAST_MODEL } from "./anthropic.ts";
+import { callClaudeTool } from "./anthropic.ts";
 
-const QUESTIONS_PER_CHUNK = 30;
+const QUESTIONS_PER_CHUNK = 12;
+const ASSEMBLER_MAX_TOKENS = 16384;
 
-const SYSTEM_PROMPT = `Monte JSON canônico por questão a partir dos blocos fornecidos.
+const SYSTEM_PROMPT = `Monte JSON canônico por questão a partir dos blocos fornecidos
+chamando a tool submit_questions.
 NÃO parafraseie. NÃO assuma labels — use exatamente os labels
 que aparecem nos blocos.
 Question types válidos: multiple_choice_single,
 multiple_choice_image_options, multiple_choice_shared_context.
 Se incerto sobre qualquer campo: flagged = true.
-NUNCA use markdown, NUNCA envolva a resposta em \`\`\` ou \`\`\`json.
-Retorne APENAS o array JSON bruto, começando com '[' e terminando com ']':
-[{"numero":1,"question_type":"multiple_choice_single",
-  "shared_context":null,"stem":"texto completo do enunciado",
-  "options":[{"label":"A","text":"texto da alternativa","media_ref":null}],
-  "note_e_adote":null,"media_refs":[],"source_pages":[2],
-  "confidence":0.95,"flagged":false}]`;
+Campos por questão:
+- numero: inteiro.
+- question_type: um dos três tipos acima.
+- shared_context: texto do contexto compartilhado (ou null).
+- stem: enunciado completo.
+- options: array de { label, text, media_ref }.
+- note_e_adote: texto do bloco "note e adote" (ou null).
+- media_refs: array (pode ficar vazio).
+- source_pages: array de inteiros (páginas).
+- confidence: número entre 0 e 1.
+- flagged: true se ambíguo.`;
+
+const QUESTIONS_SCHEMA = {
+  type: "object",
+  properties: {
+    questions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          numero: { type: "integer" },
+          question_type: {
+            type: "string",
+            enum: [
+              "multiple_choice_single",
+              "multiple_choice_image_options",
+              "multiple_choice_shared_context",
+            ],
+          },
+          shared_context: { type: ["string", "null"] },
+          stem: { type: "string" },
+          options: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string" },
+                text: { type: "string" },
+                media_ref: { type: ["string", "null"] },
+              },
+              required: ["label", "text"],
+            },
+          },
+          note_e_adote: { type: ["string", "null"] },
+          media_refs: { type: "array" },
+          source_pages: { type: "array", items: { type: "integer" } },
+          confidence: { type: "number" },
+          flagged: { type: "boolean" },
+        },
+        required: ["numero", "question_type", "stem", "options"],
+      },
+    },
+  },
+  required: ["questions"],
+};
+
+interface AssemblerChunkResponse {
+  questions?: AssembledQuestion[];
+}
 
 export interface AssembledQuestion {
   numero: number;
@@ -80,18 +134,23 @@ async function assembleChunk(
   const user = `Profile: ${profileSummary(profile)}\n\nBlocos:\n${JSON.stringify(chunkBlocks)}`;
   const started = Date.now();
   console.log(`[assembler] chunk ${chunkIndex} start blocks=${chunkBlocks.length}`);
-  const raw = await callClaude({
+  // Assembler stays on Sonnet (ANTHROPIC_DEFAULT_MODEL): the rich question
+  // payload benefits from a stronger model. Tool Use keeps the output
+  // guaranteed schema-valid.
+  const parsed = await callClaudeTool<AssemblerChunkResponse>({
     system: SYSTEM_PROMPT,
     user,
-    maxTokens: 8192,
-    model: ANTHROPIC_FAST_MODEL,
+    maxTokens: ASSEMBLER_MAX_TOKENS,
+    toolName: "submit_questions",
+    toolDescription: "Submit the canonical list of questions assembled from the blocks.",
+    schema: QUESTIONS_SCHEMA,
   });
-  const parsed = parseJsonResponse<AssembledQuestion[]>(raw, "Assembler");
+  const questions = parsed.questions ?? [];
   const elapsed = ((Date.now() - started) / 1000).toFixed(1);
   console.log(
-    `[assembler] chunk ${chunkIndex} done in ${elapsed}s questions=${parsed.length}`,
+    `[assembler] chunk ${chunkIndex} done in ${elapsed}s questions=${questions.length}`,
   );
-  return parsed;
+  return questions;
 }
 
 export interface AssemblerResult {

@@ -1,6 +1,6 @@
 import type { ParsedPage } from "./pre-parser.ts";
 import type { ProfileResult } from "./profiler.ts";
-import { callClaude, parseJsonResponse, ANTHROPIC_FAST_MODEL } from "./anthropic.ts";
+import { callClaudeTool, ANTHROPIC_FAST_MODEL } from "./anthropic.ts";
 
 const CHUNK_PAGES = 4;
 const SEGMENTER_MAX_TOKENS = 16384;
@@ -12,8 +12,8 @@ const SEGMENTER_MAX_TOKENS = 16384;
 // reconstructed locally via hydrateBlockText() after parsing.
 const SYSTEM_PROMPT = `Você recebe as páginas de uma prova com cada linha
 prefixada por "Lx: " (onde x é o número da linha DENTRO daquela página,
-começando em 1). Segmente o texto em blocos canônicos retornando APENAS
-as coordenadas de cada bloco — NÃO copie o texto.
+começando em 1). Segmente o texto em blocos canônicos chamando a tool
+submit_blocks com APENAS as coordenadas de cada bloco — NÃO copie o texto.
 
 Tipos de bloco: shared_context, question_start, stem, option_item,
 note_e_adote, figure_ref, caption, source_reference.
@@ -21,14 +21,6 @@ CUIDADO com layout de 2 colunas — não misture questões.
 Blocos ambíguos: flagged = true.
 Um bloco deve ficar sempre dentro de uma única página. Se um trecho
 atravessa páginas, gere um bloco por página.
-
-NUNCA use markdown, NUNCA envolva a resposta em \`\`\` ou \`\`\`json.
-Retorne APENAS o objeto JSON bruto, começando com '{' e terminando com '}':
-{"blocks":[
-  {"block_id":"b001","type":"stem","question_hint":1,
-   "page":2,"line_start":3,"line_end":7,
-   "label":null,"flagged":false}
-]}
 
 Campos:
 - block_id: identificador sequencial (será reatribuído depois, pode ser qualquer string).
@@ -38,6 +30,42 @@ Campos:
 - line_start / line_end: números das linhas (Lx) inclusive, dentro da página.
 - label: para option_item, a letra/rótulo exatamente como aparece (A, B, C, D, E, a), ...); caso contrário null.
 - flagged: true se o bloco for ambíguo.`;
+
+const BLOCKS_SCHEMA = {
+  type: "object",
+  properties: {
+    blocks: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          block_id: { type: "string" },
+          type: {
+            type: "string",
+            enum: [
+              "shared_context",
+              "question_start",
+              "stem",
+              "option_item",
+              "note_e_adote",
+              "figure_ref",
+              "caption",
+              "source_reference",
+            ],
+          },
+          question_hint: { type: ["integer", "null"] },
+          page: { type: ["integer", "null"] },
+          line_start: { type: ["integer", "null"] },
+          line_end: { type: ["integer", "null"] },
+          label: { type: ["string", "null"] },
+          flagged: { type: "boolean" },
+        },
+        required: ["block_id", "type", "page", "line_start", "line_end"],
+      },
+    },
+  },
+  required: ["blocks"],
+};
 
 export interface SegmenterBlock {
   block_id: string;
@@ -125,13 +153,15 @@ async function segmentChunk(
   console.log(
     `[segmenter] chunk ${chunkIndex} start pages=${chunk.map((p) => p.page_number).join(",")}`,
   );
-  const raw = await callClaude({
+  const parsed = await callClaudeTool<SegmenterChunkResponse>({
     system: SYSTEM_PROMPT,
     user,
     maxTokens: SEGMENTER_MAX_TOKENS,
     model: ANTHROPIC_FAST_MODEL,
+    toolName: "submit_blocks",
+    toolDescription: "Submit the list of canonical blocks identified in the chunk.",
+    schema: BLOCKS_SCHEMA,
   });
-  const parsed = parseJsonResponse<SegmenterChunkResponse>(raw, "Segmenter");
   const elapsed = ((Date.now() - started) / 1000).toFixed(1);
   console.log(
     `[segmenter] chunk ${chunkIndex} done in ${elapsed}s blocks=${parsed.blocks?.length ?? 0}`,

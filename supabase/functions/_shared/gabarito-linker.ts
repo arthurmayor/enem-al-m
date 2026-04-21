@@ -1,16 +1,19 @@
 import { extractText, getDocumentProxy } from "https://esm.sh/unpdf@0.12.1";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { splitStoragePath } from "./pre-parser.ts";
-import { callClaude, parseJsonResponse } from "./anthropic.ts";
+import { callClaudeTool } from "./anthropic.ts";
 
-const SYSTEM_PROMPT = `Extraia o gabarito oficial desta prova de vestibular.
+const SYSTEM_PROMPT = `Extraia o gabarito oficial desta prova de vestibular
+chamando a tool submit_gabarito.
 NÃO assuma que as alternativas são A-E ou que há 90 questões.
 Leia exatamente o que está no documento.
-Questões anuladas = "*".
-Retorne APENAS JSON (sem markdown, sem backticks):
-{"version_detected":"V1","total_questions":90,
- "answers":{"1":"E","2":"B","3":"*"},
- "annulled":[3],"format_notes":"..."}`;
+Questões anuladas = "*" no mapa de answers e também listadas em annulled.
+Campos:
+- version_detected: string opcional com o nome da versão/caderno.
+- total_questions: total de questões do gabarito.
+- answers: objeto onde cada chave é o número da questão (string) e o valor é a letra (ou "*").
+- annulled: lista de números anulados.
+- format_notes: observações livres.`;
 
 export interface GabaritoResult {
   version_detected?: string;
@@ -19,6 +22,21 @@ export interface GabaritoResult {
   annulled?: number[];
   format_notes?: string;
 }
+
+const GABARITO_SCHEMA = {
+  type: "object",
+  properties: {
+    version_detected: { type: "string" },
+    total_questions: { type: "integer" },
+    answers: {
+      type: "object",
+      additionalProperties: { type: "string" },
+    },
+    annulled: { type: "array", items: { type: "integer" } },
+    format_notes: { type: "string" },
+  },
+  required: ["answers"],
+};
 
 export interface GabaritoLinkerSkipped {
   skipped: true;
@@ -59,8 +77,14 @@ export async function runGabaritoLinker(
     ? extracted.text.join("\n")
     : String(extracted.text ?? "");
 
-  const raw = await callClaude({ system: SYSTEM_PROMPT, user: text, maxTokens: 4096 });
-  const gabarito = parseJsonResponse<GabaritoResult>(raw, "GabaritoLinker");
+  const gabarito = await callClaudeTool<GabaritoResult>({
+    system: SYSTEM_PROMPT,
+    user: text,
+    maxTokens: 4096,
+    toolName: "submit_gabarito",
+    toolDescription: "Submit the answer key extracted from the gabarito PDF.",
+    schema: GABARITO_SCHEMA,
+  });
 
   const answers = gabarito.answers ?? {};
   const annulledSet = new Set((gabarito.annulled ?? []).map((n) => Number(n)));

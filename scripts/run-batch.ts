@@ -53,9 +53,53 @@ if (!ANTHROPIC_API_KEY) {
   process.exit(1);
 }
 
+// Same retry wrapper used in extract-exam-local.ts — transient DNS / socket
+// failures are common on flaky networks and would otherwise abort the batch
+// before a single prova runs. Also walks err.cause because undici nests
+// the real network error under a generic "fetch failed".
+const SUPABASE_FETCH_RETRIES = 8;
+const supabaseFetch: typeof fetch = async (input, init) => {
+  const transient =
+    /DNS cache overflow|ENOTFOUND|ECONNRESET|fetch failed|UND_ERR|ETIMEDOUT|socket hang up|EAI_AGAIN|other side closed/i;
+  const messages = (err: unknown): string => {
+    const parts: string[] = [];
+    let cur: unknown = err;
+    for (let i = 0; i < 4 && cur; i++) {
+      if (cur instanceof Error) {
+        parts.push(cur.message);
+        cur = (cur as Error & { cause?: unknown }).cause;
+      } else {
+        parts.push(String(cur));
+        break;
+      }
+    }
+    return parts.join(" | ");
+  };
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < SUPABASE_FETCH_RETRIES; attempt++) {
+    try {
+      return await fetch(input, init);
+    } catch (err) {
+      lastErr = err;
+      const msg = messages(err);
+      if (transient.test(msg)) {
+        const delay = 500 * Math.pow(2, Math.min(attempt, 5));
+        console.warn(
+          `[SUPABASE-FETCH] ${msg} — retry ${attempt + 1}/${SUPABASE_FETCH_RETRIES} em ${delay}ms`,
+        );
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+};
+
 const supabase: SupabaseClient = createClient(
   SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY,
+  { global: { fetch: supabaseFetch } },
 );
 
 interface ProvaInput {

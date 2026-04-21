@@ -12,10 +12,13 @@
  */
 
 import { createHash } from "node:crypto";
+import dns from "node:dns";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { extractText, getDocumentProxy, getResolvedPDFJS } from "unpdf";
 import { PNG } from "pngjs";
+
+dns.setDefaultResultOrder("ipv4first");
 
 // ───────────────────── config ─────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "https://nbfgqrjcrzgrprzqedtl.supabase.co";
@@ -46,8 +49,55 @@ const CRITICAL_ISSUE_TYPES = new Set([
   "duplicata_provavel",
 ]);
 
+// Supabase fetch with retry: wraps the global fetch so every query the
+// supabase-js client issues survives transient DNS / connection hiccups
+// (ENOTFOUND, ECONNRESET, "DNS cache overflow", UND_ERR_*) without each
+// call-site having to know about it. Also inspects err.cause because
+// undici nests the real network error one level down while the outer
+// Error message is a generic "fetch failed".
+const SUPABASE_FETCH_RETRIES = 8;
+const supabaseFetch: typeof fetch = async (input, init) => {
+  const transient =
+    /DNS cache overflow|ENOTFOUND|ECONNRESET|fetch failed|UND_ERR|ETIMEDOUT|socket hang up|EAI_AGAIN|other side closed/i;
+  const messages = (err: unknown): string => {
+    const parts: string[] = [];
+    let cur: unknown = err;
+    for (let i = 0; i < 4 && cur; i++) {
+      if (cur instanceof Error) {
+        parts.push(cur.message);
+        cur = (cur as Error & { cause?: unknown }).cause;
+      } else {
+        parts.push(String(cur));
+        break;
+      }
+    }
+    return parts.join(" | ");
+  };
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < SUPABASE_FETCH_RETRIES; attempt++) {
+    try {
+      return await fetch(input, init);
+    } catch (err) {
+      lastErr = err;
+      const msg = messages(err);
+      if (transient.test(msg)) {
+        const delay = 500 * Math.pow(2, Math.min(attempt, 5));
+        console.warn(
+          `[SUPABASE-FETCH] ${msg} — retry ${attempt + 1}/${SUPABASE_FETCH_RETRIES} em ${delay}ms`,
+        );
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+};
+
 const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+  global: { fetch: supabaseFetch },
+});
 
 // ───────────────────── shared types ─────────────────────
 interface ParsedPage {
@@ -184,6 +234,59 @@ function chunkPages<T>(arr: T[], size: number): T[][] {
   return out;
 }
 
+// ───────────────────── deterministic question-marker scanner ─────────────────────
+//
+// Greps the pre-parsed page text for lines that look like a standalone
+// question number: "01", "{01}", "01.", "01)", or their 1-3 digit variants.
+// The result is the longest strictly-ascending sequence that starts at 1
+// — this rejects stray numerics (years like "2024", section codes, page
+// numbers that slipped past the header stripper) while tolerating the
+// different numbering styles used across Fuvest cadernos (2022-24 uses
+// plain "01", 2025-26 uses "{01}").
+//
+// Returned markers are used two ways:
+//   1. After the profiler, if scan count is materially higher than
+//      profile.objective_question_count, we override — this caught the
+//      Fuvest 2026 case where the profiler under-reported 35 vs real 90.
+//   2. After the segmenter, stems/question_starts with null question_hint
+//      are backfilled by finding the latest marker at or before the
+//      block's (page, line_start).
+export interface QuestionMarker {
+  page: number;
+  line: number;
+  n: number;
+}
+
+export function scanQuestionMarkers(pages: ParsedPage[]): QuestionMarker[] {
+  const candidates: QuestionMarker[] = [];
+  // Accepted forms on their own line (after trim): {NN}, NN, NN., NN)
+  const re = /^\s*(?:\{(\d{1,3})\}|(\d{1,3})[.)]?)\s*$/;
+  for (const p of pages) {
+    const lines = p.text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const m = re.exec(lines[i]);
+      if (!m) continue;
+      const n = parseInt(m[1] ?? m[2], 10);
+      // Years and arbitrary numeric citations fall outside this range.
+      if (!Number.isFinite(n) || n < 1 || n > 200) continue;
+      candidates.push({ page: p.page_number, line: i + 1, n });
+    }
+  }
+  candidates.sort((a, b) => a.page - b.page || a.line - b.line);
+  const markers: QuestionMarker[] = [];
+  let expected = 1;
+  for (const c of candidates) {
+    // Strict ascending: only accept when we land exactly on `expected`.
+    // A single missed marker just delays progress — it doesn't contaminate
+    // the result with noise.
+    if (c.n === expected) {
+      markers.push(c);
+      expected++;
+    }
+  }
+  return markers;
+}
+
 // ───────────────────── profiler ─────────────────────
 const PROFILE_SYSTEM = `Você é um profiler de provas de vestibulares brasileiros.
 Receba texto extraído e retorne análise estrutural via a tool submit_profile.
@@ -261,10 +364,21 @@ REGRAS CRÍTICAS — respeite rigorosamente:
 
 2. STEM É UM ÚNICO BLOCO POR QUESTÃO. Para cada questão emita
    EXATAMENTE UM bloco type="stem" cobrindo TODAS as linhas entre o
-   marcador de início da questão (ex.: "{27}", "27.", "27)" ) e a
-   PRIMEIRA alternativa "(A)" ou "A)". Inclua parágrafos múltiplos,
-   citações literais, versos, equações — tudo que vem ANTES de (A).
-   NUNCA quebre o stem em vários blocos stem.
+   marcador de início da questão e a PRIMEIRA alternativa "(A)" ou "A)".
+   Inclua parágrafos múltiplos, citações literais, versos, equações —
+   tudo que vem ANTES de (A). NUNCA quebre o stem em vários blocos stem.
+
+   FORMAS DE MARCADOR DE QUESTÃO aceitas (identifique TODAS):
+     - "{27}" ou "{ 27 }" (entre chaves)
+     - "27." ou "27)" ou "27 –"
+     - "27" SOZINHO em uma linha (sem texto antes ou depois) — MUITO COMUM.
+       Se ver uma linha com apenas 1-3 dígitos ("01", "27", "90") e não for
+       número de página/cabeçalho, trate como marcador de questão.
+     - "Questão 27" / "QUESTÃO 27."
+   Sempre que identificar um marcador, preencha question_hint com o
+   número EM TODOS os blocos pertencentes àquela questão: stem,
+   option_item (A..E), figure_ref, caption, source_reference, note_e_adote.
+   NUNCA deixe question_hint null em um stem ou question_start.
 
 3. STEM NUNCA É VAZIO. line_end >= line_start SEMPRE. Se não houver
    linhas entre o marcador da questão e (A), NÃO emita bloco stem.
@@ -346,14 +460,24 @@ function profileSummary(p: ProfileResult): string {
 // Strip lines that match a known page-level running header/footer or
 // are isolated page numbers. Preserves line count by leaving blank
 // lines in place — downstream Lx line numbering stays stable.
-function stripRunningHeaders(pages: ParsedPage[], profile: ProfileResult): ParsedPage[] {
+function stripRunningHeaders(
+  pages: ParsedPage[],
+  profile: ProfileResult,
+  preserveLines: ReadonlySet<string> = new Set(),
+): ParsedPage[] {
   const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
   const header = profile.running_header ? norm(profile.running_header) : "";
   const footer = profile.running_footer ? norm(profile.running_footer) : "";
   const isPageNumber = (s: string) => /^\s*\d{1,3}\s*$/.test(s);
   return pages.map((p) => {
     const lines = p.text.split("\n");
-    const cleaned = lines.map((line) => {
+    const cleaned = lines.map((line, i) => {
+      // Protect lines that the deterministic scanner identified as question
+      // markers. Without this, Fuvest 2022-24 cadernos have their bare "01",
+      // "02", ... markers replaced with empty strings (they match the
+      // page-number pattern), and the segmenter can no longer attribute
+      // question_hint, collapsing 90 questions into 25-28.
+      if (preserveLines.has(`${p.page_number}:${i + 1}`)) return line;
       const n = norm(line);
       if (!n) return line;
       if (header && n === header) return "";
@@ -396,7 +520,13 @@ async function runSegmenter(pages: ParsedPage[], profile: ProfileResult): Promis
         system: SEG_SYSTEM,
         user,
         maxTokens: SEGMENTER_MAX_TOKENS,
-        model: MODEL_HAIKU,
+        // Sonnet is materially more reliable than Haiku at emitting stem
+        // blocks and attributing question_hint on Fuvest 2022-24 cadernos
+        // where the question marker is just a bare "01"/"02"/... on its
+        // own line. Haiku's failure mode there was dropping the stem
+        // entirely or leaving question_hint=null. Cost difference is
+        // negligible at ~10 chunks/prova.
+        model: MODEL_SONNET,
         toolName: "submit_blocks",
         toolDescription: "Submit the list of canonical blocks identified in the chunk.",
         schema: BLOCKS_SCHEMA,
@@ -2015,6 +2145,24 @@ async function main(examId: string) {
       throw new Error("Profiler detectou pdf_scanned — OCR não suportado");
     }
 
+    // Sanity-check the profiler's question count against a deterministic
+    // regex scan of the raw pages. If the scanner finds materially more
+    // standalone markers (≥ profile count + 5) we trust the scan —
+    // fixes the Fuvest 2026 case where the profiler reported 35 vs real 90
+    // because soft-hyphens in the PDF confused the LLM-based profiler.
+    const profilerMarkers = scanQuestionMarkers(pages);
+    const profilerReported = profile.objective_question_count ?? 0;
+    if (profilerMarkers.length >= profilerReported + 5 && profilerMarkers.length <= 200) {
+      console.log(
+        `[PROFILER] override objective_question_count: profiler=${profilerReported} → scan=${profilerMarkers.length}`,
+      );
+      profile.objective_question_count = profilerMarkers.length;
+    } else if (profilerMarkers.length > 0) {
+      console.log(
+        `[PROFILER] scan confirmou ${profilerMarkers.length} marcadores (profiler disse ${profilerReported})`,
+      );
+    }
+
     // Persist profile on job + exam
     await supabase.from("extraction_jobs").update({
       pre_parser_pages: pages,
@@ -2042,7 +2190,14 @@ async function main(examId: string) {
     });
 
     // 3. SEGMENTER
-    const segPages = stripRunningHeaders(pages, profile);
+    // Protect question markers from the page-number stripper by passing the
+    // set of (page, line) keys detected by the profiler scan. Line numbers
+    // survive stripping because it replaces lines with empty strings rather
+    // than deleting them, so coordinates stay aligned with the segmenter.
+    const preserveLines = new Set(
+      profilerMarkers.map((m) => `${m.page}:${m.line}`),
+    );
+    const segPages = stripRunningHeaders(pages, profile, preserveLines);
     if (profile.running_header || profile.running_footer) {
       console.log(
         `[SEGMENTER] removidos cabeçalho='${profile.running_header ?? ""}' rodapé='${profile.running_footer ?? ""}'`,
@@ -2055,6 +2210,64 @@ async function main(examId: string) {
       console.log(`[SEGMENTER] total ${bs.length} blocos (${sec}s)`);
       return bs;
     });
+
+    // Backfill missing question_hint on stem/question_start blocks using
+    // the deterministic marker scan. Haiku frequently drops the hint on
+    // Fuvest 2022-24 cadernos where the marker is just a bare "01" on its
+    // own line (the prompt only nudges it toward "{27}"/"27."/"27)"). The
+    // walk-forward assignment here recovered ~55 hints per prova in the
+    // backfill test runs.
+    const segMarkers = scanQuestionMarkers(segPages);
+    if (segMarkers.length > 0) {
+      let filled = 0;
+      const sortedMarkers = [...segMarkers].sort(
+        (a, b) => a.page - b.page || a.line - b.line,
+      );
+      const cmp = (p: number | null, l: number | null, m: QuestionMarker) =>
+        (p ?? 0) - m.page || (l ?? 0) - m.line;
+      for (const b of blocks) {
+        if (b.type !== "stem" && b.type !== "question_start") continue;
+        if (typeof b.question_hint === "number") continue;
+        // Find the latest marker at or before this block's (page, line_start).
+        let chosen: QuestionMarker | null = null;
+        for (const m of sortedMarkers) {
+          if (cmp(b.page, b.line_start, m) >= 0) chosen = m;
+          else break;
+        }
+        if (chosen) {
+          b.question_hint = chosen.n;
+          filled++;
+        }
+      }
+      if (filled > 0) {
+        console.log(
+          `[SEGMENTER] backfill: ${filled} blocos recuperaram question_hint via marcadores (${segMarkers.length} marcadores encontrados)`,
+        );
+      }
+
+      // Report what the assembler will see.
+      const distinctHints = new Set<number>();
+      for (const b of blocks) {
+        if (
+          (b.type === "stem" || b.type === "question_start") &&
+          typeof b.question_hint === "number"
+        ) {
+          distinctHints.add(b.question_hint);
+        }
+      }
+      const missingNums = segMarkers
+        .filter((m) => !distinctHints.has(m.n))
+        .map((m) => m.n);
+      console.log(
+        `[SEGMENTER] hints distintos após backfill: ${distinctHints.size}/${segMarkers.length}` +
+          (missingNums.length > 0 && missingNums.length <= 20
+            ? ` (faltam: ${missingNums.join(",")})`
+            : missingNums.length > 0
+              ? ` (${missingNums.length} questões sem stem)`
+              : ""),
+      );
+    }
+
     await supabase.from("extraction_jobs").update({ segmenter_blocks_json: blocks }).eq("id", jobId);
 
     // 3.5. MEDIA MAPPER (Claude maps now; DB write deferred until question_raw exists)

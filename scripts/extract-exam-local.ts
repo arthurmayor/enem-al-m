@@ -597,6 +597,16 @@ function postProcessAssembled(q: AssembledQuestion, profile: ProfileResult): Ass
   out.stem = stripHeadersFromText(out.stem, profile) ?? "";
   out.shared_context = stripHeadersFromText(out.shared_context, profile) ?? null;
 
+  // Normalize option labels: strip surrounding parens/brackets so
+  // gabarito "A" compares cleanly against option.label "A"
+  // (segmenter sometimes emits "(A)" verbatim).
+  if (Array.isArray(out.options)) {
+    out.options = out.options.map((o) => ({
+      ...o,
+      label: String(o?.label ?? "").replace(/[()[\]]/g, "").trim(),
+    }));
+  }
+
   // ASM-2: if stem starts with an option label and shared_context has
   // real text, swap them. This corrects a common segmenter bug where
   // the first option line was promoted to stem and the real stem went

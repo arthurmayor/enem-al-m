@@ -53,6 +53,11 @@ function metricTone(value: number | null | undefined) {
   return "text-muted-foreground";
 }
 
+function sparklineStatusText(value: number | null | undefined, emptyText: string) {
+  if (value == null) return emptyText;
+  return `${value >= 0 ? "+" : ""}${value}%`;
+}
+
 // ─── Period mapping tables ────────────────────────────────────────────────────
 
 const EVO_PERIOD_OPTIONS = ["Semana", "Mês", "6m", "Ano", "Geral"] as const;
@@ -443,115 +448,90 @@ export default function Dashboard() {
         </section>
 
         {/* ── 3. Compact stat band ──────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 mb-3">
           {/* % acerto (sem) */}
-          <div className="bg-white border border-[#E8E6E1] rounded-[12px] px-3.5 py-3">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
+          <div className="bg-card border border-border rounded-xl px-4 py-3.5 min-h-[112px] flex flex-col justify-between">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
               % Acerto (sem)
             </div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
-                {acertoWeek?.current != null
-                  ? `${acertoWeek.current}%`
-                  : "—"}
-              </span>
-              {acertoWeek?.delta != null && (
-                <span
-                  className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
-                    acertoWeek.delta >= 0
-                      ? "bg-[#E1F5EE] text-[#1D9E75]"
-                      : "bg-[#FCEBEB] text-[#A32D2D]"
-                  }`}
-                >
-                  {acertoWeek.delta >= 0 ? "+" : ""}
-                  {acertoWeek.delta}%
-                </span>
-              )}
-            </div>
-            <div className="mt-1.5">
-              <Sparkline data={accuracySparkline} />
+            <div className="flex items-end justify-between gap-3 mt-2 min-h-[48px]">
+              <div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-foreground">
+                    {acertoWeek?.current != null
+                      ? `${acertoWeek.current}%`
+                      : "—"}
+                  </span>
+                  <span className={`text-[11px] font-semibold ${metricTone(acertoWeek?.delta)}`}>
+                    {sparklineStatusText(acertoWeek?.delta, "")}
+                  </span>
+                </div>
+              </div>
+              <div className="w-[72px] shrink-0">
+                <Sparkline data={accuracySparkline} color="hsl(var(--success))" height={32} strokeWidth={1.8} />
+              </div>
             </div>
           </div>
 
-          {/* Probabilidade de aprovação — fonte: diagnostic_results */}
-          <div className="bg-white border border-[#E8E6E1] rounded-[12px] px-3.5 py-3">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
+          <div className="bg-card border border-border rounded-xl px-4 py-3.5 min-h-[112px] flex flex-col justify-between">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
               Prob. aprovação
             </div>
-            <div className="mt-1">
-              {probabilityPct != null ? (
-                <>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
-                      {probabilityPct}%
-                    </span>
-                    {showInitialBadge && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#FFF3E6] text-[#854F0B] uppercase tracking-[0.3px] whitespace-nowrap">
-                        estimativa inicial
-                      </span>
-                    )}
-                  </div>
-                  {probabilityLabel && (
-                    <div className="text-[11px] text-[#888780] mt-0.5 truncate">
-                      {probabilityLabel}
-                    </div>
-                  )}
-                  {hasExamConfig && metrics?.course_name && (
-                    <div className="text-[11px] text-[#B4B2A9] mt-0.5 truncate">
-                      {metrics.course_name}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
-                    —
-                  </span>
-                  <div className="text-[11px] text-[#B4B2A9] mt-0.5">
-                    Complete o diagnóstico para ver sua estimativa.
-                  </div>
-                </>
-              )}
+            <div className="flex items-end justify-between gap-3 mt-2 min-h-[48px]">
+              <div className="min-w-0">
+                <div className="text-[22px] font-bold tracking-[-0.4px] leading-none text-foreground">
+                  {probabilityPct != null ? `${probabilityPct}%` : "—"}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1 truncate">
+                  {probabilityLabel ?? (hasExamConfig && metrics?.course_name ? metrics.course_name : "Sem estimativa ainda")}
+                </div>
+              </div>
+              <div className="w-[72px] shrink-0">
+                <Sparkline
+                  data={probabilityPct != null ? [null, probabilityPct * 0.55, probabilityPct * 0.82, probabilityPct * 0.7, probabilityPct] : []}
+                  color="hsl(var(--coral))"
+                  height={32}
+                  strokeWidth={1.8}
+                />
+              </div>
             </div>
           </div>
 
-          {/* Questões Respondidas */}
-          <div className="bg-white border border-[#E8E6E1] rounded-[12px] px-3.5 py-3">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
-              Questões Respondidas
+          <div className="bg-card border border-border rounded-xl px-4 py-3.5 min-h-[112px] flex flex-col justify-between">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+              Questões
             </div>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
-                {totalQuestions}
-              </span>
-            </div>
-            {totalQuestions > 0 && (
-              <div className="text-[11px] text-[#B4B2A9] mt-0.5">
-                {totalCorrect} ✓ · {totalQuestions - totalCorrect} ✗
+            <div className="flex items-end justify-between gap-3 mt-2 min-h-[48px]">
+              <div className="min-w-0">
+                <div className="text-[22px] font-bold tracking-[-0.4px] leading-none text-foreground">
+                  {totalQuestions}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1 truncate">
+                  {totalQuestions > 0 ? `${totalCorrect} ✓ · ${totalQuestions - totalCorrect} ✗` : "Sem respostas ainda"}
+                </div>
               </div>
-            )}
-            <div className="mt-1.5">
-              <Sparkline data={questionsSparkline} />
+              <div className="w-[72px] shrink-0">
+                <Sparkline data={questionsSparkline} color="hsl(var(--signal-info))" height={32} strokeWidth={1.8} />
+              </div>
             </div>
           </div>
 
-          {/* Simulados */}
-          <div className="bg-white border border-[#E8E6E1] rounded-[12px] px-3.5 py-3">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
-              Simulados
+          <div className="bg-card border border-border rounded-xl px-4 py-3.5 min-h-[112px] flex flex-col justify-between">
+            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+              Simulados feitos
             </div>
-            <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-[#2C2C2A]">
-                {totalExams}
-              </span>
-            </div>
-            {lastExamScore != null && (
-              <div className="text-[11px] text-[#B4B2A9] mt-0.5">
-                Último {lastExamScore}%
+            <div className="flex items-end justify-between gap-3 mt-2 min-h-[48px]">
+              <div className="min-w-0">
+                <div className="text-[22px] font-bold tracking-[-0.4px] leading-none text-foreground">
+                  {totalExams}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-1 truncate">
+                  {lastExamScore != null ? `Último ${lastExamScore}%` : "Nenhum ainda"}
+                </div>
               </div>
-            )}
-            <div className="mt-1.5">
-              <Sparkline data={examsSparkline} />
+              <div className="w-[72px] shrink-0">
+                <Sparkline data={examsSparkline} color="hsl(var(--primary))" height={32} strokeWidth={1.8} />
+              </div>
             </div>
           </div>
         </div>

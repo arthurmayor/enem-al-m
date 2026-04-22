@@ -12,8 +12,8 @@ export default function ProgressRing({
   percentage,
   size = 120,
   strokeWidth = 8,
-  color = "#D85A30",
-  trackColor = "#F1EFE8",
+   color = "hsl(var(--chart-violet))",
+   trackColor = "hsl(var(--muted))",
   label,
   sublabel,
 }: ProgressRingProps) {
@@ -23,6 +23,7 @@ export default function ProgressRing({
 
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+      <div className="absolute inset-[10%] rounded-full border border-border/60 bg-background/90 shadow-[inset_0_1px_0_hsl(var(--background)),0_18px_40px_-28px_hsl(var(--chart-violet)/0.45)]" />
       <svg width={size} height={size} className="-rotate-90">
         <circle
           cx={size / 2}
@@ -46,11 +47,11 @@ export default function ProgressRing({
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[22px] font-bold text-[#2C2C2A] leading-none">
+        <span className="text-[22px] font-bold text-foreground leading-none tracking-[-0.04em]">
           {label ?? `${percentage}%`}
         </span>
         {sublabel && (
-          <span className="text-[10px] text-[#888780] mt-0.5">{sublabel}</span>
+          <span className="mt-1 text-[10px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{sublabel}</span>
         )}
       </div>
     </div>

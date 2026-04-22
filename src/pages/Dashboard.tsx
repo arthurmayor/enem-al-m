@@ -102,8 +102,7 @@ const simTypeMap: Record<SimFilterLabel, ExamsType> = {
   Fuvest: "fuvest",
 };
 
-// Brand amber used for every proficiency bar (section 6.1).
-const PROFICIENCY_BAR_COLOR = "#D97706";
+const PROFICIENCY_BAR_COLOR = "hsl(var(--chart-violet))";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -277,33 +276,33 @@ export default function Dashboard() {
 
   return (
     <div className="pb-24 md:pb-0">
-      <div className="max-w-[1080px] mx-auto">
+      <div className="mx-auto max-w-[1080px] space-y-4">
 
         {/* ── 1. Header ─────────────────────────────────────────────────── */}
-        <header className="flex items-end justify-between flex-wrap gap-3 mb-5">
+        <header className="mb-2 flex flex-wrap items-end justify-between gap-3 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))] px-5 py-5 shadow-[0_24px_60px_-44px_hsl(var(--chart-violet)/0.45)] backdrop-blur-sm">
           <div>
-            <h1 className="text-[22px] font-semibold tracking-[-0.4px] text-[#2C2C2A]">
+            <h1 className="text-[24px] font-semibold tracking-[-0.04em] text-foreground">
               Olá, {firstName ?? "Estudante"}.
             </h1>
-            <div className="text-[11.5px] font-medium tracking-[0.3px] text-[#888780] uppercase mt-1">
+            <div className="mt-1 text-[11.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               {today}
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
             {showGamification && (
               <>
-                <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FFF3E6] text-[#854F0B]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[12px] font-semibold text-foreground shadow-[0_14px_30px_-26px_hsl(var(--foreground)/0.25)]">
                   <Star className="h-3 w-3 fill-current" />
                   {totalXp} XP
                 </span>
-                <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FCEBEB] text-[#A32D2D]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[12px] font-semibold text-chart-violet shadow-[0_14px_30px_-26px_hsl(var(--chart-violet)/0.35)]">
                   <Flame className="h-3 w-3" />
                   {currentStreak} dias
                 </span>
               </>
             )}
             {daysUntilExam != null && hasExamConfig && (
-              <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FAECE7] text-[#993C1D]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[12px] font-semibold text-signal-info shadow-[0_14px_30px_-26px_hsl(var(--signal-info)/0.35)]">
                 <Calendar className="h-3 w-3" />
                 {daysUntilExam} dias para {metrics?.exam_name}
               </span>
@@ -312,28 +311,27 @@ export default function Dashboard() {
         </header>
 
         {/* ── 2. Hero — Próxima missão ───────────────────────────────────── */}
-        <section className="bg-white border border-[#E8E6E1] rounded-[18px] overflow-hidden mb-3 relative">
-          {/* coral top ribbon */}
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-coral" />
+        <section className="relative overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.55))] mb-3 shadow-[0_28px_70px_-50px_hsl(var(--chart-violet)/0.45)]">
+          <div className="absolute inset-x-0 top-0 h-[4px] bg-[linear-gradient(90deg,hsl(var(--signal-info)),hsl(var(--chart-violet)))]" />
 
           {hasPendingWork && heroMission ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 px-7 pt-8 pb-6 items-center">
+              <div className="grid grid-cols-1 items-center gap-6 px-7 pb-6 pt-8 md:grid-cols-[1fr_auto]">
                 {/* Left: action info */}
                 <div>
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.5px] uppercase text-[#993C1D] bg-[#FAECE7] px-2.5 py-1 rounded-md">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-chart-violet shadow-[0_16px_32px_-28px_hsl(var(--chart-violet)/0.55)]">
                       <Target className="h-3 w-3" />
                       Próxima missão
                     </span>
                     {heroCohortTotal > 0 && (
-                      <span className="text-[12px] text-[#B4B2A9]">
+                      <span className="text-[12px] text-muted-foreground">
                         {heroPositionInCohort} de {heroCohortTotal}{" "}
                         {heroIsOverdue ? "atrasadas" : "hoje"}
                       </span>
                     )}
                     {otherCohortCount > 0 && (
-                      <span className="text-[12px] text-[#B4B2A9]">
+                      <span className="text-[12px] text-muted-foreground">
                         · +{" "}
                         {heroIsOverdue
                           ? `${otherCohortCount} hoje`
@@ -342,10 +340,10 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  <h2 className="text-[28px] md:text-[32px] font-bold tracking-[-0.6px] leading-tight mb-2 text-[#2C2C2A]">
+                  <h2 className="mb-2 text-[28px] font-bold leading-tight tracking-[-0.05em] text-foreground md:text-[32px]">
                     {displaySubtopic(heroMission.subtopic) ?? heroMission.subject}
                   </h2>
-                  <p className="text-[14px] text-[#888780] mb-5 max-w-[440px] leading-[1.45]">
+                  <p className="mb-5 max-w-[440px] text-[14px] leading-[1.55] text-muted-foreground">
                     {heroMission.subject}
                     {heroMission.question_ids?.length
                       ? ` · ${heroMission.question_ids.length} questões`
@@ -361,23 +359,23 @@ export default function Dashboard() {
                         `/mission/${heroMission.mission_type}/${heroMission.id}`,
                       )
                     }
-                    className="inline-flex items-center gap-1.5 bg-coral text-white border-none px-5 py-2.5 rounded-[10px] text-[14px] font-semibold cursor-pointer hover:brightness-110 transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-chart-violet px-5 py-2.5 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_36px_-24px_hsl(var(--chart-violet)/0.85)] transition-all hover:brightness-110"
                   >
                     Iniciar agora <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
 
                 {/* Right: ring */}
-                <div className="hidden md:flex flex-col items-center pl-6 border-l border-[#EFECE6]">
+                <div className="hidden flex-col items-center border-l border-border/70 pl-6 md:flex">
                   <ProgressRing
                     percentage={todayPct}
                     size={104}
                     strokeWidth={9}
-                    color="#D85A30"
+                    color="hsl(var(--chart-violet))"
                     label={`${missionsTodayCompleted}/${missionsTodayTotal}`}
                     sublabel="hoje"
                   />
-                  <div className="text-[11px] text-[#888780] mt-2 uppercase tracking-[0.4px] font-semibold">
+                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Missões hoje
                   </div>
                 </div>
@@ -385,8 +383,8 @@ export default function Dashboard() {
 
               {/* Queue preview strip */}
               {activeQueue.length > 1 && (
-                <div className="border-t border-[#EFECE6] bg-[#F7F6F3] px-7 py-3 flex items-center gap-4 flex-wrap text-[12px] text-[#888780]">
-                  <span className="font-semibold text-[#2C2C2A] tracking-[0.2px]">
+                <div className="flex flex-wrap items-center gap-4 border-t border-border/70 bg-muted/45 px-7 py-3 text-[12px] text-muted-foreground">
+                  <span className="font-semibold tracking-[0.2px] text-foreground">
                     Depois:
                   </span>
                   {activeQueue.slice(1, 5).map((m) => {

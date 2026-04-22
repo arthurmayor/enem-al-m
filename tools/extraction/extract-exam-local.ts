@@ -243,11 +243,35 @@ function splitStoragePath(p: string): { bucket: string; path: string } {
 
 async function downloadPdf(storagePath: string): Promise<Uint8Array> {
   const { bucket, path } = splitStoragePath(storagePath);
-  const { data, error } = await supabase.storage.from(bucket).download(path);
-  if (error || !data) {
-    throw new Error(`Falha ao baixar PDF ${bucket}/${path}: ${error?.message}`);
+  // Supabase storage occasionally returns 503 Service Unavailable as a
+  // non-throwing error payload (data=null, error.message="Service
+  // Unavailable"). supabaseFetch wraps fetch, not .storage.download(), so
+  // those bypass every other retry path and kill the pipeline mid-run.
+  // Retry transient failures here with the same exponential budget used for
+  // the REST client (~10 min cap).
+  const transient = /Service Unavailable|temporar|timeout|ECONNRESET|fetch failed|network|503|502|504|429|DNS/i;
+  let lastErr = "unknown error";
+  for (let attempt = 0; attempt < SUPABASE_FETCH_RETRIES; attempt++) {
+    try {
+      const { data, error } = await supabase.storage.from(bucket).download(path);
+      if (!error && data) return new Uint8Array(await data.arrayBuffer());
+      lastErr = error?.message ?? "no data returned";
+      if (!transient.test(lastErr)) {
+        throw new Error(`Falha ao baixar PDF ${bucket}/${path}: ${lastErr}`);
+      }
+    } catch (e: unknown) {
+      lastErr = e instanceof Error ? e.message : String(e);
+      if (!transient.test(lastErr)) throw e;
+    }
+    const delay = Math.min(500 * Math.pow(2, attempt), SUPABASE_FETCH_MAX_DELAY_MS);
+    console.warn(
+      `[downloadPdf] transient ${lastErr} — retry ${attempt + 1}/${SUPABASE_FETCH_RETRIES} em ${delay}ms`,
+    );
+    await new Promise((r) => setTimeout(r, delay));
   }
-  return new Uint8Array(await data.arrayBuffer());
+  throw new Error(
+    `Falha ao baixar PDF ${bucket}/${path} após ${SUPABASE_FETCH_RETRIES} tentativas: ${lastErr}`,
+  );
 }
 
 async function extractPdfPages(buffer: Uint8Array): Promise<ParsedPage[]> {
@@ -2617,7 +2641,12 @@ async function main(examId: string) {
     // 2.5. ASSET EXTRACTOR
     const assetManifest = await runStage("extracting_assets", async () => {
       const started = Date.now();
-      const pdfBuf = await downloadPdf(exam.prova_storage_path as string);
+      // Reuse the pre-parser's pristine buffer instead of re-downloading. The
+      // previous download had a ~20-minute Vision-fallback window before it,
+      // long enough to race a Supabase storage 503 and discard all Vision
+      // work. slice() hands pdfjs a fresh ArrayBuffer copy so its worker can
+      // transfer it without detaching the original.
+      const pdfBuf = preParseResult.pdfBuffer.slice();
       const res = await runAssetExtractor(pdfBuf, examId);
       const sec = ((Date.now() - started) / 1000).toFixed(1);
       console.log(

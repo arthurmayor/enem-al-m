@@ -5,9 +5,9 @@ interface AccuracyDonutProps {
   size?: number;
 }
 
-const OK = "#059669";
-const ERR = "#DC2626";
-const EMPTY = "#E8E6E1";
+const OK = "hsl(var(--success))";
+const ERR = "hsl(var(--chart-violet))";
+const EMPTY = "hsl(var(--muted))";
 
 /**
  * Mini donut showing % acerto vs % erro. When accuracy is null we render a
@@ -37,6 +37,7 @@ export default function AccuracyDonut({
         hasData ? `${pct}% de acertos` : "Sem dados de acerto ainda"
       }
     >
+      <div className="absolute inset-[10%] rounded-full border border-border/60 bg-background/85 shadow-[inset_0_1px_0_hsl(var(--background)),0_18px_36px_-26px_hsl(var(--chart-violet)/0.4)]" />
       <ResponsiveContainer>
         <PieChart>
           <Pie
@@ -59,7 +60,7 @@ export default function AccuracyDonut({
         </PieChart>
       </ResponsiveContainer>
       <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-[12px] font-bold text-[#2C2C2A] leading-none">
+        <span className="text-[12px] font-bold text-foreground leading-none tracking-[-0.03em]">
           {hasData ? `${pct}%` : "—"}
         </span>
       </div>

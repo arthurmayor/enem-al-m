@@ -13,7 +13,7 @@ export default function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   return (
     <div
-      className={`inline-flex gap-[2px] bg-[#F1EFE8] rounded-lg p-[2px] ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full border border-border/70 bg-background/80 p-1 shadow-[0_10px_30px_-24px_hsl(var(--chart-violet)/0.45)] backdrop-blur-sm ${className}`}
     >
       {options.map((opt) => {
         const isActive = opt === active;
@@ -22,10 +22,10 @@ export default function SegmentedControl<T extends string>({
             key={opt}
             type="button"
             onClick={() => onChange(opt)}
-            className={`text-[11px] font-medium px-[9px] py-1 rounded-md transition-colors ${
+            className={`rounded-full px-3 py-1.5 text-[11px] font-semibold tracking-[0.01em] transition-all ${
               isActive
-                ? "bg-coral text-white"
-                : "bg-transparent text-[#888780] hover:bg-black/[0.04]"
+                ? "bg-[hsl(var(--chart-violet))] text-primary-foreground shadow-[0_10px_24px_-18px_hsl(var(--chart-violet)/0.9)]"
+                : "bg-transparent text-muted-foreground hover:bg-muted/70 hover:text-foreground"
             }`}
           >
             {opt}

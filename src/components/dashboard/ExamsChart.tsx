@@ -1,7 +1,7 @@
 import {
+  Area,
+  AreaChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -29,44 +29,53 @@ export default function ExamsChart({ data, height = 220 }: Props) {
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
-        <LineChart
+        <AreaChart
           data={data}
-          margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+          margin={{ top: 12, right: 10, left: -10, bottom: 0 }}
         >
-          <CartesianGrid vertical={false} stroke="#E8E6E1" />
+          <defs>
+            <linearGradient id="examsEvolutionFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(var(--chart-violet))" stopOpacity={0.28} />
+              <stop offset="100%" stopColor="hsl(var(--chart-violet))" stopOpacity={0.03} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid vertical={false} stroke="hsl(var(--border))" strokeDasharray="3 6" />
           <XAxis
             dataKey="date"
-            tick={{ fontSize: 11, fill: "#888780" }}
+            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             domain={[0, 100]}
-            tick={{ fontSize: 11, fill: "#888780" }}
+            tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => `${v}%`}
           />
           <Tooltip
-            cursor={{ stroke: "#E8E6E1", strokeWidth: 1 }}
+            cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1, strokeDasharray: "4 4" }}
             contentStyle={{
-              borderRadius: 8,
-              border: "1px solid #E8E6E1",
+              borderRadius: 16,
+              border: "1px solid hsl(var(--border))",
               fontSize: 12,
+              background: "hsl(var(--background) / 0.96)",
+              boxShadow: "0 18px 40px -28px hsl(var(--foreground) / 0.25)",
             }}
             formatter={(value: number) => [`${Math.round(value)}%`, "Nota"]}
           />
-          <Line
+          <Area
             type="monotone"
             dataKey="pctAcerto"
             name="Nota"
-            stroke="#D85A30"
+            stroke="hsl(var(--chart-violet))"
+            fill="url(#examsEvolutionFill)"
             strokeWidth={2.5}
-            dot={{ r: 5, fill: "#D85A30", stroke: "#fff", strokeWidth: 2 }}
-            activeDot={{ r: 6 }}
+            dot={{ r: 5, fill: "hsl(var(--chart-violet))", stroke: "hsl(var(--background))", strokeWidth: 2 }}
+            activeDot={{ r: 6, fill: "hsl(var(--chart-violet))", stroke: "hsl(var(--background))", strokeWidth: 3 }}
             connectNulls
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

@@ -102,8 +102,7 @@ const simTypeMap: Record<SimFilterLabel, ExamsType> = {
   Fuvest: "fuvest",
 };
 
-// Brand amber used for every proficiency bar (section 6.1).
-const PROFICIENCY_BAR_COLOR = "#D97706";
+const PROFICIENCY_BAR_COLOR = "hsl(var(--chart-violet))";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -277,33 +276,33 @@ export default function Dashboard() {
 
   return (
     <div className="pb-24 md:pb-0">
-      <div className="max-w-[1080px] mx-auto">
+      <div className="mx-auto max-w-[1080px] space-y-4">
 
         {/* ── 1. Header ─────────────────────────────────────────────────── */}
-        <header className="flex items-end justify-between flex-wrap gap-3 mb-5">
+        <header className="mb-2 flex flex-wrap items-end justify-between gap-3 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))] px-5 py-5 shadow-[0_24px_60px_-44px_hsl(var(--chart-violet)/0.45)] backdrop-blur-sm">
           <div>
-            <h1 className="text-[22px] font-semibold tracking-[-0.4px] text-[#2C2C2A]">
+            <h1 className="text-[24px] font-semibold tracking-[-0.04em] text-foreground">
               Olá, {firstName ?? "Estudante"}.
             </h1>
-            <div className="text-[11.5px] font-medium tracking-[0.3px] text-[#888780] uppercase mt-1">
+            <div className="mt-1 text-[11.5px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
               {today}
             </div>
           </div>
           <div className="flex gap-2 flex-wrap">
             {showGamification && (
               <>
-                <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FFF3E6] text-[#854F0B]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[12px] font-semibold text-foreground shadow-[0_14px_30px_-26px_hsl(var(--foreground)/0.25)]">
                   <Star className="h-3 w-3 fill-current" />
                   {totalXp} XP
                 </span>
-                <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FCEBEB] text-[#A32D2D]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[12px] font-semibold text-chart-violet shadow-[0_14px_30px_-26px_hsl(var(--chart-violet)/0.35)]">
                   <Flame className="h-3 w-3" />
                   {currentStreak} dias
                 </span>
               </>
             )}
             {daysUntilExam != null && hasExamConfig && (
-              <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-2.5 py-1 rounded-md bg-[#FAECE7] text-[#993C1D]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-[12px] font-semibold text-signal-info shadow-[0_14px_30px_-26px_hsl(var(--signal-info)/0.35)]">
                 <Calendar className="h-3 w-3" />
                 {daysUntilExam} dias para {metrics?.exam_name}
               </span>
@@ -312,28 +311,27 @@ export default function Dashboard() {
         </header>
 
         {/* ── 2. Hero — Próxima missão ───────────────────────────────────── */}
-        <section className="bg-white border border-[#E8E6E1] rounded-[18px] overflow-hidden mb-3 relative">
-          {/* coral top ribbon */}
-          <div className="absolute top-0 left-0 right-0 h-[3px] bg-coral" />
+        <section className="relative overflow-hidden rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.55))] mb-3 shadow-[0_28px_70px_-50px_hsl(var(--chart-violet)/0.45)]">
+          <div className="absolute inset-x-0 top-0 h-[4px] bg-[linear-gradient(90deg,hsl(var(--signal-info)),hsl(var(--chart-violet)))]" />
 
           {hasPendingWork && heroMission ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 px-7 pt-8 pb-6 items-center">
+              <div className="grid grid-cols-1 items-center gap-6 px-7 pb-6 pt-8 md:grid-cols-[1fr_auto]">
                 {/* Left: action info */}
                 <div>
-                  <div className="flex items-center gap-2 mb-3 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-[0.5px] uppercase text-[#993C1D] bg-[#FAECE7] px-2.5 py-1 rounded-md">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/90 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.14em] text-chart-violet shadow-[0_16px_32px_-28px_hsl(var(--chart-violet)/0.55)]">
                       <Target className="h-3 w-3" />
                       Próxima missão
                     </span>
                     {heroCohortTotal > 0 && (
-                      <span className="text-[12px] text-[#B4B2A9]">
+                      <span className="text-[12px] text-muted-foreground">
                         {heroPositionInCohort} de {heroCohortTotal}{" "}
                         {heroIsOverdue ? "atrasadas" : "hoje"}
                       </span>
                     )}
                     {otherCohortCount > 0 && (
-                      <span className="text-[12px] text-[#B4B2A9]">
+                      <span className="text-[12px] text-muted-foreground">
                         · +{" "}
                         {heroIsOverdue
                           ? `${otherCohortCount} hoje`
@@ -342,10 +340,10 @@ export default function Dashboard() {
                     )}
                   </div>
 
-                  <h2 className="text-[28px] md:text-[32px] font-bold tracking-[-0.6px] leading-tight mb-2 text-[#2C2C2A]">
+                  <h2 className="mb-2 text-[28px] font-bold leading-tight tracking-[-0.05em] text-foreground md:text-[32px]">
                     {displaySubtopic(heroMission.subtopic) ?? heroMission.subject}
                   </h2>
-                  <p className="text-[14px] text-[#888780] mb-5 max-w-[440px] leading-[1.45]">
+                  <p className="mb-5 max-w-[440px] text-[14px] leading-[1.55] text-muted-foreground">
                     {heroMission.subject}
                     {heroMission.question_ids?.length
                       ? ` · ${heroMission.question_ids.length} questões`
@@ -361,23 +359,23 @@ export default function Dashboard() {
                         `/mission/${heroMission.mission_type}/${heroMission.id}`,
                       )
                     }
-                    className="inline-flex items-center gap-1.5 bg-coral text-white border-none px-5 py-2.5 rounded-[10px] text-[14px] font-semibold cursor-pointer hover:brightness-110 transition-all shadow-sm"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-transparent bg-chart-violet px-5 py-2.5 text-[14px] font-semibold text-primary-foreground shadow-[0_18px_36px_-24px_hsl(var(--chart-violet)/0.85)] transition-all hover:brightness-110"
                   >
                     Iniciar agora <ArrowRight className="h-4 w-4" />
                   </button>
                 </div>
 
                 {/* Right: ring */}
-                <div className="hidden md:flex flex-col items-center pl-6 border-l border-[#EFECE6]">
+                <div className="hidden flex-col items-center border-l border-border/70 pl-6 md:flex">
                   <ProgressRing
                     percentage={todayPct}
                     size={104}
                     strokeWidth={9}
-                    color="#D85A30"
+                    color="hsl(var(--chart-violet))"
                     label={`${missionsTodayCompleted}/${missionsTodayTotal}`}
                     sublabel="hoje"
                   />
-                  <div className="text-[11px] text-[#888780] mt-2 uppercase tracking-[0.4px] font-semibold">
+                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Missões hoje
                   </div>
                 </div>
@@ -385,8 +383,8 @@ export default function Dashboard() {
 
               {/* Queue preview strip */}
               {activeQueue.length > 1 && (
-                <div className="border-t border-[#EFECE6] bg-[#F7F6F3] px-7 py-3 flex items-center gap-4 flex-wrap text-[12px] text-[#888780]">
-                  <span className="font-semibold text-[#2C2C2A] tracking-[0.2px]">
+                <div className="flex flex-wrap items-center gap-4 border-t border-border/70 bg-muted/45 px-7 py-3 text-[12px] text-muted-foreground">
+                  <span className="font-semibold tracking-[0.2px] text-foreground">
                     Depois:
                   </span>
                   {activeQueue.slice(1, 5).map((m) => {
@@ -454,11 +452,11 @@ export default function Dashboard() {
         </section>
 
         {/* ── 3. Compact stat band ──────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
+        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {/* % acerto (sem) */}
-          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+          <div className="flex min-h-[110px] items-stretch justify-between gap-4 overflow-hidden rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.4))] px-5 py-4 shadow-[0_24px_56px_-42px_hsl(var(--foreground)/0.28)]">
             <div className="min-w-0 flex-1 flex flex-col justify-between">
-              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 % Acerto (sem)
               </div>
               <div className="flex items-baseline gap-1.5 mt-1">
@@ -468,20 +466,20 @@ export default function Dashboard() {
                     : "—"}
                 </span>
                 {acertoWeek?.delta != null && (
-                  <span className={`text-[11px] font-semibold leading-none ${metricTone(acertoWeek?.delta)}`}>
+                  <span className={`rounded-full px-2 py-1 text-[10px] font-semibold leading-none ${acertoWeek?.delta >= 0 ? "bg-success/15 text-success" : "bg-destructive/10 text-destructive"}`}>
                     {sparklineStatusText(acertoWeek?.delta, "")}
                   </span>
                 )}
               </div>
             </div>
-            <div className="w-[76px] shrink-0 self-center pt-2">
+            <div className="w-[92px] shrink-0 self-center pt-2">
               <Sparkline data={accuracySparkline} color="hsl(var(--success))" fillColor="hsl(var(--success))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+          <div className="flex min-h-[110px] items-stretch justify-between gap-4 overflow-hidden rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.4))] px-5 py-4 shadow-[0_24px_56px_-42px_hsl(var(--foreground)/0.28)]">
             <div className="min-w-0 flex-1 flex flex-col justify-between">
-              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Prob. aprovação
               </div>
               <div className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground mt-1">
@@ -493,14 +491,14 @@ export default function Dashboard() {
                   : probabilityLabel ?? "Sem estimativa ainda"}
               </div>
             </div>
-            <div className="w-[76px] shrink-0 self-center pt-2">
+            <div className="w-[92px] shrink-0 self-center pt-2">
               <Sparkline data={probabilityPct != null ? buildReferenceSparkline(probabilityPct, [-8, -2, 11, 4, 15]) : []} color="hsl(var(--coral))" fillColor="hsl(var(--coral))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+          <div className="flex min-h-[110px] items-stretch justify-between gap-4 overflow-hidden rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.4))] px-5 py-4 shadow-[0_24px_56px_-42px_hsl(var(--foreground)/0.28)]">
             <div className="min-w-0 flex-1 flex flex-col justify-between">
-              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Questões
               </div>
               <div className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground mt-1">
@@ -510,14 +508,14 @@ export default function Dashboard() {
                 {totalQuestions > 0 ? `${totalCorrect} ✓ · ${totalQuestions - totalCorrect} ✗` : "Sem respostas ainda"}
               </div>
             </div>
-            <div className="w-[76px] shrink-0 self-center pt-2">
+            <div className="w-[92px] shrink-0 self-center pt-2">
               <Sparkline data={questionsSparkline} color="hsl(var(--signal-info))" fillColor="hsl(var(--signal-info))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+          <div className="flex min-h-[110px] items-stretch justify-between gap-4 overflow-hidden rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.4))] px-5 py-4 shadow-[0_24px_56px_-42px_hsl(var(--foreground)/0.28)]">
             <div className="min-w-0 flex-1 flex flex-col justify-between">
-              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Simulados
               </div>
               <div className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground mt-1">
@@ -527,20 +525,20 @@ export default function Dashboard() {
                 {lastExamScore != null ? `Último ${lastExamScore}%` : "Nenhum ainda"}
               </div>
             </div>
-            <div className="w-[76px] shrink-0 self-center pt-2">
+            <div className="w-[92px] shrink-0 self-center pt-2">
               <Sparkline data={examsSparkline} color="hsl(var(--primary))" fillColor="hsl(var(--primary))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
         </div>
 
         {/* ── 4a. Evolution (full width) — chart left + donut right ─────── */}
-        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">
+        <section className="mb-3.5 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))] p-5 shadow-[0_28px_70px_-54px_hsl(var(--signal-info)/0.3)]">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
             <div>
-              <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+              <div className="text-[14.5px] font-semibold text-foreground">
                 Evolução de questões
               </div>
-              <div className="text-[11px] text-[#B4B2A9] mt-0.5">
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
                 Questões respondidas por período
               </div>
             </div>
@@ -553,31 +551,31 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-6 items-center mt-2">
             <div>
               {totalQuestions === 0 ? (
-                <p className="text-[13px] text-[#888780] py-10 text-center">
+                  <p className="py-10 text-center text-[13px] text-muted-foreground">
                   Responda questões para ver sua evolução.
                 </p>
               ) : (
                 <EvolutionChart data={evoData ?? []} height={180} />
               )}
             </div>
-            <div className="flex md:flex-col items-center gap-3 md:gap-2 md:border-l md:border-[#EFECE6] md:pl-6">
+            <div className="flex items-center gap-3 rounded-[24px] border border-border/60 bg-background/80 px-4 py-5 md:flex-col md:gap-2 md:border-l md:pl-6">
               <AccuracyDonut accuracyPct={periodAccuracyPct} size={96} />
-              <div className="text-[12px] text-[#2C2C2A] text-center md:text-left">
+              <div className="text-center text-[12px] text-foreground md:text-left">
                 {periodAccuracyPct != null && periodErrorPct != null ? (
                   <>
                     <div>
-                      <span className="font-semibold text-[#059669]">
+                      <span className="font-semibold text-success">
                         {periodAccuracyPct}% Acertadas
                       </span>
                     </div>
                     <div>
-                      <span className="font-semibold text-[#DC2626]">
+                      <span className="font-semibold text-chart-violet">
                         {periodErrorPct}% Erradas
                       </span>
                     </div>
                   </>
                 ) : (
-                  <span className="text-[#888780]">
+                  <span className="text-muted-foreground">
                     Sem questões respondidas neste período.
                   </span>
                 )}
@@ -587,13 +585,13 @@ export default function Dashboard() {
         </section>
 
         {/* ── 4b. Suas Missões (full width) ──────────────────────────────── */}
-        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">
+        <section className="mb-3.5 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))] p-5 shadow-[0_28px_70px_-54px_hsl(var(--chart-violet)/0.3)]">
           <div className="flex items-center justify-between mb-3.5">
-            <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+            <div className="text-[14.5px] font-semibold text-foreground">
               Suas Missões
             </div>
             {overdueMissions.length > 0 && (
-              <span className="text-[11px] font-semibold text-[#8A5A0B] bg-[#FBE7C6] px-2 py-0.5 rounded-md">
+              <span className="rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-semibold text-warning">
                 {overdueMissions.length} atrasada
                 {overdueMissions.length > 1 ? "s" : ""}
               </span>
@@ -601,7 +599,7 @@ export default function Dashboard() {
           </div>
             {!hasPendingWork ? (
               <div>
-                <p className="text-[13px] text-[#888780]">
+                <p className="text-[13px] text-muted-foreground">
                   {allCompleted
                     ? "Tudo feito por hoje. Bom trabalho!"
                     : "Nenhuma missão pendente."}
@@ -610,14 +608,14 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => navigate("/diagnostic/intro")}
-                    className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-coral hover:text-coral-dark transition-colors"
+                    className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-chart-violet transition-colors hover:opacity-80"
                   >
                     Gerar novo plano <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
             ) : (
-              <div>
+              <div className="space-y-2.5">
                 {activeQueue.map((m, i) => (
                   <MissionRow
                     key={m.id}
@@ -631,9 +629,9 @@ export default function Dashboard() {
         </section>
 
         {/* ── 5. Proficiência por matéria ───────────────────────────────── */}
-        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">
+        <section className="mb-3.5 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))] p-5 shadow-[0_28px_70px_-54px_hsl(var(--chart-violet)/0.32)]">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-            <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+            <div className="text-[14.5px] font-semibold text-foreground">
               Proficiência por matéria
             </div>
             <SegmentedControl
@@ -642,16 +640,16 @@ export default function Dashboard() {
               onChange={handleProfLabelChange}
             />
           </div>
-          <p className="text-[11px] text-[#B4B2A9] mb-3">
+          <p className="mb-3 text-[11px] text-muted-foreground">
             Clique para ver subtemas
           </p>
 
           {!proficiency || proficiency.length === 0 ? (
-            <p className="text-[13px] text-[#888780] py-6 text-center">
+            <p className="py-6 text-center text-[13px] text-muted-foreground">
               Responda questões para ver sua proficiência por matéria.
             </p>
           ) : (
-            <div>
+            <div className="space-y-2.5">
               {proficiency.map((s) => (
                 <SubjectProficiencyRow
                   key={s.subject}
@@ -678,9 +676,9 @@ export default function Dashboard() {
         </section>
 
         {/* ── 6. Análise de simulados ───────────────────────────────────── */}
-        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">
+        <section className="mb-3.5 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))] p-5 shadow-[0_28px_70px_-54px_hsl(var(--chart-violet)/0.34)]">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-            <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+            <div className="text-[14.5px] font-semibold text-foreground">
               Análise de simulados
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -697,19 +695,19 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-5 items-start">
+          <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-[260px_1fr]">
             {/* Left: stat tiles */}
             <div className="flex flex-col gap-2.5">
-              <div className="bg-[#F7F6F3] rounded-[12px] px-4 py-3.5">
-                <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
+              <div className="rounded-[24px] border border-border/60 bg-background/85 px-4 py-4 shadow-[0_20px_40px_-34px_hsl(var(--chart-violet)/0.28)]">
+                <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Simulados feitos
                 </div>
                 <div className="flex items-baseline gap-2 mt-1.5">
-                  <span className="text-[26px] font-bold tracking-[-0.5px] leading-none text-[#2C2C2A]">
+                  <span className="text-[26px] font-bold tracking-[-0.05em] leading-none text-foreground">
                     {totalExams}
                   </span>
                   {totalExams === 0 && (
-                    <span className="text-[11.5px] text-[#B4B2A9]">
+                    <span className="text-[11.5px] text-muted-foreground">
                       nenhum ainda
                     </span>
                   )}
@@ -717,48 +715,48 @@ export default function Dashboard() {
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
-                <div className="bg-[#F7F6F3] rounded-[12px] px-3.5 py-3">
-                  <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
+                <div className="rounded-[22px] border border-border/60 bg-background/85 px-3.5 py-3.5 shadow-[0_20px_40px_-34px_hsl(var(--success)/0.22)]">
+                  <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Melhor nota
                   </div>
                   {examHighlights?.best ? (
                     <>
-                      <div className="text-[20px] font-bold text-[#1D9E75] mt-1.5 leading-none">
+                      <div className="mt-1.5 text-[20px] font-bold leading-none text-success">
                         {Math.round(examHighlights.best.score_percent)}
-                        <span className="text-[12px] text-[#888780] font-medium">
+                        <span className="text-[12px] font-medium text-muted-foreground">
                           %
                         </span>
                       </div>
-                      <div className="text-[10.5px] text-[#B4B2A9] mt-1 truncate">
+                      <div className="mt-1 truncate text-[10.5px] text-muted-foreground">
                         {examHighlights.best.exam_name} ·{" "}
                         {formatShortDate(examHighlights.best.created_at)}
                       </div>
                     </>
                   ) : (
-                    <div className="text-[20px] font-bold text-[#2C2C2A] mt-1.5 leading-none">
+                    <div className="mt-1.5 text-[20px] font-bold leading-none text-foreground">
                       —
                     </div>
                   )}
                 </div>
-                <div className="bg-[#F7F6F3] rounded-[12px] px-3.5 py-3">
-                  <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
+                <div className="rounded-[22px] border border-border/60 bg-background/85 px-3.5 py-3.5 shadow-[0_20px_40px_-34px_hsl(var(--chart-violet)/0.28)]">
+                  <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Última nota
                   </div>
                   {examHighlights?.latest ? (
                     <>
-                      <div className="text-[20px] font-bold text-[#2C2C2A] mt-1.5 leading-none">
+                      <div className="mt-1.5 text-[20px] font-bold leading-none text-foreground">
                         {Math.round(examHighlights.latest.score_percent)}
-                        <span className="text-[12px] text-[#888780] font-medium">
+                        <span className="text-[12px] font-medium text-muted-foreground">
                           %
                         </span>
                       </div>
-                      <div className="text-[10.5px] text-[#B4B2A9] mt-1 truncate">
+                      <div className="mt-1 truncate text-[10.5px] text-muted-foreground">
                         {examHighlights.latest.exam_name} ·{" "}
                         {formatShortDate(examHighlights.latest.created_at)}
                       </div>
                     </>
                   ) : (
-                    <div className="text-[20px] font-bold text-[#2C2C2A] mt-1.5 leading-none">
+                    <div className="mt-1.5 text-[20px] font-bold leading-none text-foreground">
                       —
                     </div>
                   )}
@@ -772,26 +770,26 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => navigate("/exams")}
-                className="w-full bg-white border border-dashed border-[#E8E6E1] rounded-[12px] px-3.5 py-3 flex items-center gap-3 hover:bg-[#F7F6F3] transition-colors text-left"
+                className="flex w-full items-center gap-3 rounded-[22px] border border-dashed border-border/70 bg-background/70 px-3.5 py-3 text-left transition-colors hover:bg-muted/40"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-[12px] font-semibold text-[#2C2C2A]">
+                  <div className="text-[12px] font-semibold text-foreground">
                     Ver simulados
                   </div>
-                  <div className="text-[11px] text-[#B4B2A9] mt-0.5">
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
                     Realizar um novo simulado
                   </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-coral shrink-0" />
+                <ArrowRight className="h-4 w-4 shrink-0 text-chart-violet" />
               </button>
             </div>
 
             {/* Right: chart */}
-            <div className="bg-[#F7F6F3] rounded-[12px] px-4 py-3.5">
-              <div className="text-[12px] font-semibold text-[#2C2C2A] mb-0.5">
+            <div className="rounded-[24px] border border-border/60 bg-background/85 px-4 py-3.5 shadow-[0_20px_46px_-36px_hsl(var(--chart-violet)/0.3)]">
+              <div className="mb-0.5 text-[12px] font-semibold text-foreground">
                 Evolução de notas
               </div>
-              <div className="text-[10.5px] text-[#B4B2A9] mb-3">
+              <div className="mb-3 text-[10.5px] text-muted-foreground">
                 Desempenho nos simulados realizados
               </div>
 

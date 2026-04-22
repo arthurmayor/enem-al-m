@@ -61,13 +61,28 @@ export function useQuestionsEvolution(
         const fallbackRows = buildMissionActivity(missionRows ?? []).filter(
           (row) => !subject || subject === "Geral" || row.subject === subject,
         );
-        return fallbackRows.map((row) => ({
-          label: new Date(`${row.date}T12:00:00`).toLocaleDateString("pt-BR", {
-            day: "2-digit",
-            month: period === "week" ? "2-digit" : "short",
-          }).replace(".", ""),
-          count: row.questionCount,
-        }));
+        const buckets = new Map<string, { label: string; count: number; sort: number }>();
+
+        for (const row of fallbackRows) {
+          const date = new Date(`${row.date}T12:00:00`);
+          const label = date
+            .toLocaleDateString("pt-BR", {
+              day: "2-digit",
+              month: period === "week" ? "2-digit" : "short",
+            })
+            .replace(".", "");
+          const sort = date.getTime();
+          const current = buckets.get(row.date);
+          if (current) {
+            current.count += row.questionCount;
+          } else {
+            buckets.set(row.date, { label, count: row.questionCount, sort });
+          }
+        }
+
+        return Array.from(buckets.values())
+          .sort((a, b) => a.sort - b.sort)
+          .map((bucket) => ({ label: bucket.label, count: bucket.count }));
       }
 
       let rows = data as unknown as Row[];

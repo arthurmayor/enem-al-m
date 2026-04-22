@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { buildMissionActivity } from "@/lib/dashboardActivity";
+import { getSaoPauloDateRange, getSaoPauloDateString } from "@/lib/date";
 
 /**
  * Per-day accuracy percentage over the last `days` calendar days (oldest
@@ -19,18 +21,15 @@ export function useAccuracyTrend(days = 7) {
     queryFn: async () => {
       if (!userId) return [];
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
       const gridKeys: string[] = [];
+      const { startKey, todayKey } = getSaoPauloDateRange(days);
       for (let i = days - 1; i >= 0; i--) {
-        const d = new Date(today);
+        const d = new Date();
         d.setDate(d.getDate() - i);
-        gridKeys.push(d.toISOString().split("T")[0]);
+        gridKeys.push(getSaoPauloDateString(d));
       }
 
-      const cutoffIso = new Date(
-        today.getTime() - (days - 1) * 86400000,
-      ).toISOString();
+      const cutoffIso = new Date(`${startKey}T00:00:00-03:00`).toISOString();
 
       const { data, error } = await supabase
         .from("answer_history")
@@ -43,11 +42,29 @@ export function useAccuracyTrend(days = 7) {
       const buckets = new Map<string, { total: number; correct: number }>();
       for (const r of data ?? []) {
         if (!r.created_at) continue;
-        const key = r.created_at.split("T")[0];
+        const key = getSaoPauloDateString(r.created_at);
         const cur = buckets.get(key) ?? { total: 0, correct: 0 };
         cur.total += 1;
         if (r.is_correct) cur.correct += 1;
         buckets.set(key, cur);
+      }
+
+      if ((data ?? []).length === 0) {
+        const { data: missionRows, error: missionError } = await supabase
+          .from("daily_missions")
+          .select("date, mission_type, status, score, question_ids, subject, subtopic")
+          .eq("user_id", userId)
+          .gte("date", startKey)
+          .lte("date", todayKey);
+
+        if (missionError) throw missionError;
+
+        for (const row of buildMissionActivity(missionRows ?? [])) {
+          const cur = buckets.get(row.date) ?? { total: 0, correct: 0 };
+          cur.total += row.questionCount;
+          cur.correct += row.correctCount;
+          buckets.set(row.date, cur);
+        }
       }
 
       return gridKeys.map((k) => {

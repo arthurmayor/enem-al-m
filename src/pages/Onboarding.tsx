@@ -58,27 +58,39 @@ const Onboarding = () => {
   const handleFinish = async () => {
     if (!user) return;
     setLoading(true);
-    // Use upsert so users whose profile row wasn't created at signup
-    // (e.g. email-confirmation flow) still end up with a valid row; a
-    // plain .update would silently no-op in that case and every
-    // downstream write (diagnostic, plan, missions) would also fail.
+    // `profiles.name` is NOT NULL. We use upsert so users whose row
+    // was never created at signup (e.g. the email-confirmation flow,
+    // where AuthContext can't insert until the user confirms) still end
+    // up with a valid row — but the INSERT branch needs a name. Pull it
+    // from user_metadata (set during supabase.auth.signUp) and fall back
+    // to the email prefix so the upsert never throws NOT NULL.
+    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const fallbackName =
+      (typeof metadata.name === "string" && metadata.name) ||
+      user.email?.split("@")[0] ||
+      "Estudante";
+
     const { error } = await supabase
       .from("profiles")
-      .upsert({
-        id: user.id,
-        exam_config_id: data.exam_config_id,
-        school_stage: data.school_stage,
-        hours_per_day: data.hours_per_day,
-        available_days: data.available_days,
-        current_biggest_difficulty: data.current_biggest_difficulty,
-        self_declared_blocks: data.self_declared_blocks,
-        onboarding_completed_at: new Date().toISOString(),
-        onboarding_complete: true,
-      } as any, { onConflict: "id" });
+      .upsert(
+        {
+          id: user.id,
+          name: fallbackName,
+          exam_config_id: data.exam_config_id,
+          school_stage: data.school_stage,
+          hours_per_day: data.hours_per_day,
+          available_days: data.available_days,
+          current_biggest_difficulty: data.current_biggest_difficulty,
+          self_declared_blocks: data.self_declared_blocks,
+          onboarding_completed_at: new Date().toISOString(),
+          onboarding_complete: true,
+        } as Record<string, unknown>,
+        { onConflict: "id" },
+      );
     setLoading(false);
     if (error) {
-      console.error(error);
-      toast.error("Erro ao salvar. Tente novamente.");
+      console.error("[Onboarding.handleFinish] upsert failed", error);
+      toast.error(`Erro ao salvar: ${error.message}`);
     } else {
       localStorage.removeItem(STORAGE_KEY);
       setOnboardingCache(user.id, true);

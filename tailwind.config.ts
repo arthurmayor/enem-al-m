@@ -48,6 +48,13 @@ export default {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
         },
+        signal: {
+          info: "hsl(var(--signal-info))",
+        },
+        coral: "hsl(var(--coral))",
+        chart: {
+          violet: "hsl(var(--chart-violet))",
+        },
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
@@ -101,11 +108,9 @@ export default {
         "mat-ing": "#0891B2",
         "mat-fil": "#CA8A04",
         // Signals
-        "signal-info": "#2563EB",
         "signal-ok": "#059669",
         "signal-error": "#DC2626",
         // Dashboard v4 palette
-        coral: "#D85A30",
         "coral-light": "#FAECE7",
         "coral-dark": "#993C1D",
       },

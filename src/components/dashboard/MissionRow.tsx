@@ -72,7 +72,7 @@ export default function MissionRow({
         : "pendente";
 
   const containerClass = [
-    "flex items-center justify-between gap-3 px-0 py-3 border-b border-line last:border-b-0 transition-all",
+    "flex items-center justify-between gap-3 rounded-2xl border border-border/60 bg-background/85 px-4 py-3.5 shadow-[0_16px_34px_-30px_hsl(var(--foreground)/0.35)] transition-all",
     isNext
       ? "bg-transparent"
       : isOverdue
@@ -87,9 +87,9 @@ export default function MissionRow({
     <div className={containerClass}>
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <div
-          className={`h-6 w-6 rounded-full shrink-0 flex items-center justify-center text-[11px] font-semibold ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl text-[11px] font-semibold shadow-[0_12px_24px_-18px_hsl(var(--foreground)/0.25)] ${
             isNext
-              ? "bg-coral text-white"
+              ? "bg-chart-violet text-primary-foreground"
               : isDone
                 ? "bg-success/20 text-success"
                 : isOverdue
@@ -119,16 +119,16 @@ export default function MissionRow({
           }
           className={`inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-md whitespace-nowrap shrink-0 transition-colors ${
             isNext
-              ? "bg-coral-light text-coral-dark"
+              ? "rounded-full bg-chart-violet/15 text-chart-violet"
               : isOverdue
-                ? "bg-warning/20 text-warning"
-                : "bg-muted text-signal-info"
+                ? "rounded-full bg-warning/20 text-warning"
+                : "rounded-full bg-signal-info/10 text-signal-info"
           }`}
         >
           {badgeLabel}
         </button>
       ) : isDone ? (
-        <span className="inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-md bg-success/15 text-success whitespace-nowrap shrink-0">
+        <span className="inline-flex items-center whitespace-nowrap rounded-full bg-success/15 px-2.5 py-1 text-[11px] font-semibold text-success shrink-0">
           {badgeLabel}
         </span>
       ) : null}

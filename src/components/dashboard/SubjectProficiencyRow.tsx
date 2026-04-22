@@ -29,33 +29,33 @@ export default function SubjectProficiencyRow({
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center gap-2.5 py-2.5 border-b border-[#F1EFE8] cursor-pointer hover:bg-[#FAFAF8] transition-colors text-left"
+        className="w-full flex items-center gap-3 rounded-2xl border border-border/60 bg-background/80 px-4 py-3 shadow-[0_14px_32px_-30px_hsl(var(--foreground)/0.35)] transition-all hover:border-border hover:bg-background text-left"
       >
         <div
-          className="h-[14px] w-[14px] rounded shrink-0"
+          className="h-[12px] w-[12px] rounded-full shrink-0 shadow-[0_0_0_4px_hsl(var(--muted)/0.9)]"
           style={{ backgroundColor: color }}
         />
-        <span className="text-[13px] font-medium w-[90px] shrink-0 text-[#2C2C2A]">
+        <span className="w-[90px] shrink-0 text-[13px] font-semibold text-foreground">
           {subject}
         </span>
-        <div className="flex-1 h-1.5 bg-[#F1EFE8] rounded-sm overflow-hidden">
+        <div className="flex-1 overflow-hidden rounded-full bg-muted h-2.5">
           <div
-            className="h-full rounded-sm transition-[width] duration-300"
+            className="h-full rounded-full transition-[width] duration-300"
             style={{ width: `${clamped}%`, backgroundColor: color }}
           />
         </div>
         <span
-          className="text-[13px] font-semibold w-[38px] text-right shrink-0"
+          className="w-[38px] shrink-0 text-right text-[13px] font-bold"
           style={{ color }}
         >
           {score}%
         </span>
         {delta != null && (
           <span
-            className={`inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md whitespace-nowrap shrink-0 ${
+            className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold shrink-0 ${
               delta >= 0
-                ? "bg-[#E1F5EE] text-[#1D9E75]"
-                : "bg-[#FCEBEB] text-[#A32D2D]"
+                ? "bg-success/15 text-success"
+                : "bg-destructive/10 text-destructive"
             }`}
           >
             {delta >= 0 ? "+" : ""}
@@ -85,14 +85,14 @@ export default function SubjectProficiencyRow({
             );
             if (subtopicsLoading) {
               return (
-                <p className="text-xs text-[#B4B2A9] pl-[34px] py-2">
+                <p className="py-3 pl-[34px] text-xs text-muted-foreground">
                   Carregando subtemas...
                 </p>
               );
             }
             if (visibleSubtopics.length === 0) {
               return (
-                <p className="text-xs text-[#B4B2A9] pl-[34px] py-2">
+                <p className="py-3 pl-[34px] text-xs text-muted-foreground">
                   Nenhum subtema registrado ainda.
                 </p>
               );
@@ -102,12 +102,12 @@ export default function SubjectProficiencyRow({
               return (
                 <div
                   key={st.subtopic}
-                  className="flex items-center gap-2.5 py-[7px] pl-[34px] text-xs"
+                  className="flex items-center gap-2.5 py-[9px] pl-[34px] text-xs"
                 >
-                  <span className="text-[#888780] flex-1">{st.subtopic}</span>
-                  <div className="w-20 h-1 bg-[#F1EFE8] rounded overflow-hidden">
+                  <span className="flex-1 text-muted-foreground">{st.subtopic}</span>
+                  <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded"
+                      className="h-full rounded-full"
                       style={{
                         width: `${stClamped}%`,
                         backgroundColor: color,
@@ -115,7 +115,7 @@ export default function SubjectProficiencyRow({
                     />
                   </div>
                   <span
-                    className="font-semibold w-9 text-right"
+                    className="w-9 text-right font-semibold"
                     style={{ color }}
                   >
                     {st.score}%

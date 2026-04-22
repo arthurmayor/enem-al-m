@@ -133,7 +133,20 @@ export function useProficiencyBySubject(period: ProficiencyPeriod) {
       }
 
       if (rows && rows.length <= 10) {
-        return [];
+        const { data: missionRows, error: missionError } = await supabase
+          .from("daily_missions")
+          .select("date, mission_type, status, score, question_ids, subject, subtopic")
+          .eq("user_id", userId);
+
+        if (missionError) throw missionError;
+
+        return summarizeMissionActivityBySubject(missionRows ?? [])
+          .map((summary) => ({
+            subject: summary.subject,
+            score: summary.accuracyPct ?? 0,
+            delta: null,
+          }))
+          .sort((a, b) => a.score - b.score);
       }
 
       const results: SubjectProficiency[] = Array.from(currentAvg.entries()).map(
@@ -175,16 +188,7 @@ export function useProficiencyBySubject(period: ProficiencyPeriod) {
         return results.sort((a, b) => a.score - b.score);
       }
 
-      const { data: missionRows, error: missionError } = await supabase
-        .from("daily_missions")
-        .select("date, mission_type, status, score, question_ids, subject, subtopic")
-        .eq("user_id", userId);
-
-      if (missionError) throw missionError;
-
-      const summaries = summarizeMissionActivityBySubject(missionRows ?? []);
-
-      return summaries
+      return summarizeMissionActivityBySubject([])
         .map((summary) => ({
           subject: summary.subject,
           score: summary.accuracyPct ?? 0,

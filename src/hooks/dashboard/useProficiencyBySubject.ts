@@ -94,6 +94,29 @@ export function useProficiencyBySubject(period: ProficiencyPeriod) {
           .sort((a, b) => a.score - b.score);
       }
 
+      const { data: missionRows, error: missionError } = await supabase
+        .from("daily_missions")
+        .select("date, mission_type, status, score, question_ids, subject, subtopic")
+        .eq("user_id", userId);
+
+      if (missionError) throw missionError;
+
+      const missionSummary = summarizeMissionActivityBySubject(missionRows ?? []);
+      const missionQuestionVolume = missionSummary.reduce(
+        (sum, item) => sum + item.questionCount,
+        0,
+      );
+
+      if (missionQuestionVolume > 0 && missionQuestionVolume <= 24) {
+        return missionSummary
+          .map((summary) => ({
+            subject: summary.subject,
+            score: summary.accuracyPct ?? 0,
+            delta: null,
+          }))
+          .sort((a, b) => a.score - b.score);
+      }
+
       const { data: rows, error } = await supabase
         .from("proficiency_scores")
         .select("subject, subtopic, score, measured_at")
@@ -133,14 +156,7 @@ export function useProficiencyBySubject(period: ProficiencyPeriod) {
       }
 
       if (rows && rows.length <= 10) {
-        const { data: missionRows, error: missionError } = await supabase
-          .from("daily_missions")
-          .select("date, mission_type, status, score, question_ids, subject, subtopic")
-          .eq("user_id", userId);
-
-        if (missionError) throw missionError;
-
-        return summarizeMissionActivityBySubject(missionRows ?? [])
+        return missionSummary
           .map((summary) => ({
             subject: summary.subject,
             score: summary.accuracyPct ?? 0,

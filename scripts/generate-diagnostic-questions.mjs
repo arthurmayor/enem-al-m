@@ -17,7 +17,7 @@ if (!ANTHROPIC_API_KEY) {
   process.exit(1);
 }
 
-const ANTHROPIC_MODEL = "claude-sonnet-4-20250514";
+const ANTHROPIC_MODEL = "claude-sonnet-4-5-20250929";
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 
 const DIFFICULTY_ELO_MAP = { 1: 900, 2: 1050, 3: 1200, 4: 1400, 5: 1600 };

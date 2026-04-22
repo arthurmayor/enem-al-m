@@ -12,7 +12,7 @@
  * context is the image itself.
  *
  * Usage:
- *   SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/recover-shared-context.ts <exam_id>
+ *   SUPABASE_SERVICE_ROLE_KEY=... npx tsx tools/extraction/recover-shared-context.ts <exam_id>
  */
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
@@ -290,7 +290,7 @@ async function main(examId: string) {
 
 const examId = process.argv[2];
 if (!examId) {
-  console.error("Uso: npx tsx scripts/recover-shared-context.ts <exam_id>");
+  console.error("Uso: npx tsx tools/extraction/recover-shared-context.ts <exam_id>");
   process.exit(1);
 }
 

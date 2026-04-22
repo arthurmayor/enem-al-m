@@ -8,33 +8,33 @@
  *
  * Usage:
  *   ANTHROPIC_API_KEY=... SUPABASE_SERVICE_ROLE_KEY=... \
- *   npx tsx scripts/extract-exam-local.ts <exam_id>
+ *   npx tsx tools/extraction/extract-exam-local.ts <exam_id>
  */
 
 import { createHash } from "node:crypto";
 import dns from "node:dns";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { extractText, getDocumentProxy, getResolvedPDFJS } from "unpdf";
+import {
+  extractText,
+  getDocumentProxy,
+  getResolvedPDFJS,
+  renderPageAsImage,
+} from "unpdf";
 import { PNG } from "pngjs";
 
 dns.setDefaultResultOrder("ipv4first");
 
 // ───────────────────── config ─────────────────────
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "https://nbfgqrjcrzgrprzqedtl.supabase.co";
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+// Kept non-fatal at import time so helper-only consumers (check-state.ts,
+// diag-vision-flag.ts) can import analyzePageText without needing the
+// Anthropic key. runCli() below enforces them before doing anything that
+// actually needs the clients.
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
 
-if (!SUPABASE_SERVICE_ROLE_KEY) {
-  console.error("SUPABASE_SERVICE_ROLE_KEY not set");
-  process.exit(1);
-}
-if (!ANTHROPIC_API_KEY) {
-  console.error("ANTHROPIC_API_KEY not set");
-  process.exit(1);
-}
-
-const MODEL_SONNET = "claude-sonnet-4-20250514";
+const MODEL_SONNET = "claude-sonnet-4-5-20250929";
 const MODEL_HAIKU = "claude-haiku-4-5-20251001";
 
 // Issue types that block insertion into `questions` regardless of
@@ -55,7 +55,8 @@ const CRITICAL_ISSUE_TYPES = new Set([
 // call-site having to know about it. Also inspects err.cause because
 // undici nests the real network error one level down while the outer
 // Error message is a generic "fetch failed".
-const SUPABASE_FETCH_RETRIES = 8;
+const SUPABASE_FETCH_RETRIES = 24;
+const SUPABASE_FETCH_MAX_DELAY_MS = 30_000;
 const supabaseFetch: typeof fetch = async (input, init) => {
   const transient =
     /DNS cache overflow|ENOTFOUND|ECONNRESET|fetch failed|UND_ERR|ETIMEDOUT|socket hang up|EAI_AGAIN|other side closed/i;
@@ -81,7 +82,7 @@ const supabaseFetch: typeof fetch = async (input, init) => {
       lastErr = err;
       const msg = messages(err);
       if (transient.test(msg)) {
-        const delay = 500 * Math.pow(2, Math.min(attempt, 5));
+        const delay = Math.min(500 * Math.pow(2, attempt), SUPABASE_FETCH_MAX_DELAY_MS);
         console.warn(
           `[SUPABASE-FETCH] ${msg} — retry ${attempt + 1}/${SUPABASE_FETCH_RETRIES} em ${delay}ms`,
         );
@@ -256,6 +257,265 @@ async function extractPdfPages(buffer: Uint8Array): Promise<ParsedPage[]> {
     ? result.text
     : [String(result.text ?? "")];
   return rawPages.map((text, i) => ({ page_number: i + 1, text: text ?? "" }));
+}
+
+// ───────────────────── vision fallback for broken PDF text encoding ─────────────────────
+//
+// Math / physics / chemistry exams routinely embed formulas with custom fonts:
+// the PDF renders fine visually but unpdf pulls back Private Use Area glyphs
+// (U+E000–U+F8FF), U+FFFD replacements, or stray characters from exotic
+// Unicode blocks (Ethiopic, Myanmar, …) that have no business appearing in a
+// Portuguese exam. Examples from real Fuvest runs: 2025 q69 ("𝑂𝑥𝑦, ሺ, ሻ"),
+// 2026 q16/q36/q67 (¬ where "→" was expected), 2022 q74 ("4 × 10⁻¹³" OK but
+// neighbouring chars broken), 2021 whose entire extraction is unusable.
+//
+// analyzePageText classifies each page by looking at its text; when the ratio
+// of problematic chars is high we re-render that page to PNG and ask Claude
+// Vision to transcribe it with LaTeX-aware notation. The replacement text is
+// swapped into the ParsedPage, so every downstream agent sees clean text.
+
+export const VISION_PUA_THRESHOLD = 10;
+export const VISION_RATIO_THRESHOLD = 0.03;
+// Characters from non-Latin blocks (Ethiopic, CJK, …) in a Portuguese exam
+// are almost always a ToUnicode-table miss masquerading as a real codepoint.
+// We keep a low absolute floor so even a math question with 3-5 of them
+// gets re-transcribed.
+export const VISION_EXOTIC_THRESHOLD = 3;
+// Latin-1 supplement symbols that essentially never appear in real Brazilian
+// exam prose but show up in bulk when a CMap maps a whitespace glyph to
+// NOT SIGN (¬) or similar placeholder. Fuvest 2026 has >700 ¬ per page.
+export const VISION_SUBST_THRESHOLD = 10;
+const VISION_MIN_CHARS = 200;
+const SUBSTITUTION_CHARS = new Set<number>([
+  0x00a6, // ¦ BROKEN BAR
+  0x00ac, // ¬ NOT SIGN
+]);
+const VISION_RENDER_SCALE = 2.0;
+const VISION_MODEL = MODEL_SONNET;
+const VISION_MAX_TOKENS = 8192;
+
+const VISION_SYSTEM = `Transcreva o texto desta página de prova de vestibular.
+Mantenha a formatação original (parágrafos, numeração de questões, marcadores
+de alternativas "(A) (B) (C) (D) (E)" ou "A) B) …"). Preserve fórmulas
+matemáticas usando notação LaTeX inline ($...$ para inline, $$...$$ para
+deslocado). Preserve sobrescritos/subscritos (ex.: x^2, H_2O), letras gregas
+(α, β, π, Ω, ∫, √), símbolos de comparação (≤ ≥ ≠ ≈), setas (→, ⇌, ↔).
+Preserve legendas de figuras entre [FIG:...] se houver. Mantenha a numeração
+das questões (ex.: {16}, {36}, 16., Questão 16). Retorne APENAS o texto
+transcrito, sem comentários ou explicações.`;
+
+// Unicode blocks that should never appear in a Brazilian exam. If we see
+// anything from these ranges it almost always means a custom font was picked
+// up as a glyph index rather than mapped through the ToUnicode table.
+const EXOTIC_BLOCKS: Array<[number, number, string]> = [
+  [0x1200, 0x137f, "Ethiopic"],
+  [0x1000, 0x109f, "Myanmar"],
+  [0x0900, 0x097f, "Devanagari"],
+  [0x0e00, 0x0e7f, "Thai"],
+  [0x4e00, 0x9fff, "CJK"],
+  [0x3040, 0x309f, "Hiragana"],
+  [0x30a0, 0x30ff, "Katakana"],
+  [0xac00, 0xd7af, "Hangul"],
+  // Arabic Presentation Forms-A / B — Fuvest math fonts leak into these.
+  [0xfb50, 0xfdff, "Arabic-PF-A"],
+  [0xfe70, 0xfeff, "Arabic-PF-B"],
+];
+
+export interface PageAnalysis {
+  puaCount: number;
+  replacementCount: number;
+  exoticCount: number;
+  substCount: number;
+  exoticBlocks: string[];
+  totalPrintable: number;
+  problematicRatio: number;
+  needsVision: boolean;
+  reason: string | null;
+}
+
+export function analyzePageText(text: string): PageAnalysis {
+  let puaCount = 0;
+  let replacementCount = 0;
+  let exoticCount = 0;
+  let substCount = 0;
+  let totalPrintable = 0;
+  const exoticBlocks = new Set<string>();
+
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code <= 32) continue; // whitespace / control
+    totalPrintable++;
+    if (code >= 0xe000 && code <= 0xf8ff) {
+      puaCount++;
+      continue;
+    }
+    if (code === 0xfffd) {
+      replacementCount++;
+      continue;
+    }
+    if (SUBSTITUTION_CHARS.has(code)) {
+      substCount++;
+      continue;
+    }
+    for (const [lo, hi, label] of EXOTIC_BLOCKS) {
+      if (code >= lo && code <= hi) {
+        exoticCount++;
+        exoticBlocks.add(label);
+        break;
+      }
+    }
+  }
+
+  const problematic = puaCount + replacementCount + exoticCount + substCount;
+  const ratio = totalPrintable > 0 ? problematic / totalPrintable : 0;
+  let reason: string | null = null;
+  let needsVision = false;
+
+  if (puaCount >= VISION_PUA_THRESHOLD) {
+    needsVision = true;
+    reason = `${puaCount} chars PUA (≥${VISION_PUA_THRESHOLD})`;
+  } else if (replacementCount >= VISION_PUA_THRESHOLD) {
+    needsVision = true;
+    reason = `${replacementCount} replacement chars (≥${VISION_PUA_THRESHOLD})`;
+  } else if (exoticCount >= VISION_EXOTIC_THRESHOLD) {
+    needsVision = true;
+    reason = `${exoticCount} chars de blocos exóticos (${
+      Array.from(exoticBlocks).join(",")
+    }) — ≥${VISION_EXOTIC_THRESHOLD}`;
+  } else if (substCount >= VISION_SUBST_THRESHOLD) {
+    needsVision = true;
+    reason = `${substCount} chars de substituição (¬/¦) — ≥${VISION_SUBST_THRESHOLD}`;
+  } else if (
+    totalPrintable >= VISION_MIN_CHARS &&
+    ratio >= VISION_RATIO_THRESHOLD
+  ) {
+    needsVision = true;
+    reason = `${(ratio * 100).toFixed(1)}% chars problemáticos (≥${
+      VISION_RATIO_THRESHOLD * 100
+    }%)`;
+  }
+
+  return {
+    puaCount,
+    replacementCount,
+    exoticCount,
+    substCount,
+    exoticBlocks: Array.from(exoticBlocks),
+    totalPrintable,
+    problematicRatio: ratio,
+    needsVision,
+    reason,
+  };
+}
+
+async function renderPagePng(
+  pdfBuffer: Uint8Array,
+  pageNumber: number,
+  scale = VISION_RENDER_SCALE,
+): Promise<Buffer> {
+  // unpdf 0.12.x option is `canvas` (a factory returning @napi-rs/canvas);
+  // newer unpdf renames it to `canvasImport`. We target 0.12.x.
+  //
+  // pdfjs transfers the buffer into its worker each call and detaches the
+  // caller's view. Slice() a fresh copy for every page so the next
+  // iteration still has a live buffer to hand to renderPageAsImage.
+  const fresh = pdfBuffer.slice();
+  const ab = await renderPageAsImage(fresh, pageNumber, {
+    scale,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    canvas: () => import("@napi-rs/canvas") as any,
+  });
+  return Buffer.from(ab);
+}
+
+export async function transcribeWithVision(
+  pngBuffer: Buffer,
+  pageNumber: number,
+): Promise<string> {
+  const base64 = pngBuffer.toString("base64");
+  const res = await anthropic.messages.create({
+    model: VISION_MODEL,
+    max_tokens: VISION_MAX_TOKENS,
+    system: VISION_SYSTEM,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: { type: "base64", media_type: "image/png", data: base64 },
+          },
+          {
+            type: "text",
+            text: `Transcreva a página ${pageNumber} desta prova.`,
+          },
+        ],
+      },
+    ],
+  });
+  const parts: string[] = [];
+  for (const block of res.content) {
+    if (block.type === "text") parts.push(block.text);
+  }
+  return parts.join("\n").trim();
+}
+
+export interface VisionFallbackResult {
+  pages: ParsedPage[];
+  analyses: PageAnalysis[];
+  rewritten: number[];
+}
+
+export async function runVisionFallback(
+  pages: ParsedPage[],
+  pdfBuffer: Uint8Array,
+): Promise<VisionFallbackResult> {
+  const analyses = pages.map((p) => analyzePageText(p.text));
+  const targets = pages
+    .map((p, i) => ({ p, analysis: analyses[i], idx: i }))
+    .filter((x) => x.analysis.needsVision);
+
+  if (targets.length === 0) {
+    return { pages, analyses, rewritten: [] };
+  }
+
+  console.log(
+    `[VISION] ${targets.length}/${pages.length} página(s) flaggada(s) para Vision:`,
+  );
+  for (const t of targets) {
+    console.log(
+      `[VISION]   página ${t.p.page_number}: ${t.analysis.reason}` +
+        (t.analysis.exoticBlocks.length
+          ? ` (blocos: ${t.analysis.exoticBlocks.join(",")})`
+          : ""),
+    );
+  }
+
+  const rewritten: number[] = [];
+  const outPages = pages.slice();
+  for (const t of targets) {
+    const pn = t.p.page_number;
+    try {
+      const png = await renderPagePng(pdfBuffer, pn);
+      const newText = await transcribeWithVision(png, pn);
+      if (!newText || newText.length < VISION_MIN_CHARS / 4) {
+        console.warn(
+          `[VISION] página ${pn}: Vision devolveu texto curto (${newText.length} chars) — mantendo original`,
+        );
+        continue;
+      }
+      outPages[t.idx] = { page_number: pn, text: newText };
+      rewritten.push(pn);
+      console.log(
+        `[VISION] página ${pn} re-extraída via Vision (${t.analysis.reason} → ${newText.length} chars)`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[VISION] página ${pn} falhou: ${msg} — mantendo texto original`);
+    }
+  }
+
+  return { pages: outPages, analyses, rewritten };
 }
 
 function chunkPages<T>(arr: T[], size: number): T[][] {
@@ -2271,17 +2531,41 @@ async function main(examId: string) {
 
   try {
     // 1. PRE-PARSER
-    const pages = await runStage("pre_parsing", async () => {
+    const preParseResult = await runStage("pre_parsing", async () => {
       const buf = await downloadPdf(exam.prova_storage_path as string);
-      const ps = await extractPdfPages(buf);
+      // extractText / pdfjs transfers the underlying ArrayBuffer into its
+      // worker and detaches the original view, which breaks the later
+      // renderPageAsImage call in runVisionFallback ("Cannot transfer
+      // object of unsupported type"). Feed a slice() clone to pdfjs and
+      // keep the pristine copy for the Vision fallback.
+      const parseBuf = buf.slice();
+      const ps = await extractPdfPages(parseBuf);
       const totalChars = ps.reduce((s, p) => s + p.text.length, 0);
       console.log(`[PRE-PARSER] ${ps.length} páginas, ${totalChars} chars`);
-      return ps;
+      return { pages: ps, pdfBuffer: buf };
     });
 
-    if (pages.reduce((s, p) => s + p.text.length, 0) < 500) {
+    if (preParseResult.pages.reduce((s, p) => s + p.text.length, 0) < 500) {
       throw new Error("PDF escaneado não suportado");
     }
+
+    // 1.5 VISION FALLBACK — re-transcribe any page with PUA / replacement /
+    // exotic-block characters so the downstream LLM agents never see garbage
+    // where a formula should be.
+    const pages = await runStage("vision_fallback", async () => {
+      const { pages: outPages, rewritten } = await runVisionFallback(
+        preParseResult.pages,
+        preParseResult.pdfBuffer,
+      );
+      if (rewritten.length === 0) {
+        console.log("[VISION] nenhuma página precisou de Vision");
+      } else {
+        console.log(
+          `[VISION] ${rewritten.length} página(s) substituída(s): ${rewritten.join(", ")}`,
+        );
+      }
+      return outPages;
+    });
 
     // 2. PROFILER
     const profile = await runStage("profiling", async () => {
@@ -2634,13 +2918,35 @@ async function main(examId: string) {
   }
 }
 
-const examId = process.argv[2];
-if (!examId) {
-  console.error("Uso: npx tsx scripts/extract-exam-local.ts <exam_id>");
-  process.exit(1);
+// Only run main() when this file is invoked directly. When other scripts
+// import it (e.g. check-state.ts using analyzePageText), we must not kick
+// off the whole pipeline as a side effect of the import.
+async function runCli() {
+  const { pathToFileURL } = await import("node:url");
+  const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
+  if (invokedPath !== import.meta.url) return;
+
+  if (!SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("SUPABASE_SERVICE_ROLE_KEY not set");
+    process.exit(1);
+  }
+  if (!ANTHROPIC_API_KEY) {
+    console.error("ANTHROPIC_API_KEY not set");
+    process.exit(1);
+  }
+
+  const examId = process.argv[2];
+  if (!examId) {
+    console.error("Uso: npx tsx tools/extraction/extract-exam-local.ts <exam_id>");
+    process.exit(1);
+  }
+
+  try {
+    await main(examId);
+  } catch (err) {
+    console.error("Fatal:", err);
+    process.exit(1);
+  }
 }
 
-main(examId).catch((err) => {
-  console.error("Fatal:", err);
-  process.exit(1);
-});
+runCli();

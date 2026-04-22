@@ -6,7 +6,7 @@
  *
  * Usage:
  *   ANTHROPIC_API_KEY=... SUPABASE_SERVICE_ROLE_KEY=... \
- *   npx tsx scripts/repair-options.ts <exam_id> <n1,n2,...>
+ *   npx tsx tools/extraction/repair-options.ts <exam_id> <n1,n2,...>
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -25,7 +25,7 @@ if (!ANTHROPIC_API_KEY) {
   process.exit(1);
 }
 
-const MODEL_SONNET = "claude-sonnet-4-20250514";
+const MODEL_SONNET = "claude-sonnet-4-5-20250929";
 const ANTHROPIC = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -251,7 +251,7 @@ const numeros = (process.argv[3] ?? "")
   .filter(Number.isFinite);
 
 if (!examId || numeros.length === 0) {
-  console.error("Uso: npx tsx scripts/repair-options.ts <exam_id> <n1,n2,...>");
+  console.error("Uso: npx tsx tools/extraction/repair-options.ts <exam_id> <n1,n2,...>");
   process.exit(1);
 }
 

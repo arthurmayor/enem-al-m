@@ -5,7 +5,7 @@
  *
  * Usage:
  *   SUPABASE_SERVICE_ROLE_KEY=... ANTHROPIC_API_KEY=... \
- *   npx tsx scripts/run-inserter-only.ts <exam_id>
+ *   npx tsx tools/extraction/run-inserter-only.ts <exam_id>
  */
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { createHash } from "node:crypto";
@@ -285,7 +285,7 @@ async function main(examId: string) {
 
 const examId = process.argv[2];
 if (!examId) {
-  console.error("Uso: npx tsx scripts/run-inserter-only.ts <exam_id>");
+  console.error("Uso: npx tsx tools/extraction/run-inserter-only.ts <exam_id>");
   process.exit(1);
 }
 main(examId).catch((err) => {

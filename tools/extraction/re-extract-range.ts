@@ -10,7 +10,7 @@
  *
  * Uso:
  *   SUPABASE_SERVICE_ROLE_KEY=... ANTHROPIC_API_KEY=... \
- *   npx tsx scripts/re-extract-range.ts <exam_id> <first> <last>
+ *   npx tsx tools/extraction/re-extract-range.ts <exam_id> <first> <last>
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
@@ -21,7 +21,7 @@ dns.setDefaultResultOrder("ipv4first");
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "https://nbfgqrjcrzgrprzqedtl.supabase.co";
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY!;
-const MODEL_SONNET = "claude-sonnet-4-20250514";
+const MODEL_SONNET = "claude-sonnet-4-5-20250929";
 const ASM_MAX_TOKENS = 8192;
 const ASM_PARALLELISM = 6;
 
@@ -293,7 +293,7 @@ async function main() {
   const first = parseInt(process.argv[3], 10);
   const last = parseInt(process.argv[4], 10);
   if (!examId || !Number.isFinite(first) || !Number.isFinite(last)) {
-    console.error("Uso: npx tsx scripts/re-extract-range.ts <exam_id> <first> <last>");
+    console.error("Uso: npx tsx tools/extraction/re-extract-range.ts <exam_id> <first> <last>");
     process.exit(1);
   }
   const targetNumeros = Array.from({ length: last - first + 1 }, (_, i) => first + i);

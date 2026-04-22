@@ -93,10 +93,14 @@ export function useDashboardMetrics() {
         0,
       );
 
-      const totalQuestions =
-        totalQuestionsFromAnswers > 0 ? totalQuestionsFromAnswers : totalQuestionsFromMissions;
-      const totalCorrect =
-        totalQuestionsFromAnswers > 0 ? totalCorrectFromAnswers : totalCorrectFromMissions;
+      const totalQuestions = Math.max(
+        totalQuestionsFromAnswers,
+        totalQuestionsFromMissions,
+      );
+      const totalCorrect = Math.max(
+        totalCorrectFromAnswers,
+        totalCorrectFromMissions,
+      );
 
       const exams = examsRes.data ?? [];
       const examConfigId = profile.exam_config_id;
@@ -136,10 +140,6 @@ export function useDashboardMetrics() {
       const completedMissions = missionRows.filter((row) => row.status === "completed");
       const totalMissionsCompleted = completedMissions.length;
       const totalMissionsGenerated = missionRows.length;
-      const practiceMissionsCompleted = completedMissions.filter((row) =>
-        isQuestionMissionType(row.mission_type),
-      ).length;
-
       const bestExamScore = exams.length
         ? Math.max(...exams.map((exam) => Number(exam.score_percent ?? 0)))
         : null;

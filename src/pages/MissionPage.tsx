@@ -689,7 +689,19 @@ const MissionPage = () => {
     }
 
     if (!currentQuestion.id.startsWith("mock")) {
-      await supabase.from("answer_history").insert({ user_id: user.id, question_id: currentQuestion.id, selected_option: optionLabel, is_correct: correct, response_time_seconds: responseTime, subtopic: currentQuestion.subtopic || mission?.subtopic || "geral", error_type: errorType, context: "practice" });
+      const { error: answerInsertError } = await supabase.from("answer_history").insert({
+        user_id: user.id,
+        question_id: currentQuestion.id,
+        selected_option: optionLabel,
+        is_correct: correct,
+        response_time_seconds: responseTime,
+        error_type: errorType,
+        context: "practice",
+      });
+
+      if (answerInsertError) {
+        console.error("[MissionPage] failed to insert answer_history", answerInsertError);
+      }
     }
 
     trackEvent("question_answered", {

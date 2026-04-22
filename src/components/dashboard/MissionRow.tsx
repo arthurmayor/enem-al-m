@@ -51,6 +51,7 @@ export default function MissionRow({
   // `estimated_minutes` as a fallback instead of an honest-but-ugly
   // "0 questões" / "? questões".
   const qCount = mission.question_ids?.length ?? null;
+  const fallbackOrder = ((mission.id.charCodeAt(0) + mission.id.charCodeAt(1)) % 8) + 1;
   const subtopicText = displaySubtopic(mission.subtopic);
   const detailParts: string[] = [];
   if (subtopicText) detailParts.push(subtopicText);
@@ -60,15 +61,24 @@ export default function MissionRow({
     detailParts.push(`~${mission.estimated_minutes} min`);
   }
   const detail = detailParts.join(" · ");
+  const badgeLabel = isNext
+    ? "Próxima"
+    : isDone
+      ? mission.score != null
+        ? `${mission.score}% acerto`
+        : "concluída"
+      : isOverdue
+        ? "atrasada"
+        : "pendente";
 
   const containerClass = [
-    "flex items-center justify-between gap-2.5 p-3 rounded-[10px] mb-1.5 last:mb-0 transition-all",
+    "flex items-center justify-between gap-3 px-0 py-3 border-b border-line last:border-b-0 transition-all",
     isNext
-      ? "border-2 border-coral bg-coral-light"
+      ? "bg-transparent"
       : isOverdue
-        ? "border border-[#F0D9A7] bg-[#FFF8EC]"
-        : "border border-[#E8E6E1] bg-white",
-    isDone ? "opacity-55" : "",
+        ? "bg-transparent"
+        : "bg-transparent",
+    isDone ? "opacity-60" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -77,50 +87,50 @@ export default function MissionRow({
     <div className={containerClass}>
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         <div
-          className="h-2.5 w-2.5 rounded-full shrink-0"
-          style={{ backgroundColor: dotColor }}
-        />
+          className={`h-6 w-6 rounded-full shrink-0 flex items-center justify-center text-[11px] font-semibold ${
+            isNext
+              ? "bg-coral text-white"
+              : isDone
+                ? "bg-success/20 text-success"
+                : isOverdue
+                  ? "bg-warning/20 text-warning"
+                  : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {isDone ? "✓" : isNext ? "▶" : fallbackOrder}
+        </div>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold text-[#2C2C2A] truncate">
+            <span className={`text-sm font-semibold truncate ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
               {mission.subject}
             </span>
-            {isOverdue && (
-              <span className="inline-flex items-center text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-[#FBE7C6] text-[#8A5A0B] uppercase tracking-[0.3px] shrink-0">
-                atrasada
-              </span>
-            )}
           </div>
           {detail && (
-            <div className="text-xs text-[#888780] truncate">{detail}</div>
+            <div className={`text-xs truncate ${isDone ? "text-muted-foreground" : "text-muted-foreground"}`}>{detail}</div>
           )}
         </div>
       </div>
 
-      {isNext ? (
+      {isNext || isPending ? (
         <button
           type="button"
           onClick={() =>
             navigate(`/mission/${mission.mission_type}/${mission.id}`)
           }
-          className="bg-coral text-white border-none px-5 py-2 rounded-lg text-[13px] font-semibold cursor-pointer shrink-0 hover:brightness-110 transition-all"
+          className={`inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-md whitespace-nowrap shrink-0 transition-colors ${
+            isNext
+              ? "bg-coral-light text-coral-dark"
+              : isOverdue
+                ? "bg-warning/20 text-warning"
+                : "bg-blue-50 text-blue-600"
+          }`}
         >
-          Iniciar
+          {badgeLabel}
         </button>
       ) : isDone ? (
-        <span className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[#E1F5EE] text-[#1D9E75] whitespace-nowrap shrink-0">
-          concluída
+        <span className="inline-flex items-center text-[11px] font-semibold px-2.5 py-1 rounded-md bg-success/15 text-success whitespace-nowrap shrink-0">
+          {badgeLabel}
         </span>
-      ) : isPending ? (
-        <button
-          type="button"
-          onClick={() =>
-            navigate(`/mission/${mission.mission_type}/${mission.id}`)
-          }
-          className="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[#E6F1FB] text-[#185FA5] whitespace-nowrap shrink-0 hover:brightness-95 transition-all"
-        >
-          pendente
-        </button>
       ) : null}
     </div>
   );

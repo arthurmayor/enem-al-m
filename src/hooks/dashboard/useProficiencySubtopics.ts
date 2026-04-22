@@ -50,6 +50,29 @@ export function useProficiencySubtopics(subject: string | null) {
           .sort((a, b) => a.score - b.score);
       }
 
+      const { data: missionRows, error: missionError } = await supabase
+        .from("daily_missions")
+        .select("date, mission_type, status, score, question_ids, subject, subtopic")
+        .eq("user_id", userId)
+        .eq("subject", subject);
+
+      if (missionError) throw missionError;
+
+      const missionSummary = summarizeMissionActivityBySubtopic(missionRows ?? [], subject);
+      const missionQuestionVolume = missionSummary.reduce(
+        (sum, item) => sum + item.questionCount,
+        0,
+      );
+
+      if (missionQuestionVolume > 0 && missionQuestionVolume <= 24) {
+        return missionSummary
+          .map((item) => ({
+            subtopic: item.subtopic ?? subject,
+            score: item.accuracyPct ?? 0,
+          }))
+          .sort((a, b) => a.score - b.score);
+      }
+
       const { data, error } = await supabase
         .from("proficiency_scores")
         .select("subtopic, score, measured_at")
@@ -60,15 +83,7 @@ export function useProficiencySubtopics(subject: string | null) {
       if (error) throw error;
 
       if ((data ?? []).length <= 2) {
-        const { data: missionRows, error: missionError } = await supabase
-          .from("daily_missions")
-          .select("date, mission_type, status, score, question_ids, subject, subtopic")
-          .eq("user_id", userId)
-          .eq("subject", subject);
-
-        if (missionError) throw missionError;
-
-        return summarizeMissionActivityBySubtopic(missionRows ?? [], subject)
+        return missionSummary
           .map((item) => ({
             subtopic: item.subtopic ?? subject,
             score: item.accuracyPct ?? 0,

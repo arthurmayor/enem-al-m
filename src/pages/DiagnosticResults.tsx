@@ -130,9 +130,25 @@ async function generateAndSavePlan(
   if (!profile) {
     // No profile row exists — downstream FKs would all fail silently.
     // Fall back to a minimal row so the plan/mission writes can succeed.
+    // `profiles.name` is NOT NULL, so we read the name from the auth user
+    // metadata (set during sign-up) and fall back to the email prefix.
+    const { data: authData } = await supabase.auth.getUser();
+    const authUser = authData?.user;
+    const meta = (authUser?.user_metadata ?? {}) as Record<string, unknown>;
+    const fallbackName =
+      (typeof meta.name === "string" && meta.name) ||
+      authUser?.email?.split("@")[0] ||
+      "Estudante";
     const { error: createProfileError } = await supabase
       .from("profiles")
-      .upsert({ id: userId, onboarding_complete: true } as any, { onConflict: "id" });
+      .upsert(
+        {
+          id: userId,
+          name: fallbackName,
+          onboarding_complete: true,
+        } as Record<string, unknown>,
+        { onConflict: "id" },
+      );
     if (createProfileError) {
       console.error("[generateAndSavePlan] could not create missing profile row", createProfileError);
       throw new Error(`Perfil não encontrado: ${createProfileError.message}`);

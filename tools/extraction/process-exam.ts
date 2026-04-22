@@ -63,7 +63,8 @@ if (!ANTHROPIC_API_KEY) {
 
 // Same undici-aware retry shell used by extract-exam-local.ts. Walks err.cause
 // so transient DNS / socket errors buried under "fetch failed" are retried.
-const SUPABASE_FETCH_RETRIES = 8;
+const SUPABASE_FETCH_RETRIES = 24;
+const SUPABASE_FETCH_MAX_DELAY_MS = 30_000;
 const supabaseFetch: typeof fetch = async (input, init) => {
   const transient =
     /DNS cache overflow|ENOTFOUND|ECONNRESET|fetch failed|UND_ERR|ETIMEDOUT|socket hang up|EAI_AGAIN|other side closed/i;
@@ -89,7 +90,7 @@ const supabaseFetch: typeof fetch = async (input, init) => {
       lastErr = err;
       const msg = messages(err);
       if (transient.test(msg)) {
-        const delay = 500 * Math.pow(2, Math.min(attempt, 5));
+        const delay = Math.min(500 * Math.pow(2, attempt), SUPABASE_FETCH_MAX_DELAY_MS);
         console.warn(
           `[SUPABASE-FETCH] ${msg} — retry ${attempt + 1}/${SUPABASE_FETCH_RETRIES} em ${delay}ms`,
         );

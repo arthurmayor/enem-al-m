@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { buildMissionActivity } from "@/lib/dashboardActivity";
+import { getSaoPauloDateRange } from "@/lib/date";
 
 export type EvolutionPeriod = "week" | "month" | "6m" | "year" | "all";
 
@@ -36,6 +38,7 @@ export function useQuestionsEvolution(
       if (!userId) return [];
       const days = DAYS[period];
       const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+      const { startKey } = getSaoPauloDateRange(days);
 
       // Note: answer_history has no direct `subject` column. `subject` lives
       // on the joined questions table (same pattern used in Performance.tsx).
@@ -47,7 +50,25 @@ export function useQuestionsEvolution(
         .order("created_at", { ascending: true });
 
       if (error) throw error;
-      if (!data || data.length === 0) return [];
+      if ((!data || data.length === 0)) {
+        const { data: missionRows, error: missionError } = await supabase
+          .from("daily_missions")
+          .select("date, mission_type, status, score, question_ids, subject, subtopic")
+          .eq("user_id", userId)
+          .gte("date", startKey);
+
+        if (missionError) throw missionError;
+        const fallbackRows = buildMissionActivity(missionRows ?? []).filter(
+          (row) => !subject || subject === "Geral" || row.subject === subject,
+        );
+        return fallbackRows.map((row) => ({
+          label: new Date(`${row.date}T12:00:00`).toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: period === "week" ? "2-digit" : "short",
+          }).replace(".", ""),
+          count: row.questionCount,
+        }));
+      }
 
       let rows = data as unknown as Row[];
       if (subject && subject !== "Geral") {

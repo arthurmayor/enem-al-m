@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { buildMissionActivity } from "@/lib/dashboardActivity";
+import { getSaoPauloDateRange } from "@/lib/date";
 
 /**
  * Cumulative count of questions answered per day, oldest first, over
@@ -21,15 +23,21 @@ export function useQuestionsCumulative(days = 7) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const gridKeys: string[] = [];
+      const { todayKey, startKey } = getSaoPauloDateRange(days);
       for (let i = days - 1; i >= 0; i--) {
         const d = new Date(today);
         d.setDate(d.getDate() - i);
-        gridKeys.push(d.toISOString().split("T")[0]);
+        gridKeys.push(
+          new Intl.DateTimeFormat("en-CA", {
+            timeZone: "America/Sao_Paulo",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+          }).format(d),
+        );
       }
 
-      const cutoffIso = new Date(
-        today.getTime() - (days - 1) * 86400000,
-      ).toISOString();
+      const cutoffIso = new Date(`${startKey}T00:00:00-03:00`).toISOString();
 
       const { data, error } = await supabase
         .from("answer_history")
@@ -42,8 +50,27 @@ export function useQuestionsCumulative(days = 7) {
       const perDay = new Map<string, number>();
       for (const r of data ?? []) {
         if (!r.created_at) continue;
-        const key = r.created_at.split("T")[0];
+        const key = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Sao_Paulo",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(r.created_at));
         perDay.set(key, (perDay.get(key) ?? 0) + 1);
+      }
+
+      if ((data ?? []).length === 0) {
+        const { data: missionRows, error: missionError } = await supabase
+          .from("daily_missions")
+          .select("date, mission_type, status, score, question_ids, subject, subtopic")
+          .eq("user_id", userId)
+          .gte("date", startKey)
+          .lte("date", todayKey);
+        if (missionError) throw missionError;
+
+        for (const row of buildMissionActivity(missionRows ?? [])) {
+          perDay.set(row.date, (perDay.get(row.date) ?? 0) + row.questionCount);
+        }
       }
 
       let acc = 0;

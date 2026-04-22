@@ -133,6 +133,11 @@ export default function Dashboard() {
   const [simFilterLabel, setSimFilterLabel] =
     useState<SimFilterLabel>("Todos");
 
+  const handleEvoLabelChange = (value: string) => setEvoLabel(value as EvoLabel);
+  const handleProfLabelChange = (value: string) => setProfLabel(value as ProfLabel);
+  const handleSimFilterChange = (value: string) => setSimFilterLabel(value as SimFilterLabel);
+  const handleSimPeriodChange = (value: string) => setSimPeriodLabel(value as ExamPeriodLabel);
+
   const evoPeriod = evoPeriodMap[evoLabel];
   const profPeriod = profPeriodMap[profLabel];
   const examPeriod = examPeriodMap[simPeriodLabel];
@@ -553,7 +558,7 @@ export default function Dashboard() {
             <SegmentedControl
               options={EVO_PERIOD_OPTIONS}
               active={evoLabel}
-              onChange={setEvoLabel}
+              onChange={handleEvoLabelChange}
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-6 items-center mt-2">
@@ -645,7 +650,7 @@ export default function Dashboard() {
             <SegmentedControl
               options={PROF_PERIOD_OPTIONS}
               active={profLabel}
-              onChange={setProfLabel}
+              onChange={handleProfLabelChange}
             />
           </div>
           <p className="text-[11px] text-[#B4B2A9] mb-3">
@@ -693,12 +698,12 @@ export default function Dashboard() {
               <SegmentedControl
                 options={SIM_FILTER_OPTIONS}
                 active={simFilterLabel}
-                onChange={setSimFilterLabel}
+                onChange={handleSimFilterChange}
               />
               <SegmentedControl
                 options={EXAM_PERIOD_OPTIONS}
                 active={simPeriodLabel}
-                onChange={setSimPeriodLabel}
+                onChange={handleSimPeriodChange}
               />
             </div>
           </div>

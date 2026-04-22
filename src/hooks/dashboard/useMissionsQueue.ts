@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { MISSION_STATUSES } from "@/lib/constants";
+import { getSaoPauloDateString } from "@/lib/date";
 
 export interface QueuedMission {
   id: string;
@@ -96,7 +97,7 @@ export function useMissionsQueue() {
     enabled: !!userId,
     queryFn: async () => {
       if (!userId) return EMPTY;
-      const today = new Date().toISOString().split("T")[0];
+      const today = getSaoPauloDateString();
 
       const [todayRes, overdueRes] = await Promise.all([
         supabase

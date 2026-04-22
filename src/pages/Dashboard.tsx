@@ -58,6 +58,12 @@ function sparklineStatusText(value: number | null | undefined, emptyText: string
   return `${value >= 0 ? "+" : ""}${value}%`;
 }
 
+function buildReferenceSparkline(value: number | null | undefined, points: number[]) {
+  if (value == null) return [] as number[];
+  const base = Math.max(6, Math.round(value * 0.45));
+  return points.map((point) => Math.min(100, Math.max(0, base + point)));
+}
+
 // ─── Period mapping tables ────────────────────────────────────────────────────
 
 const EVO_PERIOD_OPTIONS = ["Semana", "Mês", "6m", "Ano", "Geral"] as const;

@@ -58,6 +58,12 @@ function sparklineStatusText(value: number | null | undefined, emptyText: string
   return `${value >= 0 ? "+" : ""}${value}%`;
 }
 
+function buildReferenceSparkline(value: number | null | undefined, points: number[]) {
+  if (value == null) return [] as number[];
+  const base = Math.max(6, Math.round(value * 0.45));
+  return points.map((point) => Math.min(100, Math.max(0, base + point)));
+}
+
 // ─── Period mapping tables ────────────────────────────────────────────────────
 
 const EVO_PERIOD_OPTIONS = ["Semana", "Mês", "6m", "Ano", "Geral"] as const;
@@ -448,90 +454,81 @@ export default function Dashboard() {
         </section>
 
         {/* ── 3. Compact stat band ──────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
           {/* % acerto (sem) */}
-          <div className="bg-card border border-border rounded-xl px-4 py-3.5 min-h-[112px] flex flex-col justify-between">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
-              % Acerto (sem)
-            </div>
-            <div className="flex items-end justify-between gap-3 mt-2 min-h-[48px]">
-              <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-[22px] font-bold tracking-[-0.4px] leading-none text-foreground">
-                    {acertoWeek?.current != null
-                      ? `${acertoWeek.current}%`
-                      : "—"}
-                  </span>
-                  <span className={`text-[11px] font-semibold ${metricTone(acertoWeek?.delta)}`}>
+          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+            <div className="min-w-0 flex-1 flex flex-col justify-between">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+                % Acerto (sem)
+              </div>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground">
+                  {acertoWeek?.current != null
+                    ? `${acertoWeek.current}%`
+                    : "—"}
+                </span>
+                {acertoWeek?.delta != null && (
+                  <span className={`text-[11px] font-semibold leading-none ${metricTone(acertoWeek?.delta)}`}>
                     {sparklineStatusText(acertoWeek?.delta, "")}
                   </span>
-                </div>
+                )}
               </div>
-              <div className="w-[72px] shrink-0">
-                <Sparkline data={accuracySparkline} color="hsl(var(--success))" height={32} strokeWidth={1.8} />
-              </div>
+            </div>
+            <div className="w-[76px] shrink-0 self-center pt-2">
+              <Sparkline data={accuracySparkline} color="hsl(var(--success))" fillColor="hsl(var(--success))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-xl px-4 py-3.5 min-h-[112px] flex flex-col justify-between">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
-              Prob. aprovação
+          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+            <div className="min-w-0 flex-1 flex flex-col justify-between">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+                Prob. aprovação
+              </div>
+              <div className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground mt-1">
+                {probabilityPct != null ? `${probabilityPct}%` : "—"}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-1 truncate">
+                {hasExamConfig && metrics?.course_name
+                  ? metrics.course_name
+                  : probabilityLabel ?? "Sem estimativa ainda"}
+              </div>
             </div>
-            <div className="flex items-end justify-between gap-3 mt-2 min-h-[48px]">
-              <div className="min-w-0">
-                <div className="text-[22px] font-bold tracking-[-0.4px] leading-none text-foreground">
-                  {probabilityPct != null ? `${probabilityPct}%` : "—"}
-                </div>
-                <div className="text-[11px] text-muted-foreground mt-1 truncate">
-                  {probabilityLabel ?? (hasExamConfig && metrics?.course_name ? metrics.course_name : "Sem estimativa ainda")}
-                </div>
-              </div>
-              <div className="w-[72px] shrink-0">
-                <Sparkline
-                  data={probabilityPct != null ? [null, probabilityPct * 0.55, probabilityPct * 0.82, probabilityPct * 0.7, probabilityPct] : []}
-                  color="hsl(var(--coral))"
-                  height={32}
-                  strokeWidth={1.8}
-                />
-              </div>
+            <div className="w-[76px] shrink-0 self-center pt-2">
+              <Sparkline data={probabilityPct != null ? buildReferenceSparkline(probabilityPct, [-8, -2, 11, 4, 15]) : []} color="hsl(var(--coral))" fillColor="hsl(var(--coral))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-xl px-4 py-3.5 min-h-[112px] flex flex-col justify-between">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
-              Questões
+          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+            <div className="min-w-0 flex-1 flex flex-col justify-between">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+                Questões
+              </div>
+              <div className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground mt-1">
+                {totalQuestions}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-1 truncate">
+                {totalQuestions > 0 ? `${totalCorrect} ✓ · ${totalQuestions - totalCorrect} ✗` : "Sem respostas ainda"}
+              </div>
             </div>
-            <div className="flex items-end justify-between gap-3 mt-2 min-h-[48px]">
-              <div className="min-w-0">
-                <div className="text-[22px] font-bold tracking-[-0.4px] leading-none text-foreground">
-                  {totalQuestions}
-                </div>
-                <div className="text-[11px] text-muted-foreground mt-1 truncate">
-                  {totalQuestions > 0 ? `${totalCorrect} ✓ · ${totalQuestions - totalCorrect} ✗` : "Sem respostas ainda"}
-                </div>
-              </div>
-              <div className="w-[72px] shrink-0">
-                <Sparkline data={questionsSparkline} color="hsl(var(--signal-info))" height={32} strokeWidth={1.8} />
-              </div>
+            <div className="w-[76px] shrink-0 self-center pt-2">
+              <Sparkline data={questionsSparkline} color="hsl(var(--signal-info))" fillColor="hsl(var(--signal-info))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-xl px-4 py-3.5 min-h-[112px] flex flex-col justify-between">
-            <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
-              Simulados feitos
+          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+            <div className="min-w-0 flex-1 flex flex-col justify-between">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+                Simulados
+              </div>
+              <div className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground mt-1">
+                {totalExams}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-1 truncate">
+                {lastExamScore != null ? `Último ${lastExamScore}%` : "Nenhum ainda"}
+              </div>
             </div>
-            <div className="flex items-end justify-between gap-3 mt-2 min-h-[48px]">
-              <div className="min-w-0">
-                <div className="text-[22px] font-bold tracking-[-0.4px] leading-none text-foreground">
-                  {totalExams}
-                </div>
-                <div className="text-[11px] text-muted-foreground mt-1 truncate">
-                  {lastExamScore != null ? `Último ${lastExamScore}%` : "Nenhum ainda"}
-                </div>
-              </div>
-              <div className="w-[72px] shrink-0">
-                <Sparkline data={examsSparkline} color="hsl(var(--primary))" height={32} strokeWidth={1.8} />
-              </div>
+            <div className="w-[76px] shrink-0 self-center pt-2">
+              <Sparkline data={examsSparkline} color="hsl(var(--primary))" fillColor="hsl(var(--primary))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
         </div>

@@ -24,6 +24,9 @@
     --accent-foreground: 0 0% 7%;
     --success: 152 69% 40%;
     --success-foreground: 0 0% 100%;
+    --signal-info: 213 88% 56%;
+    --coral: 17 68% 52%;
+    --chart-violet: 248 58% 57%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
@@ -75,6 +78,9 @@
     --accent-foreground: 0 0% 96%;
     --success: 152 69% 40%;
     --success-foreground: 0 0% 100%;
+    --signal-info: 213 88% 56%;
+    --coral: 17 68% 52%;
+    --chart-violet: 248 58% 57%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
     --destructive: 0 63% 31%;

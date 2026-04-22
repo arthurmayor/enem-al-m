@@ -1,4 +1,4 @@
-import { Line, LineChart, ResponsiveContainer, YAxis } from "recharts";
+import { Area, ComposedChart, Line, ResponsiveContainer, YAxis } from "recharts";
 
 interface SparklineProps {
   /**
@@ -8,8 +8,10 @@ interface SparklineProps {
    */
   data: (number | null)[];
   color?: string;
+  fillColor?: string;
   height?: number;
   strokeWidth?: number;
+  showArea?: boolean;
 }
 
 /**
@@ -21,8 +23,10 @@ interface SparklineProps {
 export default function Sparkline({
   data,
   color = "#D85A30",
+  fillColor,
   height = 28,
   strokeWidth = 1.5,
+  showArea = false,
 }: SparklineProps) {
   if (!data || data.length < 2) return null;
   const realPoints = data.filter((v): v is number => v != null).length;
@@ -33,11 +37,22 @@ export default function Sparkline({
   return (
     <div style={{ width: "100%", height }}>
       <ResponsiveContainer>
-        <LineChart
+        <ComposedChart
           data={points}
           margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
         >
           <YAxis hide domain={["dataMin", "dataMax"]} />
+          {showArea && (
+            <Area
+              type="monotone"
+              dataKey="v"
+              stroke="none"
+              fill={fillColor ?? color}
+              fillOpacity={0.12}
+              isAnimationActive={false}
+              connectNulls={false}
+            />
+          )}
           <Line
             type="monotone"
             dataKey="v"
@@ -47,7 +62,7 @@ export default function Sparkline({
             isAnimationActive={false}
             connectNulls={false}
           />
-        </LineChart>
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );

@@ -146,7 +146,7 @@ async function generateAndSavePlan(
           id: userId,
           name: fallbackName,
           onboarding_complete: true,
-        } as Record<string, unknown>,
+        } as any,
         { onConflict: "id" },
       );
     if (createProfileError) {

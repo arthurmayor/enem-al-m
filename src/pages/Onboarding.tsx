@@ -84,7 +84,7 @@ const Onboarding = () => {
           self_declared_blocks: data.self_declared_blocks,
           onboarding_completed_at: new Date().toISOString(),
           onboarding_complete: true,
-        } as Record<string, unknown>,
+        } as any,
         { onConflict: "id" },
       );
     setLoading(false);

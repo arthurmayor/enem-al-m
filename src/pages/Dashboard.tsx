@@ -452,11 +452,11 @@ export default function Dashboard() {
         </section>
 
         {/* ── 3. Compact stat band ──────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-3">
+        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {/* % acerto (sem) */}
-          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+          <div className="flex min-h-[110px] items-stretch justify-between gap-4 overflow-hidden rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.4))] px-5 py-4 shadow-[0_24px_56px_-42px_hsl(var(--foreground)/0.28)]">
             <div className="min-w-0 flex-1 flex flex-col justify-between">
-              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 % Acerto (sem)
               </div>
               <div className="flex items-baseline gap-1.5 mt-1">
@@ -466,20 +466,20 @@ export default function Dashboard() {
                     : "—"}
                 </span>
                 {acertoWeek?.delta != null && (
-                  <span className={`text-[11px] font-semibold leading-none ${metricTone(acertoWeek?.delta)}`}>
+                  <span className={`rounded-full px-2 py-1 text-[10px] font-semibold leading-none ${acertoWeek?.delta >= 0 ? "bg-success/15 text-success" : "bg-destructive/10 text-destructive"}`}>
                     {sparklineStatusText(acertoWeek?.delta, "")}
                   </span>
                 )}
               </div>
             </div>
-            <div className="w-[76px] shrink-0 self-center pt-2">
+            <div className="w-[92px] shrink-0 self-center pt-2">
               <Sparkline data={accuracySparkline} color="hsl(var(--success))" fillColor="hsl(var(--success))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+          <div className="flex min-h-[110px] items-stretch justify-between gap-4 overflow-hidden rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.4))] px-5 py-4 shadow-[0_24px_56px_-42px_hsl(var(--foreground)/0.28)]">
             <div className="min-w-0 flex-1 flex flex-col justify-between">
-              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Prob. aprovação
               </div>
               <div className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground mt-1">
@@ -491,14 +491,14 @@ export default function Dashboard() {
                   : probabilityLabel ?? "Sem estimativa ainda"}
               </div>
             </div>
-            <div className="w-[76px] shrink-0 self-center pt-2">
+            <div className="w-[92px] shrink-0 self-center pt-2">
               <Sparkline data={probabilityPct != null ? buildReferenceSparkline(probabilityPct, [-8, -2, 11, 4, 15]) : []} color="hsl(var(--coral))" fillColor="hsl(var(--coral))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+          <div className="flex min-h-[110px] items-stretch justify-between gap-4 overflow-hidden rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.4))] px-5 py-4 shadow-[0_24px_56px_-42px_hsl(var(--foreground)/0.28)]">
             <div className="min-w-0 flex-1 flex flex-col justify-between">
-              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Questões
               </div>
               <div className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground mt-1">
@@ -508,14 +508,14 @@ export default function Dashboard() {
                 {totalQuestions > 0 ? `${totalCorrect} ✓ · ${totalQuestions - totalCorrect} ✗` : "Sem respostas ainda"}
               </div>
             </div>
-            <div className="w-[76px] shrink-0 self-center pt-2">
+            <div className="w-[92px] shrink-0 self-center pt-2">
               <Sparkline data={questionsSparkline} color="hsl(var(--signal-info))" fillColor="hsl(var(--signal-info))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-[14px] px-4 py-3 min-h-[92px] flex items-stretch justify-between gap-4 overflow-hidden">
+          <div className="flex min-h-[110px] items-stretch justify-between gap-4 overflow-hidden rounded-[24px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.4))] px-5 py-4 shadow-[0_24px_56px_-42px_hsl(var(--foreground)/0.28)]">
             <div className="min-w-0 flex-1 flex flex-col justify-between">
-              <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-muted-foreground">
+              <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Simulados
               </div>
               <div className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground mt-1">
@@ -525,20 +525,20 @@ export default function Dashboard() {
                 {lastExamScore != null ? `Último ${lastExamScore}%` : "Nenhum ainda"}
               </div>
             </div>
-            <div className="w-[76px] shrink-0 self-center pt-2">
+            <div className="w-[92px] shrink-0 self-center pt-2">
               <Sparkline data={examsSparkline} color="hsl(var(--primary))" fillColor="hsl(var(--primary))" height={40} strokeWidth={1.8} showArea />
             </div>
           </div>
         </div>
 
         {/* ── 4a. Evolution (full width) — chart left + donut right ─────── */}
-        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">
+        <section className="mb-3.5 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))] p-5 shadow-[0_28px_70px_-54px_hsl(var(--signal-info)/0.3)]">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
             <div>
-              <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+              <div className="text-[14.5px] font-semibold text-foreground">
                 Evolução de questões
               </div>
-              <div className="text-[11px] text-[#B4B2A9] mt-0.5">
+              <div className="mt-0.5 text-[11px] text-muted-foreground">
                 Questões respondidas por período
               </div>
             </div>
@@ -551,31 +551,31 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-6 items-center mt-2">
             <div>
               {totalQuestions === 0 ? (
-                <p className="text-[13px] text-[#888780] py-10 text-center">
+                  <p className="py-10 text-center text-[13px] text-muted-foreground">
                   Responda questões para ver sua evolução.
                 </p>
               ) : (
                 <EvolutionChart data={evoData ?? []} height={180} />
               )}
             </div>
-            <div className="flex md:flex-col items-center gap-3 md:gap-2 md:border-l md:border-[#EFECE6] md:pl-6">
+            <div className="flex items-center gap-3 rounded-[24px] border border-border/60 bg-background/80 px-4 py-5 md:flex-col md:gap-2 md:border-l md:pl-6">
               <AccuracyDonut accuracyPct={periodAccuracyPct} size={96} />
-              <div className="text-[12px] text-[#2C2C2A] text-center md:text-left">
+              <div className="text-center text-[12px] text-foreground md:text-left">
                 {periodAccuracyPct != null && periodErrorPct != null ? (
                   <>
                     <div>
-                      <span className="font-semibold text-[#059669]">
+                      <span className="font-semibold text-success">
                         {periodAccuracyPct}% Acertadas
                       </span>
                     </div>
                     <div>
-                      <span className="font-semibold text-[#DC2626]">
+                      <span className="font-semibold text-chart-violet">
                         {periodErrorPct}% Erradas
                       </span>
                     </div>
                   </>
                 ) : (
-                  <span className="text-[#888780]">
+                  <span className="text-muted-foreground">
                     Sem questões respondidas neste período.
                   </span>
                 )}
@@ -585,13 +585,13 @@ export default function Dashboard() {
         </section>
 
         {/* ── 4b. Suas Missões (full width) ──────────────────────────────── */}
-        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">
+        <section className="mb-3.5 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))] p-5 shadow-[0_28px_70px_-54px_hsl(var(--chart-violet)/0.3)]">
           <div className="flex items-center justify-between mb-3.5">
-            <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+            <div className="text-[14.5px] font-semibold text-foreground">
               Suas Missões
             </div>
             {overdueMissions.length > 0 && (
-              <span className="text-[11px] font-semibold text-[#8A5A0B] bg-[#FBE7C6] px-2 py-0.5 rounded-md">
+              <span className="rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-semibold text-warning">
                 {overdueMissions.length} atrasada
                 {overdueMissions.length > 1 ? "s" : ""}
               </span>
@@ -599,7 +599,7 @@ export default function Dashboard() {
           </div>
             {!hasPendingWork ? (
               <div>
-                <p className="text-[13px] text-[#888780]">
+                <p className="text-[13px] text-muted-foreground">
                   {allCompleted
                     ? "Tudo feito por hoje. Bom trabalho!"
                     : "Nenhuma missão pendente."}
@@ -608,14 +608,14 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={() => navigate("/diagnostic/intro")}
-                    className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-coral hover:text-coral-dark transition-colors"
+                    className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-chart-violet transition-colors hover:opacity-80"
                   >
                     Gerar novo plano <ArrowRight className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
             ) : (
-              <div>
+              <div className="space-y-2.5">
                 {activeQueue.map((m, i) => (
                   <MissionRow
                     key={m.id}

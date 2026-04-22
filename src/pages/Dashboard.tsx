@@ -629,9 +629,9 @@ export default function Dashboard() {
         </section>
 
         {/* ── 5. Proficiência por matéria ───────────────────────────────── */}
-        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">
+        <section className="mb-3.5 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))] p-5 shadow-[0_28px_70px_-54px_hsl(var(--chart-violet)/0.32)]">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-            <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+            <div className="text-[14.5px] font-semibold text-foreground">
               Proficiência por matéria
             </div>
             <SegmentedControl
@@ -640,16 +640,16 @@ export default function Dashboard() {
               onChange={handleProfLabelChange}
             />
           </div>
-          <p className="text-[11px] text-[#B4B2A9] mb-3">
+          <p className="mb-3 text-[11px] text-muted-foreground">
             Clique para ver subtemas
           </p>
 
           {!proficiency || proficiency.length === 0 ? (
-            <p className="text-[13px] text-[#888780] py-6 text-center">
+            <p className="py-6 text-center text-[13px] text-muted-foreground">
               Responda questões para ver sua proficiência por matéria.
             </p>
           ) : (
-            <div>
+            <div className="space-y-2.5">
               {proficiency.map((s) => (
                 <SubjectProficiencyRow
                   key={s.subject}
@@ -676,9 +676,9 @@ export default function Dashboard() {
         </section>
 
         {/* ── 6. Análise de simulados ───────────────────────────────────── */}
-        <section className="bg-white border border-[#E8E6E1] rounded-[14px] p-5 mb-3.5">
+        <section className="mb-3.5 rounded-[28px] border border-border/70 bg-[linear-gradient(180deg,hsl(var(--background)),hsl(var(--muted)/0.45))] p-5 shadow-[0_28px_70px_-54px_hsl(var(--chart-violet)/0.34)]">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-            <div className="text-[14.5px] font-semibold text-[#2C2C2A]">
+            <div className="text-[14.5px] font-semibold text-foreground">
               Análise de simulados
             </div>
             <div className="flex gap-2 flex-wrap">
@@ -695,19 +695,19 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-5 items-start">
+          <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-[260px_1fr]">
             {/* Left: stat tiles */}
             <div className="flex flex-col gap-2.5">
-              <div className="bg-[#F7F6F3] rounded-[12px] px-4 py-3.5">
-                <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
+              <div className="rounded-[24px] border border-border/60 bg-background/85 px-4 py-4 shadow-[0_20px_40px_-34px_hsl(var(--chart-violet)/0.28)]">
+                <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                   Simulados feitos
                 </div>
                 <div className="flex items-baseline gap-2 mt-1.5">
-                  <span className="text-[26px] font-bold tracking-[-0.5px] leading-none text-[#2C2C2A]">
+                  <span className="text-[26px] font-bold tracking-[-0.05em] leading-none text-foreground">
                     {totalExams}
                   </span>
                   {totalExams === 0 && (
-                    <span className="text-[11.5px] text-[#B4B2A9]">
+                    <span className="text-[11.5px] text-muted-foreground">
                       nenhum ainda
                     </span>
                   )}
@@ -715,48 +715,48 @@ export default function Dashboard() {
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
-                <div className="bg-[#F7F6F3] rounded-[12px] px-3.5 py-3">
-                  <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
+                <div className="rounded-[22px] border border-border/60 bg-background/85 px-3.5 py-3.5 shadow-[0_20px_40px_-34px_hsl(var(--success)/0.22)]">
+                  <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Melhor nota
                   </div>
                   {examHighlights?.best ? (
                     <>
-                      <div className="text-[20px] font-bold text-[#1D9E75] mt-1.5 leading-none">
+                      <div className="mt-1.5 text-[20px] font-bold leading-none text-success">
                         {Math.round(examHighlights.best.score_percent)}
-                        <span className="text-[12px] text-[#888780] font-medium">
+                        <span className="text-[12px] font-medium text-muted-foreground">
                           %
                         </span>
                       </div>
-                      <div className="text-[10.5px] text-[#B4B2A9] mt-1 truncate">
+                      <div className="mt-1 truncate text-[10.5px] text-muted-foreground">
                         {examHighlights.best.exam_name} ·{" "}
                         {formatShortDate(examHighlights.best.created_at)}
                       </div>
                     </>
                   ) : (
-                    <div className="text-[20px] font-bold text-[#2C2C2A] mt-1.5 leading-none">
+                    <div className="mt-1.5 text-[20px] font-bold leading-none text-foreground">
                       —
                     </div>
                   )}
                 </div>
-                <div className="bg-[#F7F6F3] rounded-[12px] px-3.5 py-3">
-                  <div className="text-[10.5px] font-semibold uppercase tracking-[0.5px] text-[#888780]">
+                <div className="rounded-[22px] border border-border/60 bg-background/85 px-3.5 py-3.5 shadow-[0_20px_40px_-34px_hsl(var(--chart-violet)/0.28)]">
+                  <div className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Última nota
                   </div>
                   {examHighlights?.latest ? (
                     <>
-                      <div className="text-[20px] font-bold text-[#2C2C2A] mt-1.5 leading-none">
+                      <div className="mt-1.5 text-[20px] font-bold leading-none text-foreground">
                         {Math.round(examHighlights.latest.score_percent)}
-                        <span className="text-[12px] text-[#888780] font-medium">
+                        <span className="text-[12px] font-medium text-muted-foreground">
                           %
                         </span>
                       </div>
-                      <div className="text-[10.5px] text-[#B4B2A9] mt-1 truncate">
+                      <div className="mt-1 truncate text-[10.5px] text-muted-foreground">
                         {examHighlights.latest.exam_name} ·{" "}
                         {formatShortDate(examHighlights.latest.created_at)}
                       </div>
                     </>
                   ) : (
-                    <div className="text-[20px] font-bold text-[#2C2C2A] mt-1.5 leading-none">
+                    <div className="mt-1.5 text-[20px] font-bold leading-none text-foreground">
                       —
                     </div>
                   )}
@@ -770,26 +770,26 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => navigate("/exams")}
-                className="w-full bg-white border border-dashed border-[#E8E6E1] rounded-[12px] px-3.5 py-3 flex items-center gap-3 hover:bg-[#F7F6F3] transition-colors text-left"
+                className="flex w-full items-center gap-3 rounded-[22px] border border-dashed border-border/70 bg-background/70 px-3.5 py-3 text-left transition-colors hover:bg-muted/40"
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-[12px] font-semibold text-[#2C2C2A]">
+                  <div className="text-[12px] font-semibold text-foreground">
                     Ver simulados
                   </div>
-                  <div className="text-[11px] text-[#B4B2A9] mt-0.5">
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">
                     Realizar um novo simulado
                   </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-coral shrink-0" />
+                <ArrowRight className="h-4 w-4 shrink-0 text-chart-violet" />
               </button>
             </div>
 
             {/* Right: chart */}
-            <div className="bg-[#F7F6F3] rounded-[12px] px-4 py-3.5">
-              <div className="text-[12px] font-semibold text-[#2C2C2A] mb-0.5">
+            <div className="rounded-[24px] border border-border/60 bg-background/85 px-4 py-3.5 shadow-[0_20px_46px_-36px_hsl(var(--chart-violet)/0.3)]">
+              <div className="mb-0.5 text-[12px] font-semibold text-foreground">
                 Evolução de notas
               </div>
-              <div className="text-[10.5px] text-[#B4B2A9] mb-3">
+              <div className="mb-3 text-[10.5px] text-muted-foreground">
                 Desempenho nos simulados realizados
               </div>
 

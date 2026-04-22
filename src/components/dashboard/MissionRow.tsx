@@ -122,7 +122,7 @@ export default function MissionRow({
               ? "bg-coral-light text-coral-dark"
               : isOverdue
                 ? "bg-warning/20 text-warning"
-                : "bg-blue-50 text-blue-600"
+                : "bg-muted text-signal-info"
           }`}
         >
           {badgeLabel}

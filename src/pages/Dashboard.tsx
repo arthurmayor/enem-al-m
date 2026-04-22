@@ -41,6 +41,18 @@ import { useQuestionsCumulative } from "@/hooks/dashboard/useQuestionsCumulative
 import { useLatestDiagnostic } from "@/hooks/dashboard/useLatestDiagnostic";
 import { useExamHighlights } from "@/hooks/dashboard/useExamHighlights";
 
+function formatSignedPercent(value: number | null | undefined) {
+  if (value == null) return null;
+  return `${value >= 0 ? "+" : ""}${value}%`;
+}
+
+function metricTone(value: number | null | undefined) {
+  if (value == null) return "text-muted-foreground";
+  if (value > 0) return "text-success";
+  if (value < 0) return "text-destructive";
+  return "text-muted-foreground";
+}
+
 // ─── Period mapping tables ────────────────────────────────────────────────────
 
 const EVO_PERIOD_OPTIONS = ["Semana", "Mês", "6m", "Ano", "Geral"] as const;

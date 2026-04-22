@@ -188,13 +188,7 @@ export function useProficiencyBySubject(period: ProficiencyPeriod) {
         return results.sort((a, b) => a.score - b.score);
       }
 
-      return summarizeMissionActivityBySubject([])
-        .map((summary) => ({
-          subject: summary.subject,
-          score: summary.accuracyPct ?? 0,
-          delta: null,
-        }))
-        .sort((a, b) => a.score - b.score);
+      return [];
     },
     refetchOnWindowFocus: true,
     refetchOnMount: "always",

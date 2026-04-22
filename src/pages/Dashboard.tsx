@@ -462,7 +462,7 @@ export default function Dashboard() {
                 % Acerto (sem)
               </div>
               <div className="flex items-baseline gap-1.5 mt-1">
-                <span className="text-[18px] md:text-[19px] font-bold tracking-[-0.4px] leading-none text-foreground">
+                <span className="text-[18px] font-bold tracking-[-0.4px] leading-none text-success md:text-lg">
                   {acertoWeek?.current != null
                     ? `${acertoWeek.current}%`
                     : "—"}
